@@ -1,0 +1,39 @@
+# Simulates the real CI pipeline. Runs on PRs, main, and merge queue branches.
+name: CI
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches:
+      - "main"
+      - "mq/**"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint check
+        run: echo "Linting passed"
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: echo "Tests passed"
+
+  results:
+    name: Final Results
+    needs: [lint, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.test.result }}" != "success" ]; then
+            echo "CI failed"
+            exit 1
+          fi
+          echo "All checks passed"

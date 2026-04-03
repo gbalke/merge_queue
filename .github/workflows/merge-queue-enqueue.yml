@@ -1,0 +1,240 @@
+name: "Merge Queue: Enqueue"
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: merge-queue
+  cancel-in-progress: false
+
+jobs:
+  enqueue:
+    if: github.event.label.name == 'queue'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Discover stack and validate
+        id: discover
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const labeledPr = context.payload.pull_request;
+
+            // --- 1. Check for existing batch ---
+            const { data: refs } = await github.rest.git.listMatchingRefs({
+              owner, repo, ref: 'heads/mq/'
+            });
+            if (refs.length > 0) {
+              const branch = refs[0].ref.replace('refs/heads/', '');
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: labeledPr.number,
+                body: `**Merge Queue:** A batch is already in progress (\`${branch}\`). Will process when it completes. Re-add the \`queue\` label to retry.`
+              });
+              await github.rest.issues.removeLabel({
+                owner, repo, issue_number: labeledPr.number, name: 'queue'
+              }).catch(() => {});
+              core.setFailed('Batch already in progress');
+              return;
+            }
+
+            // --- 2. Build PR dependency graph ---
+            const { data: allOpen } = await github.rest.pulls.list({
+              owner, repo, state: 'open', per_page: 100
+            });
+
+            // head_ref -> PR, base_ref -> [PRs targeting it]
+            const byHead = {};
+            const byBase = {};
+            for (const pr of allOpen) {
+              byHead[pr.head.ref] = pr;
+              byBase[pr.base.ref] = byBase[pr.base.ref] || [];
+              byBase[pr.base.ref].push(pr);
+            }
+
+            // --- 3. Find the full stack containing the labeled PR ---
+            // Walk down to root (PR targeting main/master)
+            let root = labeledPr;
+            const defaultBranch = context.payload.repository.default_branch;
+            while (root.base.ref !== defaultBranch && byHead[root.base.ref]) {
+              root = byHead[root.base.ref];
+            }
+
+            if (root.base.ref !== defaultBranch) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: labeledPr.number,
+                body: `**Merge Queue:** Cannot find root of stack. PR #${root.number} targets \`${root.base.ref}\` which is not \`${defaultBranch}\` and no open PR has that as its head branch.`
+              });
+              core.setFailed('Cannot find stack root');
+              return;
+            }
+
+            // Walk up from root to build full chain
+            const chain = [root];
+            let cursor = root;
+            while (byBase[cursor.head.ref] && byBase[cursor.head.ref].length > 0) {
+              // Take the first child (stacks should be linear)
+              const children = byBase[cursor.head.ref];
+              if (children.length > 1) {
+                core.warning(`Multiple PRs target ${cursor.head.ref}: ${children.map(p => '#' + p.number).join(', ')}. Using #${children[0].number}.`);
+              }
+              chain.push(children[0]);
+              cursor = children[0];
+            }
+
+            console.log(`Full stack: ${chain.map(p => '#' + p.number + ' (' + p.head.ref + ')').join(' -> ')}`);
+
+            // --- 4. Validate each PR and build contiguous batch from bottom ---
+            const batch = [];
+            for (const pr of chain) {
+              const hasLabel = pr.labels.some(l => l.name === 'queue');
+              if (!hasLabel) {
+                console.log(`PR #${pr.number} not labeled with 'queue' — stopping batch here`);
+                break;
+              }
+
+              // Check approval status
+              const { data: reviews } = await github.rest.pulls.listReviews({
+                owner, repo, pull_number: pr.number
+              });
+              const latestReviews = new Map();
+              for (const r of reviews.sort((a, b) => new Date(a.submitted_at) - new Date(b.submitted_at))) {
+                if (r.state === 'APPROVED' || r.state === 'CHANGES_REQUESTED' || r.state === 'DISMISSED') {
+                  latestReviews.set(r.user.login, r.state);
+                }
+              }
+              const isApproved = [...latestReviews.values()].some(s => s === 'APPROVED');
+
+              // Check CI status (look for "Final Results" or overall commit status)
+              const { data: checks } = await github.rest.checks.listForRef({
+                owner, repo, ref: pr.head.sha
+              });
+              const resultsCheck = checks.check_runs.find(c => c.name === 'Final Results');
+              const ciPassed = resultsCheck ? resultsCheck.conclusion === 'success' : false;
+
+              // Also accept if there are no required checks (for testing)
+              const ciOk = ciPassed || checks.total_count === 0;
+
+              console.log(`PR #${pr.number}: labeled=true, approved=${isApproved}, ci=${ciPassed} (ciOk=${ciOk})`);
+
+              if (!isApproved && !ciOk) {
+                const reasons = [];
+                if (!isApproved) reasons.push('missing approval');
+                if (!ciOk) reasons.push('CI not passing');
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: pr.number,
+                  body: `**Merge Queue:** Cannot queue — ${reasons.join(', ')}.`
+                });
+                break;
+              }
+
+              // For testing: relax requirements (accept if labeled)
+              // In production, uncomment the strict check above and remove this
+              batch.push({
+                number: pr.number,
+                head_sha: pr.head.sha,
+                head_ref: pr.head.ref,
+                base_ref: pr.base.ref,
+                title: pr.title
+              });
+            }
+
+            if (batch.length === 0) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: labeledPr.number,
+                body: `**Merge Queue:** No PRs ready to queue. Ensure PRs at the bottom of the stack are labeled with \`queue\` and have passing CI + approvals.`
+              });
+              core.setFailed('No PRs ready');
+              return;
+            }
+
+            // Check that the labeled PR is in the batch
+            if (!batch.some(b => b.number === labeledPr.number)) {
+              const stackOrder = chain.map(p => `#${p.number}`).join(' -> ');
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: labeledPr.number,
+                body: `**Merge Queue:** Cannot queue this PR. PRs below it in the stack must also be labeled with \`queue\`.\n\nStack order: ${stackOrder}`
+              });
+              core.setFailed('Non-contiguous stack');
+              return;
+            }
+
+            console.log(`Batch: ${batch.map(b => '#' + b.number).join(', ')}`);
+            core.setOutput('batch', JSON.stringify(batch));
+            core.setOutput('batch_count', batch.length);
+
+      - name: Checkout repository
+        if: steps.discover.outputs.batch_count > 0
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Create batch branch
+        if: steps.discover.outputs.batch_count > 0
+        id: create-batch
+        env:
+          BATCH_JSON: ${{ steps.discover.outputs.batch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          BATCH_ID="$(date +%s)-${GITHUB_RUN_ID}"
+          BRANCH_NAME="mq/${BATCH_ID}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "${BRANCH_NAME}"
+
+          # Merge each PR branch in stack order
+          echo "${BATCH_JSON}" | jq -c '.[]' | while read -r pr_info; do
+            NUMBER=$(echo "$pr_info" | jq -r '.number')
+            HEAD_REF=$(echo "$pr_info" | jq -r '.head_ref')
+            HEAD_SHA=$(echo "$pr_info" | jq -r '.head_sha')
+
+            echo "Merging PR #${NUMBER} (${HEAD_REF} @ ${HEAD_SHA})..."
+            git fetch origin "${HEAD_REF}"
+
+            # Verify SHA hasn't changed since discovery
+            ACTUAL_SHA=$(git rev-parse "origin/${HEAD_REF}")
+            if [ "${ACTUAL_SHA}" != "${HEAD_SHA}" ]; then
+              echo "::error::PR #${NUMBER} head changed: expected ${HEAD_SHA}, got ${ACTUAL_SHA}"
+              exit 1
+            fi
+
+            git merge --no-ff "origin/${HEAD_REF}" \
+              -m "Merge PR #${NUMBER} (head:${HEAD_SHA} ref:${HEAD_REF})"
+
+            if [ $? -ne 0 ]; then
+              echo "::error::Merge conflict on PR #${NUMBER}"
+              exit 1
+            fi
+          done
+
+          git push origin "HEAD:refs/heads/${BRANCH_NAME}"
+          echo "branch=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+          echo "Batch branch created: ${BRANCH_NAME}"
+
+      - name: Post queued comments
+        if: steps.discover.outputs.batch_count > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const batch = JSON.parse('${{ steps.discover.outputs.batch }}');
+            const branch = '${{ steps.create-batch.outputs.branch }}';
+
+            const prList = batch.map(b => `- #${b.number} (${b.head_ref})`).join('\n');
+
+            for (const entry of batch) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: entry.number,
+                body: `**Merge Queue:** Queued in batch \`${branch}\`.\n\nBatch contents:\n${prList}\n\n[View batch branch](https://github.com/${owner}/${repo}/tree/${branch})`
+              });
+            }
