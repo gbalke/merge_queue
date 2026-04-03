@@ -8,6 +8,7 @@ permissions:
   contents: write
   pull-requests: write
   checks: read
+  actions: write
 
 concurrency:
   group: merge-queue
@@ -220,6 +221,23 @@ jobs:
           git push origin "HEAD:refs/heads/${BRANCH_NAME}"
           echo "branch=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
           echo "Batch branch created: ${BRANCH_NAME}"
+
+      - name: Trigger CI on batch branch
+        if: steps.discover.outputs.batch_count > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const branch = '${{ steps.create-batch.outputs.branch }}';
+
+            // GITHUB_TOKEN pushes don't trigger workflows, so we dispatch CI explicitly
+            await github.rest.actions.createWorkflowDispatch({
+              owner, repo,
+              workflow_id: 'ci.yml',
+              ref: branch,
+              inputs: { ref: branch }
+            });
+            console.log(`Dispatched CI workflow on ${branch}`);
 
       - name: Post queued comments
         if: steps.discover.outputs.batch_count > 0
