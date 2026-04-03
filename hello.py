@@ -10,3 +10,6 @@ def feature_a():
 
 def feature_b():
     return "Feature B"
+
+def feature_c():
+    return "Feature C"
