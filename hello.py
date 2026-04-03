@@ -7,3 +7,6 @@ if __name__ == "__main__":
 
 def feature_a():
     return "Feature A"
+
+def feature_b():
+    return "Feature B"
