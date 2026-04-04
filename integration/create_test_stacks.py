@@ -180,6 +180,21 @@ def cleanup():
             print(f"  Deleting ruleset {rs['name']}")
             gh(f"rulesets/{rs['id']} -X DELETE", check=False)
 
+    # Reset state.json on mq/state branch
+    try:
+        import base64
+        state_data = json.loads(gh("contents/state.json?ref=mq/state"))
+        empty = json.dumps({"version": 1, "updated_at": "", "queue": [], "active_batch": None, "history": []}, indent=2)
+        encoded = base64.b64encode(empty.encode()).decode()
+        gh(
+            f'contents/state.json -X PUT -f message="Reset state" '
+            f'-f content="{encoded}" -f branch=mq/state -f sha={state_data["sha"]}',
+            check=False,
+        )
+        print("  Reset state.json")
+    except Exception as e:
+        print(f"  Could not reset state.json: {e}")
+
     # Clean up local
     run("git checkout main", check=False)
     run("git branch -D integration-test", check=False)
