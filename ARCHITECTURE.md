@@ -88,20 +88,22 @@ do_process(client)
 ├─ 4. CREATE BATCH (batch.create_batch)
 │     │
 │     │   ┌──────────────────────────────────────────────────────┐
-│     │   │  a. git checkout -b mq/<batch_id>                   │
+│     │   │  a. Create ruleset locking PR branches               │
+│     │   │     (MQ_ADMIN_TOKEN -> GitHub Rulesets API)          │
+│     │   │     Pushes to PR branches now rejected: GH013        │
 │     │   │                                                      │
-│     │   │  b. For each PR in stack (bottom to top):            │
+│     │   │  b. Add 'locked' label to each PR                   │
+│     │   │                                                      │
+│     │   │  c. git checkout -b mq/<batch_id>                   │
+│     │   │                                                      │
+│     │   │  d. For each PR in stack (bottom to top):            │
 │     │   │       git fetch origin <head_ref>                    │
 │     │   │       verify SHA matches (optimistic lock)           │
 │     │   │       git merge --no-ff origin/<head_ref>            │
 │     │   │                                                      │
-│     │   │  c. git push origin mq/<batch_id>                   │
+│     │   │  e. git push origin mq/<batch_id>                   │
 │     │   │                                                      │
-│     │   │  d. Create ruleset locking PR branches               │
-│     │   │     (MQ_ADMIN_TOKEN -> GitHub Rulesets API)          │
-│     │   │     Pushes to PR branches now rejected: GH013        │
-│     │   │                                                      │
-│     │   │  e. Add 'locked' label to each PR                   │
+│     │   │  If c-e fail: delete ruleset, remove 'locked' labels │
 │     │   └──────────────────────────────────────────────────────┘
 │     │
 │     ├── BatchError? ──yes──> Comment, remove 'queue', return "batch_error"
