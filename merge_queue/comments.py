@@ -1,6 +1,7 @@
 """PR comment templates for the merge queue.
 
-All comments go through this module for consistency.
+Uses GitHub's native auto-linking (#123 → PR link) instead of explicit
+markdown links for a cleaner rendered appearance.
 """
 
 from __future__ import annotations
@@ -8,22 +9,21 @@ from __future__ import annotations
 
 def _mq_link(owner: str, repo: str) -> str:
     if owner and repo:
-        return f"[View merge queue →](https://github.com/{owner}/{repo}/deployments/merge-queue)"
+        return f"\n---\n[View merge queue →](https://github.com/{owner}/{repo}/deployments/merge-queue)"
     return ""
 
 
-def _pr_table(stack: list[dict], owner: str = "", repo: str = "") -> str:
-    """Render a stack as a markdown table."""
-    lines = ["| PR | Branch | Title |", "|:---|:-------|:------|"]
+def _stack_list(stack: list[dict]) -> str:
+    """Render stack as a compact list with branch names and titles."""
+    lines = []
     for pr in stack:
         num = pr.get("number", "?")
         title = pr.get("title", "")
         head = pr.get("head_ref", "")
-        if owner and repo:
-            pr_link = f"[#{num}](https://github.com/{owner}/{repo}/pull/{num})"
-        else:
-            pr_link = f"#{num}"
-        lines.append(f"| {pr_link} | `{head}` | {title} |")
+        line = f"- #{num} `{head}`"
+        if title:
+            line += f" — {title}"
+        lines.append(line)
     return "\n".join(lines)
 
 
@@ -34,24 +34,18 @@ def queued(
     owner: str = "",
     repo: str = "",
 ) -> str:
-    """Comment when a PR is added to the queue."""
     link = _mq_link(owner, repo)
-    table = _pr_table(stack, owner, repo)
+    stack_list = _stack_list(stack)
     return (
-        f"## 🚦 Merge Queue — Queued\n\n"
-        f"**Position:** {position} of {total}\n\n"
-        f"### Commits in this batch\n{table}\n\n"
-        f"---\n{link}"
+        f"**Merge Queue — Queued (position {position}/{total})**\n\n"
+        f"Commits in this batch:\n{stack_list}"
+        f"{link}"
     )
 
 
 def already_queued(position: int, owner: str = "", repo: str = "") -> str:
     link = _mq_link(owner, repo)
-    return (
-        f"## 🚦 Merge Queue — Already Queued\n\n"
-        f"This PR is already in the queue at **position {position}**.\n\n"
-        f"---\n{link}"
-    )
+    return f"**Merge Queue** — Already queued at position {position}.{link}"
 
 
 def batch_started(
@@ -60,24 +54,19 @@ def batch_started(
     owner: str = "",
     repo: str = "",
 ) -> str:
-    """Comment when CI starts on the batch branch."""
     link = _mq_link(owner, repo)
-    table = _pr_table(stack, owner, repo)
+    stack_list = _stack_list(stack)
     return (
-        f"## 🔄 Merge Queue — CI Running\n\n"
-        f"**Branch:** `{branch}`\n\n"
-        f"### Commits in this batch\n{table}\n\n"
-        f"---\n{link}"
+        f"**Merge Queue — CI Running**\n\n"
+        f"Branch: `{branch}`\n\n"
+        f"Commits in this batch:\n{stack_list}"
+        f"{link}"
     )
 
 
 def merged(default_branch: str, owner: str = "", repo: str = "") -> str:
     link = _mq_link(owner, repo)
-    return (
-        f"## ✅ Merge Queue — Merged\n\n"
-        f"Successfully merged to `{default_branch}`.\n\n"
-        f"---\n{link}"
-    )
+    return f"**Merge Queue — Merged** to `{default_branch}`.{link}"
 
 
 def failed(
@@ -89,42 +78,30 @@ def failed(
     link = _mq_link(owner, repo)
     ci_link = ""
     if ci_run_url:
-        ci_link = f"\n\n**CI Run:** [View failed run →]({ci_run_url})"
+        ci_link = f"\n\n[View failed CI run →]({ci_run_url})"
     return (
-        f"## ❌ Merge Queue — Failed\n\n"
-        f"**Reason:** {reason}{ci_link}\n\n"
-        f"Fix the issue and re-add the `queue` label to retry.\n\n"
-        f"---\n{link}"
+        f"**Merge Queue — Failed**\n\n"
+        f"{reason}{ci_link}\n\n"
+        f"Fix the issue and re-add the `queue` label to retry."
+        f"{link}"
     )
 
 
-def batch_error(
-    error: str,
-    owner: str = "",
-    repo: str = "",
-) -> str:
+def batch_error(error: str, owner: str = "", repo: str = "") -> str:
     link = _mq_link(owner, repo)
     return (
-        f"## ❌ Merge Queue — Batch Creation Failed\n\n"
-        f"**Error:** {error}\n\n"
-        f"Fix the issue and re-add the `queue` label to retry.\n\n"
-        f"---\n{link}"
+        f"**Merge Queue — Batch Creation Failed**\n\n"
+        f"{error}\n\n"
+        f"Fix the issue and re-add the `queue` label to retry."
+        f"{link}"
     )
 
 
 def aborted(owner: str = "", repo: str = "") -> str:
     link = _mq_link(owner, repo)
-    return (
-        f"## ⏹️ Merge Queue — Aborted\n\n"
-        f"The `queue` label was removed. Branches unlocked.\n\n"
-        f"---\n{link}"
-    )
+    return f"**Merge Queue — Aborted.** `queue` label was removed, branches unlocked.{link}"
 
 
 def removed_from_queue(owner: str = "", repo: str = "") -> str:
     link = _mq_link(owner, repo)
-    return (
-        f"## ⏹️ Merge Queue — Removed\n\n"
-        f"PR was removed from the queue.\n\n"
-        f"---\n{link}"
-    )
+    return f"**Merge Queue — Removed** from queue.{link}"
