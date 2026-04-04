@@ -170,7 +170,10 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
     if not has_break_glass:
         for pr_dict in stack_dicts:
             ci_passed, _ci_url = client.get_pr_ci_status(pr_dict["number"])
-            if not ci_passed:
+            # None = pending (CI hasn't completed yet) — allow through
+            # True = passed — allow through
+            # False = explicitly failed — reject
+            if ci_passed is False:
                 _comment(
                     client,
                     pr_dict["number"],

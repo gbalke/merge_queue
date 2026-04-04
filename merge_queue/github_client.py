@@ -104,7 +104,7 @@ class GitHubClientProtocol(Protocol):
         sha: str | None = None,
     ) -> dict[str, Any]: ...
     def create_orphan_branch(self, branch: str, files: dict[str, str]) -> None: ...
-    def get_pr_ci_status(self, pr_number: int) -> tuple[bool, str]: ...
+    def get_pr_ci_status(self, pr_number: int) -> tuple[bool | None, str]: ...
     def dispatch_ci_on_ref(self, ref: str) -> None: ...
     def create_commit_status(
         self,
@@ -518,10 +518,13 @@ class GitHubClient:
 
     # --- PR CI Status ---
 
-    def get_pr_ci_status(self, pr_number: int) -> tuple[bool, str]:
-        """Check if a PR's CI has passed. Returns (passed, details_url).
+    def get_pr_ci_status(self, pr_number: int) -> tuple[bool | None, str]:
+        """Check if a PR's CI has passed.
 
-        Looks for the 'Final Results' check run on the PR's head SHA.
+        Returns (passed, details_url) where:
+          True  = CI passed
+          False = CI failed
+          None  = CI pending/not started (no completed check run found)
         """
         pr = self.get_pr(pr_number)
         sha = pr["head"]["sha"]
@@ -531,9 +534,12 @@ class GitHubClient:
         )
         runs = data.get("check_runs", [])
         if not runs:
-            return False, ""
+            return None, ""  # No check runs yet — CI pending
         run = runs[0]
-        passed = run.get("conclusion") == "success"
+        conclusion = run.get("conclusion")
+        if conclusion is None:
+            return None, run.get("html_url", "")  # Still running
+        passed = conclusion == "success"
         url = run.get("html_url", "")
         return passed, url
 
