@@ -1,12 +1,15 @@
 # Merge Queue Status
 
 ## Active Batch
-_None — queue is idle._
+**Branch:** ``
+**Status:** locking
+**Started:** 2026-04-04T22:12:45.418539+00:00
 
-## Queue (1 stack waiting)
+| PR | Branch | Title |
+|----|--------|-------|
+| [#55](https://github.com/gbalke/merge_queue/pull/55) | `greg/revup/main/fix-ci-pending` | TDD fix: CI gate allows pending CI, only rejects explicit failures |
 
-| Position | PRs | Queued At |
-|----------|-----|-----------|
-| 1 | #55 | 2026-04-04T22:12:42 |
+## Queue
+_Empty — nothing waiting._
 
-_Updated 2026-04-04T22:12:43.357759+00:00_
+_Updated 2026-04-04T22:12:45.418555+00:00_
