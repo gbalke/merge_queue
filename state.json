@@ -1,37 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:51:20.074801+00:00",
+  "updated_at": "2026-04-04T19:52:35.233285+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775332277",
-    "branch": "mq/1775332277",
-    "ruleset_id": 14698960,
-    "started_at": "2026-04-04T19:51:16.567511+00:00",
-    "progress": "running_ci",
-    "stack": [
-      {
-        "number": 42,
-        "head_sha": "2882761d6077c1bec624f57609a876026bda2901",
-        "head_ref": "greg/revup/main/mit-license",
-        "base_ref": "main",
-        "title": "Add MIT LICENSE file"
-      },
-      {
-        "number": 44,
-        "head_sha": "d58094c26346dd9922d38d99d0186cf70386fb96",
-        "head_ref": "greg/revup/main/cleanup-files",
-        "base_ref": "greg/revup/main/mit-license",
-        "title": "Remove stale test files, update gitignore"
-      }
-    ],
-    "deployment_id": 4271264450,
-    "comment_ids": {
-      "42": 4187650982,
-      "44": 4187650994
-    },
-    "queued_at": "2026-04-04T19:51:13.827070+00:00",
-    "ci_started_at": "2026-04-04T19:51:20.074780+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775331440",
@@ -50,6 +21,16 @@
         41
       ],
       "duration_seconds": 94.189104
+    },
+    {
+      "batch_id": "1775332277",
+      "status": "ci_failed",
+      "completed_at": "2026-04-04T19:52:35.233265+00:00",
+      "prs": [
+        42,
+        44
+      ],
+      "duration_seconds": 78.665754
     }
   ]
 }
