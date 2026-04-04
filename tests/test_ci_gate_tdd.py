@@ -163,6 +163,52 @@ class TestDoRetest:
         mock_client.create_comment.assert_called_once()
 
 
+class TestCiPendingSkipsButKeepsLabel:
+    """When CI is still running, queue the PR anyway (don't reject)."""
+
+    def test_pending_ci_still_queues(self, mock_client):
+        """If CI hasn't completed yet (no check runs), still add to queue."""
+        mock_client.get_pr.return_value = {
+            "state": "open",
+            "head": {"sha": "sha-1", "ref": "feat-a"},
+            "base": {"ref": "main"},
+            "title": "Test",
+            "labels": [{"name": "queue"}],
+        }
+        # No check runs yet — CI hasn't completed
+        mock_client.get_pr_ci_status.return_value = (None, "")  # None = pending
+        mock_client.create_comment.return_value = 100
+        mock_client.create_deployment.return_value = 42
+
+        with (
+            patch("merge_queue.cli.StateStore") as StoreCls,
+            patch("merge_queue.cli.QueueState") as QS,
+            patch("merge_queue.cli.do_process", return_value="merged"),
+        ):
+            store = MagicMock()
+            store.read.return_value = make_state()
+            StoreCls.return_value = store
+
+            from merge_queue.state import QueueState as RealQS
+
+            QS.fetch.return_value = RealQS(
+                default_branch="main",
+                mq_branches=[],
+                rulesets=[],
+                prs=[],
+                all_pr_data=[],
+            )
+
+            from merge_queue.cli import do_enqueue
+
+            result = do_enqueue(mock_client, 1)
+
+        # Should NOT be ci_not_ready — pending CI should be allowed through
+        assert result != "ci_not_ready"
+        # queue label should NOT be removed
+        mock_client.remove_label.assert_not_called()
+
+
 class TestEnqueueFailureRemovesLabel:
     """When MQ crashes during enqueue, queue label should be removed."""
 
