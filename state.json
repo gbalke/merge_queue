@@ -1,34 +1,36 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T21:43:25.723031+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-04T21:43:24.223584+00:00",
-      "stack": [
-        {
-          "number": 51,
-          "head_sha": "63e2b2c679c8f90e2a6096dc86c5bd06d9de7662",
-          "head_ref": "greg/revup/main/claude-md",
-          "base_ref": "main",
-          "title": "Add CLAUDE.md with development workflow"
-        },
-        {
-          "number": 52,
-          "head_sha": "b4dabb1619b159e7537d883ce28545971879c2f9",
-          "head_ref": "greg/revup/main/update-readme",
-          "base_ref": "greg/revup/main/claude-md",
-          "title": "Update README to reflect current features and architecture"
-        }
-      ],
-      "deployment_id": 4271794384,
-      "comment_ids": {
-        "51": 4187793838,
-        "52": 4187793847
+  "updated_at": "2026-04-04T21:43:26.644989+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-04T21:43:26.644973+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 51,
+        "head_sha": "63e2b2c679c8f90e2a6096dc86c5bd06d9de7662",
+        "head_ref": "greg/revup/main/claude-md",
+        "base_ref": "main",
+        "title": "Add CLAUDE.md with development workflow"
+      },
+      {
+        "number": 52,
+        "head_sha": "b4dabb1619b159e7537d883ce28545971879c2f9",
+        "head_ref": "greg/revup/main/update-readme",
+        "base_ref": "greg/revup/main/claude-md",
+        "title": "Update README to reflect current features and architecture"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4271794384,
+    "comment_ids": {
+      "51": 4187793838,
+      "52": 4187793847
+    },
+    "queued_at": "2026-04-04T21:43:24.223584+00:00"
+  },
   "history": [
     {
       "batch_id": "1775331440",
