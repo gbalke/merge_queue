@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:56:19.856872+00:00",
+  "updated_at": "2026-04-04T19:57:42.823631+00:00",
   "queue": [],
   "active_batch": {
     "batch_id": "1775332578",
     "branch": "mq/1775332578",
     "ruleset_id": 14699135,
     "started_at": "2026-04-04T19:56:17.944273+00:00",
-    "progress": "running_ci",
+    "progress": "completing",
     "stack": [
       {
         "number": 43,
