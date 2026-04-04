@@ -8,35 +8,46 @@ from __future__ import annotations
 import logging
 import subprocess
 import time
+from typing import Callable
 
 from merge_queue.github_client import GitHubClientProtocol
 from merge_queue.types import Batch, BatchStatus, Stack
 
 log = logging.getLogger(__name__)
 
+# Type for the git runner function — injectable for testing
+GitRunner = Callable[..., str]
+
 
 class BatchError(Exception):
     pass
+
+
+def run_git(*args: str) -> str:
+    """Run a git command and return stdout. Raises on non-zero exit."""
+    result = subprocess.run(
+        ["git", *args],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout
 
 
 def create_batch(
     client: GitHubClientProtocol,
     stack: Stack,
     *,
-    work_dir: str | None = None,
+    git: GitRunner = run_git,
 ) -> Batch:
-    """Create an mq/ branch, merge PR branches, lock branches, add locked label.
-
-    This uses git CLI for the merge operations (clone, merge --no-ff, push)
-    since the GitHub merge API doesn't support --no-ff merges into arbitrary branches.
-    """
+    """Create an mq/ branch, merge PR branches, lock branches, add locked label."""
     batch_id = str(int(time.time()))
     branch = f"mq/{batch_id}"
     default_branch = client.get_default_branch()
 
     # --- Create mq branch and merge PRs via git CLI ---
-    main_sha = client.get_branch_sha(default_branch)
-    _git_create_and_merge(client, branch, default_branch, stack)
+    client.get_branch_sha(default_branch)  # validate branch exists
+    _git_create_and_merge(branch, stack, git=git)
 
     # --- Lock branches via ruleset ---
     branch_patterns = [f"refs/heads/{pr.head_ref}" for pr in stack.prs]
@@ -61,44 +72,32 @@ def create_batch(
 
 
 def _git_create_and_merge(
-    client: GitHubClientProtocol,
     branch: str,
-    default_branch: str,
     stack: Stack,
+    *,
+    git: GitRunner = run_git,
 ) -> None:
-    """Use git CLI to create the mq branch and merge PR branches."""
-    # This runs in the GitHub Actions checkout directory.
-    # The workflow checks out the default branch with fetch-depth: 0.
-    _run_git("checkout", "-b", branch)
+    """Create the mq branch and merge PR branches using git CLI."""
+    git("checkout", "-b", branch)
 
     for pr in stack.prs:
         log.info("Merging PR #%d (%s @ %s)...", pr.number, pr.head_ref, pr.head_sha)
-        _run_git("fetch", "origin", pr.head_ref)
+        git("fetch", "origin", pr.head_ref)
 
         # Verify SHA hasn't changed
-        actual_sha = _run_git("rev-parse", f"origin/{pr.head_ref}").strip()
+        actual_sha = git("rev-parse", f"origin/{pr.head_ref}").strip()
         if actual_sha != pr.head_sha:
             raise BatchError(
                 f"PR #{pr.number} head changed: expected {pr.head_sha}, got {actual_sha}"
             )
 
-        _run_git(
+        git(
             "merge", "--no-ff", f"origin/{pr.head_ref}",
             "-m", f"Merge PR #{pr.number} (head:{pr.head_sha} ref:{pr.head_ref})",
         )
 
-    _run_git("push", "origin", f"HEAD:refs/heads/{branch}")
+    git("push", "origin", f"HEAD:refs/heads/{branch}")
     log.info("Pushed batch branch %s", branch)
-
-
-def _run_git(*args: str) -> str:
-    result = subprocess.run(
-        ["git", *args],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return result.stdout
 
 
 def run_ci(client: GitHubClientProtocol, batch: Batch, timeout: int = 30 * 60) -> bool:
@@ -181,7 +180,6 @@ def fail_batch(
 
 def abort_batch(client: GitHubClientProtocol) -> None:
     """Abort any active batch: delete rulesets, remove locked labels, delete mq branches."""
-    # Delete all mq-lock rulesets
     for rs in client.list_rulesets():
         if rs.get("name", "").startswith("mq-lock-"):
             try:
@@ -190,13 +188,11 @@ def abort_batch(client: GitHubClientProtocol) -> None:
             except Exception as e:
                 log.warning("Could not delete ruleset %d: %s", rs["id"], e)
 
-    # Remove locked label from all open PRs
     for pr_data in client.list_open_prs():
         labels = [l["name"] for l in pr_data.get("labels", [])]
         if "locked" in labels:
             client.remove_label(pr_data["number"], "locked")
 
-    # Delete mq/* branches
     for branch in client.list_mq_branches():
         client.delete_branch(branch)
         log.info("Deleted branch %s", branch)
