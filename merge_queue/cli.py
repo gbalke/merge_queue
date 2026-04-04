@@ -159,20 +159,28 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
             }
         ]
 
-    # CI gate: all PRs in stack must have passing CI
-    for pr_dict in stack_dicts:
-        ci_passed, _ci_url = client.get_pr_ci_status(pr_dict["number"])
-        if not ci_passed:
-            _comment(
-                client,
-                pr_dict["number"],
-                comments.ci_not_ready(pr_dict["number"], owner, repo),
-            )
-            try:
-                client.remove_label(pr_number, "queue")
-            except Exception:
-                pass
-            return "ci_not_ready"
+    # CI gate: all PRs in stack must have passing CI (unless break-glass)
+    pr_labels = [lbl["name"] for lbl in (cached_pr_data or {}).get("labels", [])]
+    has_break_glass = "break-glass" in pr_labels
+    if has_break_glass:
+        log.warning(
+            "break-glass label detected on PR #%d — bypassing CI gate", pr_number
+        )
+
+    if not has_break_glass:
+        for pr_dict in stack_dicts:
+            ci_passed, _ci_url = client.get_pr_ci_status(pr_dict["number"])
+            if not ci_passed:
+                _comment(
+                    client,
+                    pr_dict["number"],
+                    comments.ci_not_ready(pr_dict["number"], owner, repo),
+                )
+                try:
+                    client.remove_label(pr_number, "queue")
+                except Exception:
+                    pass
+                return "ci_not_ready"
 
     position = len(state.get("queue", [])) + 1
     total = position

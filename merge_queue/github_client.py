@@ -104,6 +104,8 @@ class GitHubClientProtocol(Protocol):
         sha: str | None = None,
     ) -> dict[str, Any]: ...
     def create_orphan_branch(self, branch: str, files: dict[str, str]) -> None: ...
+    def get_pr_ci_status(self, pr_number: int) -> tuple[bool, str]: ...
+    def dispatch_ci_on_ref(self, ref: str) -> None: ...
     def create_commit_status(
         self,
         sha: str,
@@ -513,6 +515,34 @@ class GitHubClient:
             },
         )
         log.info("Created orphan branch %s", branch)
+
+    # --- PR CI Status ---
+
+    def get_pr_ci_status(self, pr_number: int) -> tuple[bool, str]:
+        """Check if a PR's CI has passed. Returns (passed, details_url).
+
+        Looks for the 'Final Results' check run on the PR's head SHA.
+        """
+        pr = self.get_pr(pr_number)
+        sha = pr["head"]["sha"]
+        data = self._get(
+            f"/commits/{sha}/check-runs",
+            params={"check_name": "Final Results"},
+        )
+        runs = data.get("check_runs", [])
+        if not runs:
+            return False, ""
+        run = runs[0]
+        passed = run.get("conclusion") == "success"
+        url = run.get("html_url", "")
+        return passed, url
+
+    def dispatch_ci_on_ref(self, ref: str) -> None:
+        """Dispatch CI on an arbitrary git ref (branch name)."""
+        self._post(
+            f"/actions/workflows/{self._ci_workflow}/dispatches",
+            json={"ref": ref, "inputs": {"ref": ref}},
+        )
 
     # --- Commit Status API ---
 
