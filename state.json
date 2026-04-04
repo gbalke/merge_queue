@@ -1,7 +1,33 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:57:50.934331+00:00",
-  "queue": [],
+  "updated_at": "2026-04-04T19:58:07.174856+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-04T19:58:05.764910+00:00",
+      "stack": [
+        {
+          "number": 42,
+          "head_sha": "2882761d6077c1bec624f57609a876026bda2901",
+          "head_ref": "greg/revup/main/mit-license",
+          "base_ref": "main",
+          "title": "Add MIT LICENSE file"
+        },
+        {
+          "number": 44,
+          "head_sha": "d58094c26346dd9922d38d99d0186cf70386fb96",
+          "head_ref": "greg/revup/main/cleanup-files",
+          "base_ref": "greg/revup/main/mit-license",
+          "title": "Remove stale test files, update gitignore"
+        }
+      ],
+      "deployment_id": 4271296313,
+      "comment_ids": {
+        "42": 4187659601,
+        "44": 4187659614
+      }
+    }
+  ],
   "active_batch": null,
   "history": [
     {
