@@ -234,7 +234,7 @@ jobs:
           echo "branch=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
           echo "Batch branch created: ${BRANCH_NAME}"
 
-      - name: Lock PR branches
+      - name: Lock PR branches (ruleset)
         if: steps.discover.outputs.batch_count > 0
         id: lock
         uses: actions/github-script@v7
@@ -265,7 +265,13 @@ jobs:
 
             core.setOutput('ruleset_ids', JSON.stringify(rulesetIds));
 
-            // Add 'locked' label to all PRs in batch
+      - name: Add locked label
+        if: steps.discover.outputs.batch_count > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const batch = JSON.parse('${{ steps.discover.outputs.batch }}');
             for (const entry of batch) {
               await github.rest.issues.addLabels({
                 owner, repo, issue_number: entry.number, labels: ['locked']
