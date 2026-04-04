@@ -1,7 +1,29 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:09:57.101406+00:00",
-  "queue": [],
+  "updated_at": "2026-04-04T19:10:13.471937+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-04T19:10:13.124232+00:00",
+      "stack": [
+        {
+          "number": 36,
+          "head_sha": "9b9dd1d429c72b303c184414628052dd2b374633",
+          "head_ref": "greg/revup/main/fail-b1",
+          "base_ref": "main",
+          "title": "Add calculate function"
+        },
+        {
+          "number": 37,
+          "head_sha": "c19efe1d6b559bc241c46aecb00135db2a7bf4b3",
+          "head_ref": "greg/revup/main/fail-b2",
+          "base_ref": "greg/revup/main/fail-b1",
+          "title": "Add broken function (intentional syntax error)"
+        }
+      ],
+      "deployment_id": 4271068818
+    }
+  ],
   "active_batch": null,
   "history": [
     {
