@@ -1,26 +1,28 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:56:16.970962+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-04T19:56:16.228060+00:00",
-      "stack": [
-        {
-          "number": 43,
-          "head_sha": "10a82748faab7bc23eb04cb18053fc6a18831ca9",
-          "head_ref": "greg/revup/main/update-skill",
-          "base_ref": "main",
-          "title": "Update revup-commit skill with best practices"
-        }
-      ],
-      "deployment_id": 4271288157,
-      "comment_ids": {
-        "43": 4187657199
+  "updated_at": "2026-04-04T19:56:17.944287+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-04T19:56:17.944273+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 43,
+        "head_sha": "10a82748faab7bc23eb04cb18053fc6a18831ca9",
+        "head_ref": "greg/revup/main/update-skill",
+        "base_ref": "main",
+        "title": "Update revup-commit skill with best practices"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4271288157,
+    "comment_ids": {
+      "43": 4187657199
+    },
+    "queued_at": "2026-04-04T19:56:16.228060+00:00"
+  },
   "history": [
     {
       "batch_id": "1775331440",
