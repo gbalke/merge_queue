@@ -3,11 +3,12 @@
 ## Active Batch
 _None — queue is idle._
 
-## Queue (1 stack waiting)
+## Queue (2 stacks waiting)
 
 | Position | PRs | Queued At |
 |----------|-----|-----------|
 | 1 | #54 | 2026-04-04T22:05:18 |
+| 2 | #55 | 2026-04-04T22:05:51 |
 
 ## Recent History (last 10)
 
@@ -24,4 +25,4 @@ _None — queue is idle._
 | `1775332468` | #45 | ✅ merged | 1m 17s |
 | `1775332277` | #42, #44 |  ci_failed | 1m 18s |
 
-_Updated 2026-04-04T22:05:37.672018+00:00_
+_Updated 2026-04-04T22:05:52.507806+00:00_
