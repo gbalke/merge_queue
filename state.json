@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T18:53:38.312814+00:00",
+  "updated_at": "2026-04-04T18:53:57.583273+00:00",
   "queue": [
     {
       "position": 1,
@@ -22,6 +22,27 @@
         }
       ],
       "deployment_id": 4270991011
+    },
+    {
+      "position": 2,
+      "queued_at": "2026-04-04T18:53:57.216974+00:00",
+      "stack": [
+        {
+          "number": 24,
+          "head_sha": "0be5ca8a9b220c48f8e9992876bcdf1b777212c0",
+          "head_ref": "greg/revup/main/fail-b1",
+          "base_ref": "main",
+          "title": ""
+        },
+        {
+          "number": 25,
+          "head_sha": "49b8efc8f3841150e69b1f48360545da32df505f",
+          "head_ref": "greg/revup/main/fail-b2",
+          "base_ref": "greg/revup/main/fail-b1",
+          "title": ""
+        }
+      ],
+      "deployment_id": 4270992898
     }
   ],
   "active_batch": null,
