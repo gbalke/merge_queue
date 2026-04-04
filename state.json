@@ -1,26 +1,28 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T20:33:39.430212+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-04T20:33:38.602584+00:00",
-      "stack": [
-        {
-          "number": 49,
-          "head_sha": "7053450085bd8618c54b5dcfdbf8468436142d93",
-          "head_ref": "greg/revup/main/ci-gate",
-          "base_ref": "main",
-          "title": "Add CI gate: PRs must pass CI before entering queue + re-test label"
-        }
-      ],
-      "deployment_id": 4271480747,
-      "comment_ids": {
-        "49": 4187707578
+  "updated_at": "2026-04-04T20:33:40.330094+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-04T20:33:40.330073+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 49,
+        "head_sha": "7053450085bd8618c54b5dcfdbf8468436142d93",
+        "head_ref": "greg/revup/main/ci-gate",
+        "base_ref": "main",
+        "title": "Add CI gate: PRs must pass CI before entering queue + re-test label"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4271480747,
+    "comment_ids": {
+      "49": 4187707578
+    },
+    "queued_at": "2026-04-04T20:33:38.602584+00:00"
+  },
   "history": [
     {
       "batch_id": "1775331440",
