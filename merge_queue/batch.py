@@ -286,6 +286,13 @@ def complete_batch(client: GitHubClientProtocol, batch: Batch) -> None:
     client.update_ref(default_branch, batch_sha)
     log.info("Fast-forwarded %s to %s", default_branch, batch_sha)
 
+    # Set commit status on new main HEAD so CI badge reflects the merge
+    # (GITHUB_TOKEN pushes don't trigger workflows, so CI won't re-run on main)
+    try:
+        client.create_commit_status(batch_sha, "success", "Merged via merge queue")
+    except Exception as e:
+        log.warning("Could not set commit status: %s", e)
+
     time.sleep(5)
 
     # --- Parallel cleanup: unlock + delete branches + post comments ---

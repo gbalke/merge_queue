@@ -104,6 +104,13 @@ class GitHubClientProtocol(Protocol):
         sha: str | None = None,
     ) -> dict[str, Any]: ...
     def create_orphan_branch(self, branch: str, files: dict[str, str]) -> None: ...
+    def create_commit_status(
+        self,
+        sha: str,
+        state: str,
+        description: str = "",
+        context: str = "Final Results",
+    ) -> None: ...
     def create_deployment(self, description: str, ref: str = "main") -> int: ...
     def update_deployment_status(
         self, deployment_id: int, state: str, description: str = ""
@@ -504,6 +511,25 @@ class GitHubClient:
             },
         )
         log.info("Created orphan branch %s", branch)
+
+    # --- Commit Status API ---
+
+    def create_commit_status(
+        self,
+        sha: str,
+        state: str,
+        description: str = "",
+        context: str = "Final Results",
+    ) -> None:
+        """Set a commit status on a SHA. state: success, failure, pending, error."""
+        self._post(
+            f"/statuses/{sha}",
+            json={
+                "state": state,
+                "description": description[:140],
+                "context": context,
+            },
+        )
 
     # --- Deployments API (for live UI) ---
 
