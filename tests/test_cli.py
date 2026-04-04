@@ -379,8 +379,9 @@ class TestMain:
     def test_parses_status(self, monkeypatch):
         monkeypatch.setenv("GITHUB_REPOSITORY", "test/repo")
         monkeypatch.setenv("GITHUB_TOKEN", "tok")
-        with patch("merge_queue.cli._make_client"), patch(
-            "merge_queue.cli.do_status", return_value="ACTIVE: none"
+        with (
+            patch("merge_queue.cli._make_client"),
+            patch("merge_queue.cli.do_status", return_value="ACTIVE: none"),
         ):
             monkeypatch.setattr("sys.argv", ["merge-queue", "status"])
             main()
@@ -388,9 +389,10 @@ class TestMain:
     def test_parses_enqueue(self, monkeypatch):
         monkeypatch.setenv("GITHUB_REPOSITORY", "test/repo")
         monkeypatch.setenv("GITHUB_TOKEN", "tok")
-        with patch("merge_queue.cli._make_client"), patch(
-            "merge_queue.cli.do_enqueue"
-        ) as de:
+        with (
+            patch("merge_queue.cli._make_client"),
+            patch("merge_queue.cli.do_enqueue") as de,
+        ):
             monkeypatch.setattr("sys.argv", ["merge-queue", "enqueue", "42"])
             main()
             assert de.call_args[0][1] == 42

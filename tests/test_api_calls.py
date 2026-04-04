@@ -332,9 +332,10 @@ class TestDoEnqueueApiCalls:
         """
         client = _counting_client()
 
-        with patch("merge_queue.cli.do_process", return_value="merged"), patch(
-            "merge_queue.cli.StateStore"
-        ) as StoreCls:
+        with (
+            patch("merge_queue.cli.do_process", return_value="merged"),
+            patch("merge_queue.cli.StateStore") as StoreCls,
+        ):
             store = MagicMock()
             store.read.return_value = empty_state()
             store.write.return_value = None
@@ -364,9 +365,10 @@ class TestDoEnqueueApiCalls:
         """
         client = _counting_client()
 
-        with patch("merge_queue.cli.do_process", return_value="merged"), patch(
-            "merge_queue.cli.StateStore"
-        ) as StoreCls:
+        with (
+            patch("merge_queue.cli.do_process", return_value="merged"),
+            patch("merge_queue.cli.StateStore") as StoreCls,
+        ):
             store = MagicMock()
             store.read.return_value = empty_state()
             store.write.return_value = None
@@ -376,9 +378,9 @@ class TestDoEnqueueApiCalls:
 
         get_pr_count = client.get_pr.call_count
         # Budget: exactly 1 get_pr — any more is wasteful
-        assert (
-            get_pr_count <= 1
-        ), f"get_pr called {get_pr_count} times; expected at most 1"
+        assert get_pr_count <= 1, (
+            f"get_pr called {get_pr_count} times; expected at most 1"
+        )
         assert client.create_deployment.call_count == 1
         assert client.update_deployment_status.call_count == 1
         assert client.create_comment.call_count == 1
@@ -505,7 +507,7 @@ class TestDoProcessApiCalls:
                 "number": i,
                 "head_sha": f"sha-{i}",
                 "head_ref": f"feat-{i}",
-                "base_ref": "main" if i == 1 else f"feat-{i-1}",
+                "base_ref": "main" if i == 1 else f"feat-{i - 1}",
                 "title": f"PR {i}",
             }
             for i in range(1, 4)
@@ -529,7 +531,7 @@ class TestDoProcessApiCalls:
                 i,
                 f"sha-{i}",
                 f"feat-{i}",
-                "main" if i == 1 else f"feat-{i-1}",
+                "main" if i == 1 else f"feat-{i - 1}",
                 ("queue",),
                 T0,
             )
@@ -692,18 +694,19 @@ class TestNoDuplicateFetch:
 
             do_process(client)
 
-        assert (
-            QS.fetch.call_count == 1
-        ), f"QueueState.fetch called {QS.fetch.call_count} times; expected 1"
+        assert QS.fetch.call_count == 1, (
+            f"QueueState.fetch called {QS.fetch.call_count} times; expected 1"
+        )
 
     @patch("merge_queue.cli.do_process", return_value="merged")
     def test_do_enqueue_fetches_state_once(self, _do_process):
         """QueueState.fetch must be called exactly once in do_enqueue."""
         client = _counting_client()
 
-        with patch("merge_queue.cli.QueueState") as QS, patch(
-            "merge_queue.cli.StateStore"
-        ) as StoreCls:
+        with (
+            patch("merge_queue.cli.QueueState") as QS,
+            patch("merge_queue.cli.StateStore") as StoreCls,
+        ):
             from merge_queue.state import QueueState as RealQS
 
             QS.fetch.return_value = RealQS(
@@ -719,9 +722,9 @@ class TestNoDuplicateFetch:
 
             do_enqueue(client, 1)
 
-        assert (
-            QS.fetch.call_count == 1
-        ), f"QueueState.fetch called {QS.fetch.call_count} times in do_enqueue; expected 1"
+        assert QS.fetch.call_count == 1, (
+            f"QueueState.fetch called {QS.fetch.call_count} times in do_enqueue; expected 1"
+        )
 
 
 # ---------------------------------------------------------------------------
