@@ -1,26 +1,28 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:54:27.029681+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-04T19:54:26.137521+00:00",
-      "stack": [
-        {
-          "number": 45,
-          "head_sha": "e9df865c6f3e3e18edf8821af5595b6d01d0e3bd",
-          "head_ref": "greg/revup/main/fix-format",
-          "base_ref": "main",
-          "title": "Fix ruff format for agent-written test files"
-        }
-      ],
-      "deployment_id": 4271279435,
-      "comment_ids": {
-        "45": 4187654948
+  "updated_at": "2026-04-04T19:54:27.950957+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-04T19:54:27.950940+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 45,
+        "head_sha": "e9df865c6f3e3e18edf8821af5595b6d01d0e3bd",
+        "head_ref": "greg/revup/main/fix-format",
+        "base_ref": "main",
+        "title": "Fix ruff format for agent-written test files"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4271279435,
+    "comment_ids": {
+      "45": 4187654948
+    },
+    "queued_at": "2026-04-04T19:54:26.137521+00:00"
+  },
   "history": [
     {
       "batch_id": "1775331440",
