@@ -159,3 +159,18 @@ def aborted(owner: str = "", repo: str = "") -> str:
 def removed_from_queue(owner: str = "", repo: str = "") -> str:
     link = _mq_link(owner, repo)
     return f"**Merge Queue — Removed** from queue.{link}"
+
+
+def ci_not_ready(pr_number: int, owner: str = "", repo: str = "") -> str:
+    link = _mq_link(owner, repo)
+    return (
+        f"**Merge Queue — CI Required**\n\n"
+        f"PR #{pr_number} does not have passing CI. "
+        f"Fix the issue and re-add `queue`, or add the `re-test` label to retrigger CI."
+        f"{link}"
+    )
+
+
+def ci_retriggered(owner: str = "", repo: str = "") -> str:
+    link = _mq_link(owner, repo)
+    return f"**Merge Queue** — CI retriggered by `re-test` label.{link}"

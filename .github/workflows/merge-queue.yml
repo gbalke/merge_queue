@@ -18,7 +18,8 @@ jobs:
   run:
     if: |
       github.event_name == 'workflow_dispatch' ||
-      github.event.label.name == 'queue'
+      github.event.label.name == 'queue' ||
+      github.event.label.name == 're-test'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -47,6 +48,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "cmd=${{ inputs.command }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.action }}" = "labeled" ] && [ "${{ github.event.label.name }}" = "re-test" ]; then
+            echo "cmd=retest ${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event.action }}" = "labeled" ]; then
             echo "cmd=enqueue ${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event.action }}" = "unlabeled" ]; then
