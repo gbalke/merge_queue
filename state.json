@@ -1,7 +1,29 @@
 {
   "version": 1,
-  "updated_at": "",
-  "queue": [],
+  "updated_at": "2026-04-04T19:08:15.844427+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-04T19:08:15.186574+00:00",
+      "stack": [
+        {
+          "number": 34,
+          "head_sha": "320568d267bfced587977b8f70904aebab6b8fb5",
+          "head_ref": "greg/revup/main/pass-a1",
+          "base_ref": "main",
+          "title": "Add greet function"
+        },
+        {
+          "number": 35,
+          "head_sha": "98c87648f90b6f6e2b8c23b55233f53d2f1e8a56",
+          "head_ref": "greg/revup/main/pass-a2",
+          "base_ref": "greg/revup/main/pass-a1",
+          "title": "Add farewell function"
+        }
+      ],
+      "deployment_id": 4271059331
+    }
+  ],
   "active_batch": null,
   "history": []
 }
