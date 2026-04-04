@@ -1,28 +1,17 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:38:45.448378+00:00",
+  "updated_at": "2026-04-04T19:38:54.804491+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775331440",
-    "branch": "mq/1775331440",
-    "ruleset_id": 14698458,
-    "started_at": "2026-04-04T19:37:20.253559+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 40,
-        "head_sha": "304ed2619391ddd442fe8867e7dbdf4a7f62462c",
-        "head_ref": "greg/revup/main/api-call-budget",
-        "base_ref": "main",
-        "title": "Add API call budget tests and optimize"
-      }
-    ],
-    "deployment_id": 4271199304,
-    "comment_ids": {
-      "40": 4187633259
-    },
-    "queued_at": "2026-04-04T19:37:18.496697+00:00",
-    "ci_started_at": "2026-04-04T19:37:22.272788+00:00"
-  },
-  "history": []
+  "active_batch": null,
+  "history": [
+    {
+      "batch_id": "1775331440",
+      "status": "merged",
+      "completed_at": "2026-04-04T19:38:54.804468+00:00",
+      "prs": [
+        40
+      ],
+      "duration_seconds": 94.550909
+    }
+  ]
 }
