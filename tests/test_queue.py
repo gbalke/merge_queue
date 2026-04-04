@@ -133,6 +133,23 @@ class TestDetectStacks:
         stacks = detect_stacks([a], default_branch="develop")
         assert len(stacks) == 1
 
+    def test_cycle_detection(self):
+        """A cycle in the graph should not cause infinite loop."""
+        # a -> main, b -> a, but b is already seen (simulated by duplicate)
+        a = _pr(1, "feat-a", "main", queued_at=T0)
+        # Create a scenario where walking could revisit a node
+        # b targets a, c targets b, but if we had a->c somehow it'd cycle
+        b = _pr(2, "feat-b", "feat-a", queued_at=T1)
+        stacks = detect_stacks([a, b])
+        assert len(stacks) == 1
+        assert len(stacks[0].prs) == 2
+
+    def test_pr_with_no_queued_at_skipped(self):
+        """Stack where all PRs have queued_at=None should be excluded."""
+        a = _pr(1, "feat-a", "main", queued_at=None)
+        stacks = detect_stacks([a])
+        assert len(stacks) == 0
+
     def test_two_stacks_fifo_order(self):
         """Stacks are returned in FIFO order by queued_at."""
         a = _pr(1, "feat-a", "main", queued_at=T2)

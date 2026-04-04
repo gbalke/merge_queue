@@ -10,7 +10,7 @@ import sys
 
 from merge_queue import batch as batch_mod
 from merge_queue import rules as rules_mod
-from merge_queue.github_client import GitHubClient
+from merge_queue.github_client import GitHubClient, GitHubClientProtocol
 from merge_queue.queue import detect_stacks, order_queue, select_next
 from merge_queue.types import PullRequest
 
@@ -29,7 +29,7 @@ def _make_client() -> GitHubClient:
     return GitHubClient(owner, repo)
 
 
-def _fetch_queued_prs(client: GitHubClient) -> list[PullRequest]:
+def fetch_queued_prs(client: GitHubClientProtocol) -> list[PullRequest]:
     """Fetch all open PRs with 'queue' or 'locked' label and their queue timestamps."""
     all_prs = client.list_open_prs()
     result = []
@@ -49,43 +49,25 @@ def _fetch_queued_prs(client: GitHubClient) -> list[PullRequest]:
     return result
 
 
-def cmd_enqueue(args: argparse.Namespace) -> None:
-    """Handle 'enqueue' command: validate PR, comment, trigger processing."""
-    client = _make_client()
-    pr_number = args.pr_number
+def do_process(client: GitHubClientProtocol) -> str:
+    """Core processing logic. Returns a status string for testability.
 
-    log.info("Enqueuing PR #%d", pr_number)
-    client.create_comment(
-        pr_number,
-        f"**Merge Queue:** PR queued at {datetime.datetime.now(datetime.timezone.utc).isoformat()}. "
-        "Waiting for processor.",
-    )
-
-    # Check if a batch is already running
-    mq_branches = client.list_mq_branches()
-    if mq_branches:
-        log.info("Batch already in progress (%s). PR will be processed next.", mq_branches[0])
-        return
-
-    # No active batch — start processing immediately
-    _do_process(client)
-
-
-def cmd_process(args: argparse.Namespace) -> None:
-    """Handle 'process' command: process next batch or complete active one."""
-    client = _make_client()
-    _do_process(client)
-
-
-def _do_process(client: GitHubClient) -> None:
-    """Core processing logic."""
+    Returns:
+        "batch_active" — a batch is already running
+        "rules_failed" — pre-condition rules failed
+        "no_stacks" — nothing queued
+        "batch_error" — failed to create batch
+        "ci_failed" — CI failed, batch cleaned up
+        "complete_error" — CI passed but merge failed
+        "merged" — batch merged successfully
+    """
     default_branch = client.get_default_branch()
 
     # Check if there's an active batch
     mq_branches = client.list_mq_branches()
     if mq_branches:
-        log.info("Active batch found: %s. Skipping (batch is being processed by another run).", mq_branches[0])
-        return
+        log.info("Active batch found: %s. Skipping.", mq_branches[0])
+        return "batch_active"
 
     # Run pre-condition rules
     results = rules_mod.check_all(client)
@@ -93,18 +75,21 @@ def _do_process(client: GitHubClient) -> None:
     if failures:
         for f in failures:
             log.error("Rule failed: %s — %s", f.name, f.message)
-        sys.exit(1)
+        return "rules_failed"
 
     # Find next stack to process
-    prs = _fetch_queued_prs(client)
+    prs = fetch_queued_prs(client)
     stacks = detect_stacks(prs, default_branch)
-    queued_stacks = [s for s in stacks if not any("locked" in pr.labels for pr in s.prs)]
+    queued_stacks = [
+        s for s in stacks
+        if not any("locked" in pr.labels for pr in s.prs)
+    ]
     ordered = order_queue(queued_stacks)
     next_stack = select_next(ordered)
 
     if next_stack is None:
         log.info("No stacks queued. Nothing to do.")
-        return
+        return "no_stacks"
 
     log.info(
         "Processing stack: %s",
@@ -123,7 +108,7 @@ def _do_process(client: GitHubClient) -> None:
                 "Fix the issue and re-add the `queue` label.",
             )
             client.remove_label(pr.number, "queue")
-        sys.exit(1)
+        return "batch_error"
 
     # Post queued comments
     pr_list = "\n".join(f"- #{pr.number} ({pr.head_ref})" for pr in next_stack.prs)
@@ -141,42 +126,89 @@ def _do_process(client: GitHubClient) -> None:
         try:
             batch_mod.complete_batch(client, batch)
             log.info("Batch merged successfully!")
+            status = "merged"
         except batch_mod.BatchError as e:
             log.error("Failed to complete batch: %s", e)
             batch_mod.fail_batch(client, batch, str(e))
+            status = "complete_error"
     else:
         batch_mod.fail_batch(client, batch, "CI failed")
+        status = "ci_failed"
 
     # Check for more queued stacks and self-dispatch
-    remaining_prs = _fetch_queued_prs(client)
+    _dispatch_next_if_queued(client, default_branch)
+
+    return status
+
+
+def _dispatch_next_if_queued(
+    client: GitHubClientProtocol, default_branch: str
+) -> bool:
+    """Check for more queued stacks and dispatch a processing run. Returns True if dispatched."""
+    remaining_prs = fetch_queued_prs(client)
     remaining_stacks = detect_stacks(remaining_prs, default_branch)
-    remaining_queued = [s for s in remaining_stacks if not any("locked" in pr.labels for pr in s.prs)]
-    if remaining_queued:
-        log.info("More stacks queued. Dispatching next processing run.")
-        try:
-            client.dispatch_ci.__func__  # noqa: just checking it exists
-            # Use the actions API to dispatch the merge queue workflow
-            import requests as req
-            r = client._session.post(
-                f"{client._base_url}/actions/workflows/merge-queue.yml/dispatches",
+    remaining_queued = [
+        s for s in remaining_stacks
+        if not any("locked" in pr.labels for pr in s.prs)
+    ]
+    if not remaining_queued:
+        return False
+
+    log.info("More stacks queued. Dispatching next processing run.")
+    try:
+        # Use the session to dispatch the merge queue workflow
+        base_url = getattr(client, "_base_url", "")
+        session = getattr(client, "_session", None)
+        if session and base_url:
+            r = session.post(
+                f"{base_url}/actions/workflows/merge-queue.yml/dispatches",
                 json={"ref": default_branch, "inputs": {"command": "process"}},
             )
             r.raise_for_status()
-        except Exception as e:
-            log.warning("Could not dispatch next processing run: %s", e)
+            return True
+    except Exception as e:
+        log.warning("Could not dispatch next processing run: %s", e)
+    return False
 
 
-def cmd_abort(args: argparse.Namespace) -> None:
-    """Handle 'abort' command: abort active batch if PR is locked."""
-    client = _make_client()
-    pr_number = args.pr_number
+def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
+    """Enqueue a PR. Returns status string.
 
+    Returns:
+        "queued_waiting" — batch active, PR will wait
+        "queued_processing" — no batch active, started processing
+        "no_stacks" — processing found nothing (PR may not be ready)
+        Other status from do_process()
+    """
+    log.info("Enqueuing PR #%d", pr_number)
+    client.create_comment(
+        pr_number,
+        f"**Merge Queue:** PR queued at {datetime.datetime.now(datetime.timezone.utc).isoformat()}. "
+        "Waiting for processor.",
+    )
+
+    mq_branches = client.list_mq_branches()
+    if mq_branches:
+        log.info("Batch already in progress (%s). PR will be processed next.", mq_branches[0])
+        return "queued_waiting"
+
+    result = do_process(client)
+    return result
+
+
+def do_abort(client: GitHubClientProtocol, pr_number: int) -> str:
+    """Abort active batch if PR is locked. Returns status string.
+
+    Returns:
+        "not_locked" — PR wasn't in active batch
+        "aborted" — active batch aborted
+    """
     pr_data = client.get_pr(pr_number)
     labels = [l["name"] for l in pr_data.get("labels", [])]
 
     if "locked" not in labels:
         log.info("PR #%d is not in an active batch. Nothing to abort.", pr_number)
-        return
+        return "not_locked"
 
     log.info("Aborting active batch due to queue label removal on PR #%d", pr_number)
     batch_mod.abort_batch(client)
@@ -184,20 +216,43 @@ def cmd_abort(args: argparse.Namespace) -> None:
         pr_number,
         "**Merge Queue:** Aborted — `queue` label was removed. Branches unlocked.",
     )
+    return "aborted"
+
+
+def do_check_rules(client: GitHubClientProtocol) -> list[rules_mod.RuleResult]:
+    """Run all rules. Returns results."""
+    return rules_mod.check_all(client)
+
+
+# --- CLI entry points (thin wrappers) ---
+
+
+def cmd_enqueue(args: argparse.Namespace) -> None:
+    client = _make_client()
+    do_enqueue(client, args.pr_number)
+
+
+def cmd_process(args: argparse.Namespace) -> None:
+    client = _make_client()
+    result = do_process(client)
+    if result == "rules_failed":
+        sys.exit(1)
+
+
+def cmd_abort(args: argparse.Namespace) -> None:
+    client = _make_client()
+    do_abort(client, args.pr_number)
 
 
 def cmd_check_rules(args: argparse.Namespace) -> None:
-    """Handle 'check-rules' command: run all invariant rules."""
     client = _make_client()
-    results = rules_mod.check_all(client)
-
+    results = do_check_rules(client)
     any_failed = False
     for r in results:
         status = "PASS" if r.passed else "FAIL"
         print(f"[{status}] {r.name}: {r.message}")
         if not r.passed:
             any_failed = True
-
     if any_failed:
         sys.exit(1)
 
