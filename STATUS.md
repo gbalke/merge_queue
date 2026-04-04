@@ -1,13 +1,16 @@
 # Merge Queue Status
 
 ## Active Batch
-_None — queue is idle._
+**Branch:** ``
+**Status:** locking
+**Started:** 2026-04-04T22:19:21.296894+00:00
 
-## Queue (1 stack waiting)
+| PR | Branch | Title |
+|----|--------|-------|
+| [#54](https://github.com/gbalke/merge_queue/pull/54) | `greg/revup/main/tdd-policy` | Add TDD requirement and break-glass docs to CLAUDE.md |
 
-| Position | PRs | Queued At |
-|----------|-----|-----------|
-| 1 | #54 | 2026-04-04T22:19:18 |
+## Queue
+_Empty — nothing waiting._
 
 ## Recent History (last 1)
 
@@ -15,4 +18,4 @@ _None — queue is idle._
 |-------|-----|--------|----------|
 | `1775340971` | #55 | ✅ merged | 1m 34s |
 
-_Updated 2026-04-04T22:19:19.429199+00:00_
+_Updated 2026-04-04T22:19:21.296908+00:00_
