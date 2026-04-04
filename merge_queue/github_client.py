@@ -366,13 +366,7 @@ class GitHubClient:
                 raise
 
     def update_ref(self, ref: str, sha: str) -> None:
-        """Fast-forward a ref. Uses admin session to bypass branch protection."""
-        r = self._admin_session.patch(
-            f"{self._base_url}/git/refs/heads/{ref}",
-            json={"sha": sha, "force": False},
-        )
-        self._track(r)
-        r.raise_for_status()
+        self._patch(f"/git/refs/heads/{ref}", json={"sha": sha, "force": False})
 
     # --- CI ---
 
