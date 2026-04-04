@@ -1,13 +1,7 @@
 # Merge Queue Status
 
 ## Active Batch
-**Branch:** `mq/1775340355`
-**Status:** completing
-**Started:** 2026-04-04T22:05:53.887110+00:00
-
-| PR | Branch | Title |
-|----|--------|-------|
-| [#54](https://github.com/gbalke/merge_queue/pull/54) | `greg/revup/main/tdd-policy` | Add TDD requirement and break-glass docs to CLAUDE.md |
+_None — queue is idle._
 
 ## Queue (1 stack waiting)
 
@@ -30,4 +24,4 @@
 | `1775332468` | #45 | ✅ merged | 1m 17s |
 | `1775332277` | #42, #44 |  ci_failed | 1m 18s |
 
-_Updated 2026-04-04T22:07:19.847749+00:00_
+_Updated 2026-04-04T22:09:10.088326+00:00_
