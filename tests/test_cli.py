@@ -24,6 +24,10 @@ T0 = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
 T1 = datetime.datetime(2026, 1, 1, 0, 1, tzinfo=datetime.timezone.utc)
 
 
+def _now_iso():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
 def _api_state(prs=None, mq_branches=None):
     return QueueState(
         default_branch="main",
@@ -73,9 +77,29 @@ class TestDoProcess:
     def test_batch_active_skips(self, mock_client, mock_store):
         mock_store.read.return_value = {
             **empty_state(),
-            "active_batch": {"batch_id": "123", "stack": []},
+            "active_batch": {
+                "batch_id": "123",
+                "started_at": _now_iso(),
+                "stack": [{"number": 1}],
+            },
         }
+        # PR is still open — batch is genuinely active
+        mock_client.get_pr.return_value = {"state": "open"}
         assert do_process(mock_client) == "batch_active"
+
+    def test_stale_batch_auto_cleared(self, mock_client, mock_store):
+        """If active batch PRs are all merged, clear it and continue."""
+        mock_store.read.return_value = {
+            **empty_state(),
+            "active_batch": {
+                "batch_id": "123",
+                "started_at": _now_iso(),
+                "stack": [{"number": 1}],
+            },
+        }
+        mock_client.get_pr.return_value = {"state": "closed"}
+        # Should clear stale batch and return no_stacks (empty queue)
+        assert do_process(mock_client) == "no_stacks"
 
     def test_empty_queue(self, mock_client, mock_store):
         assert do_process(mock_client) == "no_stacks"

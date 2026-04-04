@@ -59,16 +59,35 @@ def _comment(client, pr_number: int, body: str, comment_ids: dict | None = None)
         return None
 
 
+def _clear_active_batch(state: dict, store: StateStore) -> None:
+    """Clear active_batch from state with retry on conflict."""
+    for attempt in range(3):
+        try:
+            state["active_batch"] = None
+            state["updated_at"] = _now_iso()
+            store.write(state)
+            return
+        except Exception as e:
+            log.warning("Failed to clear active_batch (attempt %d): %s", attempt + 1, e)
+            try:
+                state = store.read()
+            except Exception:
+                pass
+    log.error("Could not clear active_batch after 3 attempts")
+
+
 # --- Core logic ---
 
 
 def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
     """Enqueue a PR: update state, create deployment, trigger processing."""
-    # Guard: skip if PR is already merged or closed
+    # Guard: skip if PR is already merged or closed.
+    # Cache pr_data so we can reuse it below without a second get_pr call.
+    cached_pr_data: dict | None = None
     try:
-        pr_data = client.get_pr(pr_number)
-        if pr_data.get("state") != "open":
-            log.info("PR #%d is %s, skipping enqueue", pr_number, pr_data.get("state"))
+        cached_pr_data = client.get_pr(pr_number)
+        if cached_pr_data.get("state") != "open":
+            log.info("PR #%d is %s, skipping enqueue", pr_number, cached_pr_data.get("state"))
             return "pr_not_open"
     except Exception:
         pass
@@ -116,7 +135,8 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
             break
 
     if stack_dicts is None:
-        pr_data = client.get_pr(pr_number)
+        # Reuse the pr_data fetched during the guard check — avoids a duplicate API call.
+        pr_data = cached_pr_data or client.get_pr(pr_number)
         stack_dicts = [{
             "number": pr_number,
             "head_sha": pr_data["head"]["sha"],
@@ -189,23 +209,38 @@ def do_process(client: GitHubClientProtocol) -> str:
 
     active = state.get("active_batch")
     if active is not None:
-        # Check for stale batch (crashed worker) — auto-recover after 30 minutes
-        try:
-            started = datetime.datetime.fromisoformat(active["started_at"])
-            age = (datetime.datetime.now(datetime.timezone.utc) - started).total_seconds()
-            if age > 30 * 60:
-                log.warning("Active batch is stale (%.0fs old), clearing it", age)
-                batch_mod.abort_batch(client)
-                state["active_batch"] = None
-                state["updated_at"] = _now_iso()
-                store.write(state)
-                # Fall through to process next
-            else:
-                log.info("Active batch in progress (%.0fs), skipping", age)
+        # Check if the active batch's PRs are already merged (stale from race condition)
+        all_merged = True
+        for pr_info in active.get("stack", []):
+            try:
+                pr_data = client.get_pr(pr_info["number"])
+                if pr_data.get("state") == "open":
+                    all_merged = False
+                    break
+            except Exception:
+                all_merged = False
+                break
+
+        if all_merged:
+            log.warning("Active batch PRs are all merged/closed, clearing stale state")
+            _clear_active_batch(state, store)
+            # Fall through to process next
+        else:
+            # Check for stale batch (crashed worker) — auto-recover after 30 minutes
+            try:
+                started = datetime.datetime.fromisoformat(active["started_at"])
+                age = (datetime.datetime.now(datetime.timezone.utc) - started).total_seconds()
+                if age > 30 * 60:
+                    log.warning("Active batch is stale (%.0fs old), clearing it", age)
+                    batch_mod.abort_batch(client)
+                    _clear_active_batch(state, store)
+                    # Fall through to process next
+                else:
+                    log.info("Active batch in progress (%.0fs), skipping", age)
+                    return "batch_active"
+            except Exception:
+                log.info("Active batch in progress, skipping")
                 return "batch_active"
-        except Exception:
-            log.info("Active batch in progress, skipping")
-            return "batch_active"
 
     queue = state.get("queue", [])
     if not queue:
@@ -266,19 +301,20 @@ def do_process(client: GitHubClientProtocol) -> str:
     # Create batch
     try:
         batch = batch_mod.create_batch(client, next_stack)
-    except batch_mod.BatchError as e:
+    except Exception as e:
         log.error("Failed to create batch: %s", e)
         for pr in prs:
             _comment(client, pr.number, comments.batch_error(str(e), owner, repo), cids)
-            client.remove_label(pr.number, "queue")
+            try:
+                client.remove_label(pr.number, "queue")
+            except Exception:
+                pass
         if dep_id:
             try:
                 client.update_deployment_status(dep_id, "failure", str(e)[:140])
             except Exception:
                 pass
-        state["active_batch"] = None
-        state["updated_at"] = _now_iso()
-        store.write(state)
+        _clear_active_batch(state, store)
         return "batch_error"
 
     # Update state
@@ -378,9 +414,7 @@ def do_process(client: GitHubClientProtocol) -> str:
         "completed_at": completed, "prs": [pr.number for pr in prs],
         "duration_seconds": dur,
     })
-    state["active_batch"] = None
-    state["updated_at"] = _now_iso()
-    store.write(state)
+    _clear_active_batch(state, store)
 
     # Process next
     if state.get("queue"):
