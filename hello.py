@@ -25,3 +25,6 @@ def test_c():
 
 def lock_test_a():
     return "Lock Test A"
+
+def lock_test_b():
+    return "Lock Test B"
