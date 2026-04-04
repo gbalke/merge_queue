@@ -1,7 +1,25 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T22:02:29.960859+00:00",
-  "queue": [],
+  "updated_at": "2026-04-04T22:05:19.377024+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-04T22:05:18.543052+00:00",
+      "stack": [
+        {
+          "number": 54,
+          "head_sha": "7cc4ab3f3cb94f5200bb11e73f35f043bf7c198a",
+          "head_ref": "greg/revup/main/tdd-policy",
+          "base_ref": "main",
+          "title": "Add TDD requirement and break-glass docs to CLAUDE.md"
+        }
+      ],
+      "deployment_id": 4271887539,
+      "comment_ids": {
+        "54": 4187821208
+      }
+    }
+  ],
   "active_batch": {
     "batch_id": "1775340063",
     "branch": "mq/1775340063",
