@@ -19,3 +19,6 @@ def test_a():
 
 def test_b():
     return "Test B"
+
+def test_c():
+    return "Test C"
