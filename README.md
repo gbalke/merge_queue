@@ -1,5 +1,10 @@
 # Merge Queue for Stacked PRs
 
+[![CI](https://github.com/gbalke/merge_queue/actions/workflows/ci.yml/badge.svg)](https://github.com/gbalke/merge_queue/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-85%25+-brightgreen)](https://github.com/gbalke/merge_queue)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 A lightweight, Python-based merge queue for GitHub that understands stacked/chained PRs (e.g., created by [revup](https://github.com/Skydio/revup)).
 
 ## How It Works
