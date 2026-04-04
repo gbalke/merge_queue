@@ -492,9 +492,13 @@ class GitHubClient:
         deployment_id: int,
         state: str,
         description: str = "",
+        log_url: str = "",
     ) -> None:
         """Update deployment status. state: queued, in_progress, success, failure, inactive."""
-        self._post(f"/deployments/{deployment_id}/statuses", json={
+        body: dict[str, Any] = {
             "state": state,
-            "description": description[:140],  # GitHub truncates at 140
-        })
+            "description": description[:140],
+        }
+        if log_url:
+            body["log_url"] = log_url
+        self._post(f"/deployments/{deployment_id}/statuses", json=body)

@@ -64,15 +64,44 @@ def _comment(client, pr_number: int, body: str, comment_ids: dict | None = None)
 
 def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
     """Enqueue a PR: update state, create deployment, trigger processing."""
+    # Guard: skip if PR is already merged or closed
+    try:
+        pr_data = client.get_pr(pr_number)
+        if pr_data.get("state") != "open":
+            log.info("PR #%d is %s, skipping enqueue", pr_number, pr_data.get("state"))
+            return "pr_not_open"
+    except Exception:
+        pass
+
     store = StateStore(client)
     state = store.read()
     owner, repo = _owner_repo(client)
 
-    # Already queued?
+    # Guard: already in active batch?
+    active = state.get("active_batch")
+    if active and any(pr["number"] == pr_number for pr in active.get("stack", [])):
+        log.info("PR #%d is already in the active batch, skipping", pr_number)
+        return "already_active"
+
+    # Guard: already queued?
     for entry in state.get("queue", []):
         if any(pr["number"] == pr_number for pr in entry.get("stack", [])):
-            _comment(client, pr_number, comments.already_queued(entry.get("position", 0), owner, repo))
+            log.info("PR #%d is already queued at position %d", pr_number, entry.get("position", 0))
             return "already_queued"
+
+    # Guard: recently processed? (check history for this PR in last 5 minutes)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for h in reversed(state.get("history", [])):
+        if pr_number in h.get("prs", []):
+            try:
+                completed = datetime.datetime.fromisoformat(h["completed_at"])
+                if (now - completed).total_seconds() < 300:
+                    log.info("PR #%d was processed %ds ago, skipping duplicate", pr_number,
+                             int((now - completed).total_seconds()))
+                    return "recently_processed"
+            except Exception:
+                pass
+            break
 
     # Detect the stack
     api_state = QueueState.fetch(client)
@@ -158,9 +187,25 @@ def do_process(client: GitHubClientProtocol) -> str:
     state = store.read()
     owner, repo = _owner_repo(client)
 
-    if state.get("active_batch") is not None:
-        log.info("Active batch in progress, skipping")
-        return "batch_active"
+    active = state.get("active_batch")
+    if active is not None:
+        # Check for stale batch (crashed worker) — auto-recover after 30 minutes
+        try:
+            started = datetime.datetime.fromisoformat(active["started_at"])
+            age = (datetime.datetime.now(datetime.timezone.utc) - started).total_seconds()
+            if age > 30 * 60:
+                log.warning("Active batch is stale (%.0fs old), clearing it", age)
+                batch_mod.abort_batch(client)
+                state["active_batch"] = None
+                state["updated_at"] = _now_iso()
+                store.write(state)
+                # Fall through to process next
+            else:
+                log.info("Active batch in progress (%.0fs), skipping", age)
+                return "batch_active"
+        except Exception:
+            log.info("Active batch in progress, skipping")
+            return "batch_active"
 
     queue = state.get("queue", [])
     if not queue:
@@ -252,9 +297,12 @@ def do_process(client: GitHubClientProtocol) -> str:
         except Exception:
             pass
 
-    # Update comments to show CI running
+    # Update comments to show CI running (with link to Actions tab)
+    actions_url = f"https://github.com/{owner}/{repo}/actions" if owner and repo else ""
     for pr in prs:
-        _comment(client, pr.number, comments.batch_started(batch.branch, entry["stack"], owner, repo), cids)
+        _comment(client, pr.number, comments.batch_started(
+            batch.branch, entry["stack"], ci_run_url=actions_url, owner=owner, repo=repo,
+        ), cids)
 
     # Run CI
     ci_result = batch_mod.run_ci(client, batch)
@@ -274,7 +322,7 @@ def do_process(client: GitHubClientProtocol) -> str:
                     client.update_deployment_status(dep_id, "success", f"Merged to {api_state.default_branch}")
                 except Exception:
                     pass
-            # Update comments with final merged status + stats
+            # Update comments with final merged status + stats + CI link
             for pr in prs:
                 _comment(client, pr.number, comments.merged(
                     api_state.default_branch,
@@ -282,6 +330,7 @@ def do_process(client: GitHubClientProtocol) -> str:
                     queued_at=entry["queued_at"],
                     ci_started_at=ci_started_at,
                     completed_at=completed_at,
+                    ci_run_url=ci_result.run_url,
                     owner=owner, repo=repo,
                 ), cids)
         except batch_mod.BatchError as e:

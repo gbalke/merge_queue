@@ -51,16 +51,20 @@ def already_queued(position: int, owner: str = "", repo: str = "") -> str:
 def batch_started(
     branch: str,
     stack: list[dict],
+    ci_run_url: str = "",
     owner: str = "",
     repo: str = "",
 ) -> str:
     link = _mq_link(owner, repo)
     stack_list = _stack_list(stack)
+    ci_link = ""
+    if ci_run_url:
+        ci_link = f"\n\n[View CI run →]({ci_run_url})"
     return (
         f"**Merge Queue — CI Running**\n\n"
         f"Branch: `{branch}`\n\n"
-        f"Commits in this batch:\n{stack_list}"
-        f"{link}"
+        f"**Commits in this batch:**\n{stack_list}"
+        f"{ci_link}{link}"
     )
 
 
@@ -70,6 +74,7 @@ def merged(
     queued_at: str = "",
     ci_started_at: str = "",
     completed_at: str = "",
+    ci_run_url: str = "",
     owner: str = "",
     repo: str = "",
 ) -> str:
@@ -81,23 +86,27 @@ def merged(
             t_queued = datetime.fromisoformat(queued_at)
             t_completed = datetime.fromisoformat(completed_at)
             total = (t_completed - t_queued).total_seconds()
-            parts = []
+            rows = []
             if ci_started_at:
                 t_ci = datetime.fromisoformat(ci_started_at)
                 wait = (t_ci - t_queued).total_seconds()
                 ci_dur = (t_completed - t_ci).total_seconds()
-                parts.append(f"Queue wait: {_fmt_duration(wait)}")
-                parts.append(f"CI + merge: {_fmt_duration(ci_dur)}")
-            parts.append(f"Total: {_fmt_duration(total)}")
-            stats = "\n\n" + " | ".join(parts)
+                rows.append(f"| Queue wait | {_fmt_duration(wait)} |")
+                rows.append(f"| CI + merge | {_fmt_duration(ci_dur)} |")
+            rows.append(f"| **Total** | **{_fmt_duration(total)}** |")
+            stats = "\n\n| Phase | Duration |\n|:------|:---------|\n" + "\n".join(rows)
         except Exception:
             pass
 
     stack_list = ""
     if stack:
-        stack_list = "\n\nCommits:\n" + _stack_list(stack)
+        stack_list = "\n\n**Commits:**\n" + _stack_list(stack)
 
-    return f"**Merge Queue — Merged** to `{default_branch}`.{stats}{stack_list}{link}"
+    ci_link = ""
+    if ci_run_url:
+        ci_link = f"\n\n[View CI run →]({ci_run_url})"
+
+    return f"**Merge Queue — Merged** to `{default_branch}`.{stats}{stack_list}{ci_link}{link}"
 
 
 def _fmt_duration(seconds: float) -> str:

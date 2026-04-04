@@ -196,25 +196,26 @@ class TestDoEnqueue:
     def test_adds_to_queue(self, QS, do_proc, mock_client, mock_store):
         QS.fetch.return_value = _api_state()
         mock_client.get_pr.return_value = {
+            "state": "open",
             "head": {"sha": "sha-1", "ref": "feat-a"},
             "base": {"ref": "main"},
             "title": "Add feature A",
         }
         mock_client.create_deployment.return_value = 42
+        mock_client.create_comment.return_value = 100
 
         result = do_enqueue(mock_client, 1)
 
-        # Should write state with new queue entry
         written = mock_store.write.call_args_list[0][0][0]
         assert len(written["queue"]) == 1
         assert written["queue"][0]["position"] == 1
         mock_client.create_deployment.assert_called_once()
         mock_client.create_comment.assert_called()
-        # Triggers processing since no active batch
         do_proc.assert_called_once_with(mock_client)
 
     @patch("merge_queue.cli.QueueState")
     def test_already_queued(self, QS, mock_client, mock_store):
+        mock_client.get_pr.return_value = {"state": "open"}
         mock_store.read.return_value = {
             **empty_state(),
             "queue": [{
@@ -225,6 +226,10 @@ class TestDoEnqueue:
         }
 
         assert do_enqueue(mock_client, 1) == "already_queued"
+
+    def test_skips_merged_pr(self, mock_client, mock_store):
+        mock_client.get_pr.return_value = {"state": "closed", "merged_at": "2026-01-01"}
+        assert do_enqueue(mock_client, 1) == "pr_not_open"
 
 
 # --- do_abort ---
