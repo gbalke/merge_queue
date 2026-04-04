@@ -101,6 +101,18 @@ Failed comments include the job name, failed step, and link to the CI run.
 - Rate limit tracking with low-remaining warnings
 - API call budget tests enforce limits (3-PR stack <= 35 calls)
 
+## Integration with External Repos
+
+Install merge-queue in any GitHub repository:
+
+1. Copy [`examples/merge-queue.yml`](examples/merge-queue.yml) to `.github/workflows/merge-queue.yml`
+2. Change `MQ_CI_WORKFLOW` to your CI workflow filename (e.g., `test.yml`, `ci.yml`)
+3. Create labels: `queue`, `locked`, `re-test`
+4. Add `MQ_ADMIN_TOKEN` secret (fine-grained PAT with Administration: Write)
+5. Add `queue` label to PRs to start using the merge queue
+
+The merge queue auto-detects your repository's default branch.
+
 ## Setup
 
 ### 1. Repository Settings
