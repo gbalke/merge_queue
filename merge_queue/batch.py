@@ -5,6 +5,7 @@ Orchestrates GitHubClient calls for a single merge queue batch.
 
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 import subprocess
 import time
@@ -247,50 +248,76 @@ def run_ci(client: GitHubClientProtocol, batch: Batch, timeout: int = 30 * 60) -
 
 
 def complete_batch(client: GitHubClientProtocol, batch: Batch) -> None:
-    """Merge completed batch: retarget PRs, fast-forward main, clean up."""
+    """Merge completed batch: retarget PRs, fast-forward main, clean up.
+
+    Since branches are locked via ruleset, we skip SHA re-verification
+    (nobody can push). After fast-forward, labels on merged PRs are inert
+    so we skip label removal. Cleanup (unlock, delete, comment) runs in
+    parallel to minimize API round-trips.
+    """
     default_branch = client.get_default_branch()
     batch_sha = client.get_branch_sha(batch.branch)
 
-    for pr in batch.stack.prs:
-        current = client.get_pr(pr.number)
-        if current["head"]["sha"] != pr.head_sha:
-            raise BatchError(f"PR #{pr.number} head changed during batch")
-
+    # Verify main hasn't diverged
     status = client.compare_commits(default_branch, batch_sha)
     if status != "ahead":
         raise BatchError(f"Main has diverged (status: {status})")
 
+    # Retarget PRs to main BEFORE fast-forward
     for pr in batch.stack.prs:
         try:
             client.update_pr_base(pr.number, default_branch)
-            log.info("Retargeted PR #%d to %s", pr.number, default_branch)
         except Exception as e:
             log.warning("Could not retarget PR #%d: %s", pr.number, e)
 
+    # Fast-forward main
     client.update_ref(default_branch, batch_sha)
     log.info("Fast-forwarded %s to %s", default_branch, batch_sha)
 
     time.sleep(5)
 
-    # Unlock with retries
-    try:
-        _unlock(client, batch)
-    except UnlockError as e:
-        log.error("Failed to unlock after merge: %s", e)
-
-    for pr in batch.stack.prs:
-        client.remove_label(pr.number, "locked")
-        client.remove_label(pr.number, "queue")
-        client.create_comment(
-            pr.number,
-            f"**Merge Queue:** Successfully merged to `{default_branch}`.",
-        )
-
-    client.delete_branch(batch.branch)
-    for pr in batch.stack.prs:
-        client.delete_branch(pr.head_ref)
+    # --- Parallel cleanup: unlock + delete branches + post comments ---
+    # All independent — no ordering constraints after fast-forward.
+    # Labels on merged PRs are inert, so we skip remove_label entirely.
+    _parallel_cleanup(client, batch, default_branch)
 
     batch.status = BatchStatus.PASSED
+
+
+def _parallel_cleanup(
+    client: GitHubClientProtocol,
+    batch: Batch,
+    default_branch: str,
+) -> None:
+    """Run post-merge cleanup tasks in parallel."""
+    def unlock():
+        try:
+            _unlock(client, batch)
+        except UnlockError as e:
+            log.error("Failed to unlock: %s", e)
+
+    def delete_branches():
+        client.delete_branch(batch.branch)
+        for pr in batch.stack.prs:
+            client.delete_branch(pr.head_ref)
+
+    def post_comments():
+        for pr in batch.stack.prs:
+            client.create_comment(
+                pr.number,
+                f"**Merge Queue:** Successfully merged to `{default_branch}`.",
+            )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+        futures = [
+            pool.submit(unlock),
+            pool.submit(delete_branches),
+            pool.submit(post_comments),
+        ]
+        for f in concurrent.futures.as_completed(futures):
+            exc = f.exception()
+            if exc:
+                log.warning("Cleanup task failed: %s", exc)
 
 
 def fail_batch(

@@ -354,7 +354,6 @@ class TestCompleteBatch:
     def test_happy_path(self, mock_client):
         pr = make_pr(1, "feat-a", head_sha="sha-1")
         batch = _batch(_stack(pr))
-        mock_client.get_pr.return_value = {"head": {"sha": "sha-1"}}
         mock_client.get_ruleset.side_effect = RuntimeError("404")
 
         complete_batch(mock_client, batch)
@@ -363,19 +362,17 @@ class TestCompleteBatch:
         mock_client.update_pr_base.assert_called_once_with(1, "main")
         mock_client.update_ref.assert_called_once_with("main", "abc123")
         mock_client.delete_ruleset.assert_called_once_with(42)
-
-    def test_sha_mismatch_raises(self, mock_client):
-        pr = make_pr(1, "feat-a", head_sha="sha-1")
-        batch = _batch(_stack(pr))
-        mock_client.get_pr.return_value = {"head": {"sha": "different"}}
-
-        with pytest.raises(BatchError, match="head changed"):
-            complete_batch(mock_client, batch)
+        mock_client.create_comment.assert_called_once()
+        mock_client.delete_branch.assert_any_call("mq/123")
+        mock_client.delete_branch.assert_any_call("feat-a")
+        # No get_pr calls — branches are locked, SHA can't change
+        mock_client.get_pr.assert_not_called()
+        # No remove_label calls — labels on merged PRs are inert
+        mock_client.remove_label.assert_not_called()
 
     def test_main_diverged_raises(self, mock_client):
         pr = make_pr(1, "feat-a", head_sha="sha-1")
         batch = _batch(_stack(pr))
-        mock_client.get_pr.return_value = {"head": {"sha": "sha-1"}}
         mock_client.compare_commits.return_value = "diverged"
 
         with pytest.raises(BatchError, match="diverged"):
@@ -385,46 +382,60 @@ class TestCompleteBatch:
         a = make_pr(1, "feat-a", head_sha="sha-1")
         b = make_pr(2, "feat-b", "feat-a", head_sha="sha-2")
         batch = _batch(_stack(a, b))
-        mock_client.get_pr.side_effect = [
-            {"head": {"sha": "sha-1"}},
-            {"head": {"sha": "sha-2"}},
-        ]
         mock_client.get_ruleset.side_effect = RuntimeError("404")
 
         complete_batch(mock_client, batch)
 
         assert mock_client.update_pr_base.call_count == 2
+        # mq/ + 2 PR branches
         assert mock_client.delete_branch.call_count == 3
+        assert mock_client.create_comment.call_count == 2
 
     def test_no_ruleset_skips_unlock(self, mock_client):
         pr = make_pr(1, "feat-a", head_sha="sha-1")
         batch = _batch(_stack(pr), ruleset_id=None)
-        mock_client.get_pr.return_value = {"head": {"sha": "sha-1"}}
 
         complete_batch(mock_client, batch)
 
         mock_client.delete_ruleset.assert_not_called()
+        assert batch.status == BatchStatus.PASSED
 
     def test_retarget_failure_continues(self, mock_client):
         pr = make_pr(1, "feat-a", head_sha="sha-1")
         batch = _batch(_stack(pr))
-        mock_client.get_pr.return_value = {"head": {"sha": "sha-1"}}
         mock_client.update_pr_base.side_effect = RuntimeError("no new commits")
         mock_client.get_ruleset.side_effect = RuntimeError("404")
 
         complete_batch(mock_client, batch)
         assert batch.status == BatchStatus.PASSED
 
-    def test_unlock_failure_logs_but_continues(self, mock_client):
+    def test_cleanup_runs_in_parallel(self, mock_client):
+        """Verify unlock, delete, and comment all happen (parallel execution)."""
+        a = make_pr(1, "feat-a", head_sha="sha-1")
+        b = make_pr(2, "feat-b", "feat-a", head_sha="sha-2")
+        batch = _batch(_stack(a, b))
+        mock_client.get_ruleset.side_effect = RuntimeError("404")
+
+        complete_batch(mock_client, batch)
+
+        # All three cleanup paths executed
+        mock_client.delete_ruleset.assert_called_once_with(42)
+        assert mock_client.delete_branch.call_count == 3
+        assert mock_client.create_comment.call_count == 2
+
+    def test_cleanup_failure_does_not_block(self, mock_client):
+        """If one cleanup task fails, others still complete."""
         pr = make_pr(1, "feat-a", head_sha="sha-1")
         batch = _batch(_stack(pr))
-        mock_client.get_pr.return_value = {"head": {"sha": "sha-1"}}
-        # delete succeeds but verification says ruleset still exists
+        # Unlock will fail (get_ruleset says it still exists)
         mock_client.get_ruleset.return_value = _good_ruleset()
 
-        # Should not raise — unlock failure is logged but doesn't block merge
         complete_batch(mock_client, batch)
+
+        # Should still complete — comment and branch deletion happened
         assert batch.status == BatchStatus.PASSED
+        mock_client.create_comment.assert_called_once()
+        mock_client.delete_branch.assert_any_call("mq/123")
 
 
 # ── fail_batch ─────────────────────────────────────────────────
