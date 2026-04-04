@@ -39,7 +39,21 @@ Create two labels in **Issues > Labels**:
 - `queue` (green) — triggers the merge queue
 - `locked` (red) — indicates branch is locked by merge queue
 
-### 3. Workflows
+### 3. Create `MQ_ADMIN_TOKEN` Secret
+
+Branch locking uses GitHub rulesets, which require elevated permissions that `GITHUB_TOKEN` cannot provide. Create a fine-grained Personal Access Token:
+
+1. Go to https://github.com/settings/tokens?type=beta
+2. Create a token scoped to your merge queue repository
+3. Grant **Administration: Read and Write** permission
+4. Add it as a repository secret:
+   ```bash
+   gh secret set MQ_ADMIN_TOKEN --repo <owner>/<repo>
+   ```
+
+Without this secret, the merge queue still works but branches won't be locked during processing (optimistic SHA verification is used as a fallback).
+
+### 4. Workflows
 
 | Workflow | Purpose |
 |----------|---------|
