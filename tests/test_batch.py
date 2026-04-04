@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import datetime
-
 import pytest
 
 from merge_queue.batch import (
@@ -20,27 +18,13 @@ from merge_queue.batch import (
     fail_batch,
     run_ci,
 )
-from merge_queue.types import Batch, BatchStatus, Stack
+from merge_queue.types import BatchStatus
 
-from tests.conftest import make_pr
-
-T0 = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
-
-
-def _stack(*prs):
-    return Stack(prs=tuple(prs), queued_at=T0)
+from tests.conftest import make_batch, make_pr, make_stack
 
 
 def _batch(stack, **kwargs):
-    defaults = dict(
-        batch_id="123",
-        branch="mq/123",
-        stack=stack,
-        status=BatchStatus.RUNNING,
-        ruleset_id=42,
-    )
-    defaults.update(kwargs)
-    return Batch(**defaults)
+    return make_batch(stack, **kwargs)
 
 
 def _good_ruleset(ruleset_id=42, patterns=None):
@@ -220,13 +204,13 @@ class TestUnlockRuleset:
 
 class TestUnlock:
     def test_delegates_to_unlock_ruleset(self, mock_client):
-        batch = _batch(_stack(make_pr(1, "feat-a")))
+        batch = _batch(make_stack(make_pr(1, "feat-a")))
         mock_client.get_ruleset.side_effect = RuntimeError("404")
         _unlock(mock_client, batch)
         mock_client.delete_ruleset.assert_called_once_with(42)
 
     def test_no_ruleset_noop(self, mock_client):
-        batch = _batch(_stack(make_pr(1, "feat-a")), ruleset_id=None)
+        batch = _batch(make_stack(make_pr(1, "feat-a")), ruleset_id=None)
         _unlock(mock_client, batch)
         mock_client.delete_ruleset.assert_not_called()
 
@@ -237,7 +221,7 @@ class TestUnlock:
 class TestGitCreateAndMerge:
     def test_single_pr(self):
         pr = make_pr(1, "feat-a", head_sha="sha-1")
-        stack = _stack(pr)
+        stack = make_stack(pr)
         calls = []
 
         def fake_git(*args):
@@ -254,10 +238,10 @@ class TestGitCreateAndMerge:
         assert any(a[0] == "merge" for a in calls)
         assert any(a[0] == "push" for a in calls)
 
-    def test_multi_pr_stack(self):
+    def test_multi_prmake_stack(self):
         a = make_pr(1, "feat-a", head_sha="sha-1")
         b = make_pr(2, "feat-b", "feat-a", head_sha="sha-2")
-        stack = _stack(a, b)
+        stack = make_stack(a, b)
         calls = []
 
         def fake_git(*args):
@@ -275,7 +259,7 @@ class TestGitCreateAndMerge:
 
     def test_sha_mismatch_raises(self):
         pr = make_pr(1, "feat-a", head_sha="sha-1")
-        stack = _stack(pr)
+        stack = make_stack(pr)
 
         def fake_git(*args):
             if args[0] == "rev-parse":
@@ -297,7 +281,7 @@ class TestCreateBatch:
 
     def test_locks_then_merges(self, mock_client):
         pr = make_pr(1, "feat-a", head_sha="sha-1")
-        stack = _stack(pr)
+        stack = make_stack(pr)
         mock_client.get_ruleset.return_value = _good_ruleset()
         call_order = []
         mock_client.create_ruleset.side_effect = lambda *a, **k: (
@@ -320,7 +304,7 @@ class TestCreateBatch:
 
     def test_lock_failure_raises_batch_error(self, mock_client):
         pr = make_pr(1, "feat-a", head_sha="sha-1")
-        stack = _stack(pr)
+        stack = make_stack(pr)
         mock_client.create_ruleset.side_effect = RuntimeError("no token")
 
         with pytest.raises(BatchError, match="Could not lock"):
@@ -328,7 +312,7 @@ class TestCreateBatch:
 
     def test_merge_failure_rolls_back(self, mock_client):
         pr = make_pr(1, "feat-a", head_sha="sha-1")
-        stack = _stack(pr)
+        stack = make_stack(pr)
         mock_client.get_ruleset.return_value = _good_ruleset()
         # Unlock verification: 404 means deleted
         mock_client.get_ruleset.side_effect = [
@@ -353,7 +337,7 @@ class TestCreateBatch:
 
 class TestRunCi:
     def test_dispatches_and_polls(self, mock_client):
-        batch = _batch(_stack(make_pr(1, "feat-a")))
+        batch = _batch(make_stack(make_pr(1, "feat-a")))
         mock_client.poll_ci_with_url.return_value = (True, "https://example.com/run/1")
         result = run_ci(mock_client, batch)
         assert result.passed is True
@@ -361,7 +345,7 @@ class TestRunCi:
         mock_client.dispatch_ci.assert_called_once_with("mq/123")
 
     def test_returns_false_on_failure(self, mock_client):
-        batch = _batch(_stack(make_pr(1, "feat-a")))
+        batch = _batch(make_stack(make_pr(1, "feat-a")))
         mock_client.poll_ci_with_url.return_value = (False, "https://example.com/run/2")
         result = run_ci(mock_client, batch)
         assert result.passed is False
@@ -374,7 +358,7 @@ class TestRunCi:
 class TestCompleteBatch:
     def test_happy_path(self, mock_client):
         pr = make_pr(1, "feat-a", head_sha="sha-1")
-        batch = _batch(_stack(pr))
+        batch = _batch(make_stack(pr))
         mock_client.get_ruleset.side_effect = RuntimeError("404")
 
         complete_batch(mock_client, batch)
@@ -393,16 +377,16 @@ class TestCompleteBatch:
 
     def test_main_diverged_raises(self, mock_client):
         pr = make_pr(1, "feat-a", head_sha="sha-1")
-        batch = _batch(_stack(pr))
+        batch = _batch(make_stack(pr))
         mock_client.compare_commits.return_value = "diverged"
 
         with pytest.raises(BatchError, match="diverged"):
             complete_batch(mock_client, batch)
 
-    def test_multi_pr_stack(self, mock_client):
+    def test_multi_prmake_stack(self, mock_client):
         a = make_pr(1, "feat-a", head_sha="sha-1")
         b = make_pr(2, "feat-b", "feat-a", head_sha="sha-2")
-        batch = _batch(_stack(a, b))
+        batch = _batch(make_stack(a, b))
         mock_client.get_ruleset.side_effect = RuntimeError("404")
 
         complete_batch(mock_client, batch)
@@ -414,7 +398,7 @@ class TestCompleteBatch:
 
     def test_no_ruleset_skips_unlock(self, mock_client):
         pr = make_pr(1, "feat-a", head_sha="sha-1")
-        batch = _batch(_stack(pr), ruleset_id=None)
+        batch = _batch(make_stack(pr), ruleset_id=None)
 
         complete_batch(mock_client, batch)
 
@@ -423,7 +407,7 @@ class TestCompleteBatch:
 
     def test_retarget_failure_continues(self, mock_client):
         pr = make_pr(1, "feat-a", head_sha="sha-1")
-        batch = _batch(_stack(pr))
+        batch = _batch(make_stack(pr))
         mock_client.update_pr_base.side_effect = RuntimeError("no new commits")
         mock_client.get_ruleset.side_effect = RuntimeError("404")
 
@@ -434,7 +418,7 @@ class TestCompleteBatch:
         """Verify unlock, delete, and comment all happen (parallel execution)."""
         a = make_pr(1, "feat-a", head_sha="sha-1")
         b = make_pr(2, "feat-b", "feat-a", head_sha="sha-2")
-        batch = _batch(_stack(a, b))
+        batch = _batch(make_stack(a, b))
         mock_client.get_ruleset.side_effect = RuntimeError("404")
 
         complete_batch(mock_client, batch)
@@ -447,7 +431,7 @@ class TestCompleteBatch:
     def test_cleanup_failure_does_not_block(self, mock_client):
         """If one cleanup task fails, others still complete."""
         pr = make_pr(1, "feat-a", head_sha="sha-1")
-        batch = _batch(_stack(pr))
+        batch = _batch(make_stack(pr))
         # Unlock will fail (get_ruleset says it still exists)
         mock_client.get_ruleset.return_value = _good_ruleset()
 
@@ -465,7 +449,7 @@ class TestCompleteBatch:
 class TestFailBatch:
     def test_cleans_up(self, mock_client):
         pr = make_pr(1, "feat-a")
-        batch = _batch(_stack(pr))
+        batch = _batch(make_stack(pr))
         mock_client.get_ruleset.side_effect = RuntimeError("404")
 
         fail_batch(mock_client, batch, "CI failed")
@@ -480,7 +464,7 @@ class TestFailBatch:
 
     def test_unlock_failure_continues(self, mock_client):
         pr = make_pr(1, "feat-a")
-        batch = _batch(_stack(pr))
+        batch = _batch(make_stack(pr))
         mock_client.delete_ruleset.side_effect = RuntimeError("always fails")
 
         fail_batch(mock_client, batch, "CI failed")

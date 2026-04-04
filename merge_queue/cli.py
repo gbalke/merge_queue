@@ -159,6 +159,21 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
             }
         ]
 
+    # CI gate: all PRs in stack must have passing CI
+    for pr_dict in stack_dicts:
+        ci_passed, _ci_url = client.get_pr_ci_status(pr_dict["number"])
+        if not ci_passed:
+            _comment(
+                client,
+                pr_dict["number"],
+                comments.ci_not_ready(pr_dict["number"], owner, repo),
+            )
+            try:
+                client.remove_label(pr_number, "queue")
+            except Exception:
+                pass
+            return "ci_not_ready"
+
     position = len(state.get("queue", [])) + 1
     total = position
     entry = {
@@ -557,6 +572,17 @@ def do_abort(client: GitHubClientProtocol, pr_number: int) -> str:
     return "not_found"
 
 
+def do_retest(client: GitHubClientProtocol, pr_number: int) -> str:
+    """Retrigger CI on a PR's head branch, then clean up the re-test label."""
+    pr_data = client.get_pr(pr_number)
+    ref = pr_data["head"]["ref"]
+    owner, repo = _owner_repo(client)
+    client.dispatch_ci_on_ref(ref)
+    client.remove_label(pr_number, "re-test")
+    _comment(client, pr_number, comments.ci_retriggered(owner, repo))
+    return "retriggered"
+
+
 def do_check_rules(client: GitHubClientProtocol) -> list[rules_mod.RuleResult]:
     state = QueueState.fetch(client)
     return rules_mod.check_all(state)
@@ -593,6 +619,12 @@ def cmd_process(args: argparse.Namespace) -> None:
 def cmd_abort(args: argparse.Namespace) -> None:
     client = _make_client()
     do_abort(client, args.pr_number)
+    _log_rate_limit(client)
+
+
+def cmd_retest(args: argparse.Namespace) -> None:
+    client = _make_client()
+    do_retest(client, args.pr_number)
     _log_rate_limit(client)
 
 
@@ -633,6 +665,10 @@ def main() -> None:
     p = sub.add_parser("abort")
     p.add_argument("pr_number", type=int)
     p.set_defaults(func=cmd_abort)
+
+    p = sub.add_parser("retest")
+    p.add_argument("pr_number", type=int)
+    p.set_defaults(func=cmd_retest)
 
     sub.add_parser("check-rules").set_defaults(func=cmd_check_rules)
     sub.add_parser("status").set_defaults(func=cmd_status)

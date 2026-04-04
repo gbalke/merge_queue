@@ -143,6 +143,7 @@ def _counting_client(
     client.dispatch_ci.return_value = None
     client.poll_ci_with_url.return_value = (ci_passes, "https://example.com/run/1")
     client.get_failed_job_info.return_value = ("test-job", "Failed at step: pytest")
+    client.get_pr_ci_status.return_value = (True, "https://example.com/check/1")
 
     # Per-PR data
     pr_data_by_number = pr_data_by_number or {}
