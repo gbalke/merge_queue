@@ -2,7 +2,7 @@
 
 ## Active Batch
 **Branch:** `mq/1775340355`
-**Status:** running_ci
+**Status:** completing
 **Started:** 2026-04-04T22:05:53.887110+00:00
 
 | PR | Branch | Title |
@@ -30,4 +30,4 @@
 | `1775332468` | #45 | ✅ merged | 1m 17s |
 | `1775332277` | #42, #44 |  ci_failed | 1m 18s |
 
-_Updated 2026-04-04T22:05:56.397122+00:00_
+_Updated 2026-04-04T22:07:19.847749+00:00_
