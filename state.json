@@ -1,7 +1,25 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T20:20:06.393802+00:00",
-  "queue": [],
+  "updated_at": "2026-04-04T20:21:42.295436+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-04T20:21:41.021847+00:00",
+      "stack": [
+        {
+          "number": 48,
+          "head_sha": "025bc79c17d065e3c24034f5fab38aca43e124c1",
+          "head_ref": "greg/revup/main/configurable-ci",
+          "base_ref": "main",
+          "title": "Make CI workflow name configurable via MQ_CI_WORKFLOW env var"
+        }
+      ],
+      "deployment_id": 4271418562,
+      "comment_ids": {
+        "48": 4187692330
+      }
+    }
+  ],
   "active_batch": null,
   "history": [
     {
