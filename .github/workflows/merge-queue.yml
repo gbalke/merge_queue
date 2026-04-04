@@ -7,7 +7,7 @@ on:
     inputs:
       command:
         type: choice
-        options: [process, check-rules]
+        options: [process, check-rules, status]
         default: process
 
 concurrency:
@@ -24,6 +24,7 @@ jobs:
       contents: write
       pull-requests: write
       actions: write
+      deployments: write
     steps:
       - uses: actions/checkout@v4
         with:
