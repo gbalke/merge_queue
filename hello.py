@@ -16,3 +16,6 @@ def feature_c():
 
 def test_a():
     return "Test A"
+
+def test_b():
+    return "Test B"
