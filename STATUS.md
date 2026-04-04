@@ -1,8 +1,8 @@
 # Merge Queue Status
 
 ## Active Batch
-**Branch:** ``
-**Status:** locking
+**Branch:** `mq/1775342732`
+**Status:** running_ci
 **Started:** 2026-04-04T22:45:30.935195+00:00
 
 | PR | Branch | Title |
@@ -19,4 +19,4 @@ _Empty — nothing waiting._
 | `1775341162` | #54 | ✅ merged | 1m 37s |
 | `1775340971` | #55 | ✅ merged | 1m 34s |
 
-_Updated 2026-04-04T22:45:30.935210+00:00_
+_Updated 2026-04-04T22:45:33.324954+00:00_
