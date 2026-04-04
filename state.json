@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T20:21:43.626783+00:00",
+  "updated_at": "2026-04-04T20:21:46.516534+00:00",
   "queue": [],
   "active_batch": {
-    "batch_id": "",
-    "branch": "",
-    "ruleset_id": null,
+    "batch_id": "1775334104",
+    "branch": "mq/1775334104",
+    "ruleset_id": 14699703,
     "started_at": "2026-04-04T20:21:43.626769+00:00",
-    "progress": "locking",
+    "progress": "running_ci",
     "stack": [
       {
         "number": 48,
@@ -21,7 +21,8 @@
     "comment_ids": {
       "48": 4187692330
     },
-    "queued_at": "2026-04-04T20:21:41.021847+00:00"
+    "queued_at": "2026-04-04T20:21:41.021847+00:00",
+    "ci_started_at": "2026-04-04T20:21:46.516517+00:00"
   },
   "history": [
     {
