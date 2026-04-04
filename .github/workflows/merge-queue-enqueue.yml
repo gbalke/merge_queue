@@ -299,16 +299,10 @@ jobs:
               return;
             }
 
-            // --- 3. Fast-forward main ---
-            await github.rest.git.updateRef({
-              owner, repo,
-              ref: `heads/${defaultBranch}`,
-              sha: batchSha,
-              force: false
-            });
-            console.log(`Fast-forwarded ${defaultBranch} to ${batchSha}`);
-
-            // --- 4. Retarget PRs so GitHub marks them "Merged" ---
+            // --- 3. Retarget all PRs to default branch BEFORE fast-forward ---
+            // This ensures GitHub sees "new commits" between base and head.
+            // After fast-forward, GitHub will detect the head is reachable from
+            // main and mark them as "merged" (purple).
             for (const entry of batch) {
               try {
                 await github.rest.pulls.update({
@@ -320,6 +314,16 @@ jobs:
               }
             }
 
+            // --- 4. Fast-forward main ---
+            await github.rest.git.updateRef({
+              owner, repo,
+              ref: `heads/${defaultBranch}`,
+              sha: batchSha,
+              force: false
+            });
+            console.log(`Fast-forwarded ${defaultBranch} to ${batchSha}`);
+
+            // Wait for GitHub to process reachability
             await new Promise(r => setTimeout(r, 5000));
 
             // --- 5. Post success + cleanup ---
@@ -330,7 +334,7 @@ jobs:
               });
             }
 
-            await github.rest.git.deleteRef({ owner, repo, ref: `heads/${batchBranch}` });
+            await github.rest.git.deleteRef({ owner, repo, ref: `heads/${batchBranch}` }).catch(() => {});
 
             for (const entry of batch) {
               try {
