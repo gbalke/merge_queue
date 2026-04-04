@@ -109,7 +109,7 @@ Install merge-queue in any GitHub repository:
 
 1. Copy [`examples/merge-queue.yml`](examples/merge-queue.yml) to `.github/workflows/merge-queue.yml`
 2. Change `MQ_CI_WORKFLOW` to your CI workflow filename (e.g., `test.yml`, `ci.yml`)
-3. Create labels: `queue`, `locked`, `re-test`
+3. Create labels: `queue`, `locked`, `re-test`, `break-glass`
 4. Add `MQ_ADMIN_TOKEN` secret (fine-grained PAT with Administration: Write)
 5. Add `queue` label to PRs to start using the merge queue
 
@@ -129,6 +129,7 @@ The merge queue auto-detects your repository's default branch.
 - `queue` — triggers the merge queue
 - `locked` — auto-managed, indicates branch is locked
 - `re-test` — retrigger CI on a PR's head branch
+- `break-glass` — bypass CI gate (emergency use only, when MQ itself is broken)
 
 ### 3. `MQ_ADMIN_TOKEN` Secret
 
