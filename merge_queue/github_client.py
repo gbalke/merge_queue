@@ -156,6 +156,12 @@ class GitHubClient:
         r.raise_for_status()
         return r.json() if r.content else None
 
+    def _put(self, path: str, json: Any = None, **kwargs: Any) -> Any:
+        r = self._session.put(f"{self._base_url}{path}", json=json, **kwargs)
+        self._track(r)
+        r.raise_for_status()
+        return r.json() if r.content else None
+
     def _patch(self, path: str, json: Any = None, **kwargs: Any) -> Any:
         r = self._session.patch(f"{self._base_url}{path}", json=json, **kwargs)
         self._track(r)
