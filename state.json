@@ -1,29 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T20:06:45.511481+00:00",
+  "updated_at": "2026-04-04T20:06:53.924025+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775333120",
-    "branch": "mq/1775333120",
-    "ruleset_id": 14699438,
-    "started_at": "2026-04-04T20:05:19.798917+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 46,
-        "head_sha": "ce0cc573482997b889079237246548634e3b8730",
-        "head_ref": "greg/revup/main/ci-badge-fix",
-        "base_ref": "main",
-        "title": "Set commit status on main after merge for CI badge"
-      }
-    ],
-    "deployment_id": 4271333374,
-    "comment_ids": {
-      "46": 4187669400
-    },
-    "queued_at": "2026-04-04T20:05:17.937171+00:00",
-    "ci_started_at": "2026-04-04T20:05:22.023619+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775331440",
@@ -80,6 +59,15 @@
         44
       ],
       "duration_seconds": 97.226909
+    },
+    {
+      "batch_id": "1775333120",
+      "status": "merged",
+      "completed_at": "2026-04-04T20:06:53.924001+00:00",
+      "prs": [
+        46
+      ],
+      "duration_seconds": 94.125084
     }
   ]
 }
