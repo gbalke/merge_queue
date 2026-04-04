@@ -13,3 +13,6 @@ def feature_b():
 
 def feature_c():
     return "Feature C"
+
+def test_a():
+    return "Test A"
