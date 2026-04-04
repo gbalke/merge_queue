@@ -15,11 +15,25 @@ from merge_queue.types import Batch, BatchStatus, Stack
 
 log = logging.getLogger(__name__)
 
-# Type for the git runner function — injectable for testing
 GitRunner = Callable[..., str]
+
+MAX_LOCK_RETRIES = 3
+LOCK_RETRY_DELAY = 2  # seconds
+MAX_UNLOCK_RETRIES = 3
+UNLOCK_RETRY_DELAY = 2
 
 
 class BatchError(Exception):
+    pass
+
+
+class LockError(BatchError):
+    """Failed to lock branches after retries."""
+    pass
+
+
+class UnlockError(BatchError):
+    """Failed to unlock branches after retries."""
     pass
 
 
@@ -32,6 +46,123 @@ def run_git(*args: str) -> str:
         check=True,
     )
     return result.stdout
+
+
+def _lock_branches(
+    client: GitHubClientProtocol,
+    name: str,
+    branch_patterns: list[str],
+    *,
+    max_retries: int = MAX_LOCK_RETRIES,
+    retry_delay: float = LOCK_RETRY_DELAY,
+) -> int:
+    """Create a ruleset and verify it's active. Retries on failure.
+
+    Returns the ruleset ID.
+    Raises LockError if all retries exhausted.
+    """
+    last_error: Exception | None = None
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            ruleset_id = client.create_ruleset(name, branch_patterns)
+            log.info("Created lock ruleset %d (attempt %d)", ruleset_id, attempt)
+
+            # Verify the ruleset is active
+            ruleset = client.get_ruleset(ruleset_id)
+            if ruleset.get("enforcement") != "active":
+                raise LockError(
+                    f"Ruleset {ruleset_id} created but enforcement is "
+                    f"'{ruleset.get('enforcement')}', expected 'active'"
+                )
+
+            # Verify it covers the right branches
+            conditions = ruleset.get("conditions", {}).get("ref_name", {})
+            covered = set(conditions.get("include", []))
+            expected = set(branch_patterns)
+            if not expected.issubset(covered):
+                missing = expected - covered
+                raise LockError(
+                    f"Ruleset {ruleset_id} missing branch patterns: {missing}"
+                )
+
+            log.info("Verified lock ruleset %d is active and covers all branches", ruleset_id)
+            return ruleset_id
+
+        except LockError:
+            raise  # Verification failures are not retryable
+        except Exception as e:
+            last_error = e
+            log.warning(
+                "Lock attempt %d/%d failed: %s", attempt, max_retries, e
+            )
+            if attempt < max_retries:
+                time.sleep(retry_delay)
+
+    raise LockError(
+        f"Failed to lock branches after {max_retries} attempts: {last_error}"
+    )
+
+
+def _unlock_ruleset(
+    client: GitHubClientProtocol,
+    ruleset_id: int | None,
+    *,
+    max_retries: int = MAX_UNLOCK_RETRIES,
+    retry_delay: float = UNLOCK_RETRY_DELAY,
+) -> None:
+    """Delete a ruleset and verify it's gone. Retries on failure.
+
+    Raises UnlockError if all retries exhausted.
+    """
+    if ruleset_id is None:
+        return
+
+    last_error: Exception | None = None
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            client.delete_ruleset(ruleset_id)
+            log.info("Deleted lock ruleset %d (attempt %d)", ruleset_id, attempt)
+
+            # Verify the ruleset is gone
+            try:
+                client.get_ruleset(ruleset_id)
+                # If we get here, the ruleset still exists
+                raise UnlockError(
+                    f"Ruleset {ruleset_id} still exists after deletion"
+                )
+            except Exception as verify_err:
+                # 404 means it's gone — that's what we want
+                err_str = str(verify_err)
+                if "404" in err_str or "Not Found" in err_str:
+                    log.info("Verified ruleset %d is deleted", ruleset_id)
+                    return
+                # If it's our own UnlockError, re-raise
+                if isinstance(verify_err, UnlockError):
+                    raise
+                # Other errors during verification — ruleset is probably gone
+                log.info("Ruleset %d likely deleted (verify got: %s)", ruleset_id, verify_err)
+                return
+
+        except UnlockError:
+            raise
+        except Exception as e:
+            last_error = e
+            log.warning(
+                "Unlock attempt %d/%d failed: %s", attempt, max_retries, e
+            )
+            if attempt < max_retries:
+                time.sleep(retry_delay)
+
+    raise UnlockError(
+        f"Failed to unlock ruleset {ruleset_id} after {max_retries} attempts: {last_error}"
+    )
+
+
+def _unlock(client: GitHubClientProtocol, batch: Batch) -> None:
+    """Delete the lock ruleset for a batch."""
+    _unlock_ruleset(client, batch.ruleset_id)
 
 
 def create_batch(
@@ -50,10 +181,11 @@ def create_batch(
     branch_patterns = [f"refs/heads/{pr.head_ref}" for pr in stack.prs]
     ruleset_id = None
     try:
-        ruleset_id = client.create_ruleset(f"mq-lock-{batch_id}", branch_patterns)
-        log.info("Created lock ruleset %s", ruleset_id)
-    except Exception as e:
-        log.warning("Could not create lock ruleset: %s", e)
+        ruleset_id = _lock_branches(
+            client, f"mq-lock-{batch_id}", branch_patterns
+        )
+    except LockError as e:
+        raise BatchError(f"Could not lock branches: {e}") from e
 
     for pr in stack.prs:
         client.add_label(pr.number, "locked")
@@ -63,7 +195,10 @@ def create_batch(
         _git_create_and_merge(branch, stack, git=git)
     except Exception:
         # Merge failed — unlock before propagating
-        _unlock_ruleset(client, ruleset_id)
+        try:
+            _unlock_ruleset(client, ruleset_id)
+        except UnlockError as ue:
+            log.error("Failed to unlock after merge failure: %s", ue)
         for pr in stack.prs:
             client.remove_label(pr.number, "locked")
         raise
@@ -90,7 +225,6 @@ def _git_create_and_merge(
         log.info("Merging PR #%d (%s @ %s)...", pr.number, pr.head_ref, pr.head_sha)
         git("fetch", "origin", pr.head_ref)
 
-        # Verify SHA hasn't changed
         actual_sha = git("rev-parse", f"origin/{pr.head_ref}").strip()
         if actual_sha != pr.head_sha:
             raise BatchError(
@@ -117,18 +251,15 @@ def complete_batch(client: GitHubClientProtocol, batch: Batch) -> None:
     default_branch = client.get_default_branch()
     batch_sha = client.get_branch_sha(batch.branch)
 
-    # Verify optimistic locks
     for pr in batch.stack.prs:
         current = client.get_pr(pr.number)
         if current["head"]["sha"] != pr.head_sha:
             raise BatchError(f"PR #{pr.number} head changed during batch")
 
-    # Verify main hasn't diverged
     status = client.compare_commits(default_branch, batch_sha)
     if status != "ahead":
         raise BatchError(f"Main has diverged (status: {status})")
 
-    # Retarget PRs to main BEFORE fast-forward (so GitHub sees new commits)
     for pr in batch.stack.prs:
         try:
             client.update_pr_base(pr.number, default_branch)
@@ -136,17 +267,17 @@ def complete_batch(client: GitHubClientProtocol, batch: Batch) -> None:
         except Exception as e:
             log.warning("Could not retarget PR #%d: %s", pr.number, e)
 
-    # Fast-forward main
     client.update_ref(default_branch, batch_sha)
     log.info("Fast-forwarded %s to %s", default_branch, batch_sha)
 
-    # Wait for GitHub to process reachability
     time.sleep(5)
 
-    # Unlock
-    _unlock(client, batch)
+    # Unlock with retries
+    try:
+        _unlock(client, batch)
+    except UnlockError as e:
+        log.error("Failed to unlock after merge: %s", e)
 
-    # Remove labels + comment
     for pr in batch.stack.prs:
         client.remove_label(pr.number, "locked")
         client.remove_label(pr.number, "queue")
@@ -155,7 +286,6 @@ def complete_batch(client: GitHubClientProtocol, batch: Batch) -> None:
             f"**Merge Queue:** Successfully merged to `{default_branch}`.",
         )
 
-    # Delete branches
     client.delete_branch(batch.branch)
     for pr in batch.stack.prs:
         client.delete_branch(pr.head_ref)
@@ -169,7 +299,10 @@ def fail_batch(
     reason: str,
 ) -> None:
     """Handle a failed batch: unlock, remove labels, notify."""
-    _unlock(client, batch)
+    try:
+        _unlock(client, batch)
+    except UnlockError as e:
+        log.error("Failed to unlock during fail_batch: %s", e)
 
     for pr in batch.stack.prs:
         client.remove_label(pr.number, "locked")
@@ -189,10 +322,9 @@ def abort_batch(client: GitHubClientProtocol) -> None:
     for rs in client.list_rulesets():
         if rs.get("name", "").startswith("mq-lock-"):
             try:
-                client.delete_ruleset(rs["id"])
-                log.info("Deleted ruleset %s (%d)", rs["name"], rs["id"])
-            except Exception as e:
-                log.warning("Could not delete ruleset %d: %s", rs["id"], e)
+                _unlock_ruleset(client, rs["id"])
+            except UnlockError as e:
+                log.error("Failed to unlock ruleset %d during abort: %s", rs["id"], e)
 
     for pr_data in client.list_open_prs():
         labels = [l["name"] for l in pr_data.get("labels", [])]
@@ -202,18 +334,3 @@ def abort_batch(client: GitHubClientProtocol) -> None:
     for branch in client.list_mq_branches():
         client.delete_branch(branch)
         log.info("Deleted branch %s", branch)
-
-
-def _unlock(client: GitHubClientProtocol, batch: Batch) -> None:
-    """Delete the lock ruleset for a batch."""
-    _unlock_ruleset(client, batch.ruleset_id)
-
-
-def _unlock_ruleset(client: GitHubClientProtocol, ruleset_id: int | None) -> None:
-    """Delete a specific lock ruleset by ID."""
-    if ruleset_id is not None:
-        try:
-            client.delete_ruleset(ruleset_id)
-            log.info("Deleted lock ruleset %d", ruleset_id)
-        except Exception as e:
-            log.warning("Could not delete ruleset %d: %s", ruleset_id, e)
