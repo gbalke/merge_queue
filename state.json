@@ -1,30 +1,9 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:05:47.534175+00:00",
+  "updated_at": "2026-04-04T19:05:49.407126+00:00",
   "queue": [
     {
       "position": 1,
-      "queued_at": "2026-04-04T18:53:37.923563+00:00",
-      "stack": [
-        {
-          "number": 22,
-          "head_sha": "8fe6e3e9b6fc55c220c7f2e640171b069cda900d",
-          "head_ref": "greg/revup/main/pass-a1",
-          "base_ref": "main",
-          "title": ""
-        },
-        {
-          "number": 23,
-          "head_sha": "c74d34893eb3820d5c47ff5c3d3d14b0fe34aca6",
-          "head_ref": "greg/revup/main/pass-a2",
-          "base_ref": "greg/revup/main/pass-a1",
-          "title": ""
-        }
-      ],
-      "deployment_id": 4270991011
-    },
-    {
-      "position": 2,
       "queued_at": "2026-04-04T18:53:57.216974+00:00",
       "stack": [
         {
@@ -45,7 +24,7 @@
       "deployment_id": 4270992898
     },
     {
-      "position": 3,
+      "position": 2,
       "queued_at": "2026-04-04T19:05:47.194449+00:00",
       "stack": [
         {
@@ -66,6 +45,29 @@
       "deployment_id": 4271048219
     }
   ],
-  "active_batch": null,
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-04T19:05:49.407112+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 22,
+        "head_sha": "8fe6e3e9b6fc55c220c7f2e640171b069cda900d",
+        "head_ref": "greg/revup/main/pass-a1",
+        "base_ref": "main",
+        "title": ""
+      },
+      {
+        "number": 23,
+        "head_sha": "c74d34893eb3820d5c47ff5c3d3d14b0fe34aca6",
+        "head_ref": "greg/revup/main/pass-a2",
+        "base_ref": "greg/revup/main/pass-a1",
+        "title": ""
+      }
+    ],
+    "deployment_id": 4270991011
+  },
   "history": []
 }
