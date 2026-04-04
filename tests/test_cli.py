@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -14,7 +14,6 @@ from merge_queue.cli import (
     do_enqueue,
     do_process,
     do_status,
-    cmd_status,
     main,
 )
 from merge_queue.state import QueueState
@@ -107,15 +106,25 @@ class TestDoProcess:
     @patch("merge_queue.cli.QueueState")
     @patch("merge_queue.cli.batch_mod")
     def test_processes_first_in_queue(self, batch_mod, QS, mock_client, mock_store):
-        from merge_queue.types import Batch, BatchStatus
+        from merge_queue.types import Batch
+
         mock_store.read.return_value = {
             **empty_state(),
-            "queue": [{
-                "position": 1,
-                "queued_at": T0.isoformat(),
-                "stack": [{"number": 1, "head_sha": "sha-1", "head_ref": "feat-a", "base_ref": "main"}],
-                "deployment_id": 99,
-            }],
+            "queue": [
+                {
+                    "position": 1,
+                    "queued_at": T0.isoformat(),
+                    "stack": [
+                        {
+                            "number": 1,
+                            "head_sha": "sha-1",
+                            "head_ref": "feat-a",
+                            "base_ref": "main",
+                        }
+                    ],
+                    "deployment_id": 99,
+                }
+            ],
         }
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/123", Stack(prs=(), queued_at=T0))
@@ -132,20 +141,32 @@ class TestDoProcess:
         batch_mod.create_batch.assert_called_once()
         batch_mod.complete_batch.assert_called_once()
         assert mock_store.write.call_count >= 3
-        mock_client.update_deployment_status.assert_any_call(99, "in_progress", "Locking branches...")
+        mock_client.update_deployment_status.assert_any_call(
+            99, "in_progress", "Locking branches..."
+        )
 
     @patch("merge_queue.cli.QueueState")
     @patch("merge_queue.cli.batch_mod")
     def test_ci_failure(self, batch_mod, QS, mock_client, mock_store):
-        from merge_queue.types import Batch, BatchStatus
+        from merge_queue.types import Batch
+
         mock_store.read.return_value = {
             **empty_state(),
-            "queue": [{
-                "position": 1,
-                "queued_at": T0.isoformat(),
-                "stack": [{"number": 1, "head_sha": "sha-1", "head_ref": "feat-a", "base_ref": "main"}],
-                "deployment_id": None,
-            }],
+            "queue": [
+                {
+                    "position": 1,
+                    "queued_at": T0.isoformat(),
+                    "stack": [
+                        {
+                            "number": 1,
+                            "head_sha": "sha-1",
+                            "head_ref": "feat-a",
+                            "base_ref": "main",
+                        }
+                    ],
+                    "deployment_id": None,
+                }
+            ],
         }
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/123", Stack(prs=(), queued_at=T0))
@@ -167,32 +188,53 @@ class TestDoProcess:
     def test_batch_error(self, batch_mod, QS, mock_client, mock_store):
         mock_store.read.return_value = {
             **empty_state(),
-            "queue": [{
-                "position": 1,
-                "queued_at": T0.isoformat(),
-                "stack": [{"number": 1, "head_sha": "sha-1", "head_ref": "feat-a", "base_ref": "main"}],
-                "deployment_id": 88,
-            }],
+            "queue": [
+                {
+                    "position": 1,
+                    "queued_at": T0.isoformat(),
+                    "stack": [
+                        {
+                            "number": 1,
+                            "head_sha": "sha-1",
+                            "head_ref": "feat-a",
+                            "base_ref": "main",
+                        }
+                    ],
+                    "deployment_id": 88,
+                }
+            ],
         }
         QS.fetch.return_value = _api_state()
         batch_mod.create_batch.side_effect = Exception("merge conflict")
         batch_mod.BatchError = Exception
 
         assert do_process(mock_client) == "batch_error"
-        mock_client.update_deployment_status.assert_any_call(88, "failure", "merge conflict")
+        mock_client.update_deployment_status.assert_any_call(
+            88, "failure", "merge conflict"
+        )
 
     @patch("merge_queue.cli.QueueState")
     @patch("merge_queue.cli.batch_mod")
     def test_moves_to_history(self, batch_mod, QS, mock_client, mock_store):
         from merge_queue.types import Batch
+
         mock_store.read.return_value = {
             **empty_state(),
-            "queue": [{
-                "position": 1,
-                "queued_at": T0.isoformat(),
-                "stack": [{"number": 1, "head_sha": "sha-1", "head_ref": "feat-a", "base_ref": "main"}],
-                "deployment_id": None,
-            }],
+            "queue": [
+                {
+                    "position": 1,
+                    "queued_at": T0.isoformat(),
+                    "stack": [
+                        {
+                            "number": 1,
+                            "head_sha": "sha-1",
+                            "head_ref": "feat-a",
+                            "base_ref": "main",
+                        }
+                    ],
+                    "deployment_id": None,
+                }
+            ],
         }
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/123", Stack(prs=(), queued_at=T0))
@@ -228,7 +270,7 @@ class TestDoEnqueue:
         mock_client.create_deployment.return_value = 42
         mock_client.create_comment.return_value = 100
 
-        result = do_enqueue(mock_client, 1)
+        do_enqueue(mock_client, 1)
 
         written = mock_store.write.call_args_list[0][0][0]
         assert len(written["queue"]) == 1
@@ -242,11 +284,20 @@ class TestDoEnqueue:
         mock_client.get_pr.return_value = {"state": "open"}
         mock_store.read.return_value = {
             **empty_state(),
-            "queue": [{
-                "position": 1,
-                "queued_at": T0.isoformat(),
-                "stack": [{"number": 1, "head_sha": "sha-1", "head_ref": "feat-a", "base_ref": "main"}],
-            }],
+            "queue": [
+                {
+                    "position": 1,
+                    "queued_at": T0.isoformat(),
+                    "stack": [
+                        {
+                            "number": 1,
+                            "head_sha": "sha-1",
+                            "head_ref": "feat-a",
+                            "base_ref": "main",
+                        }
+                    ],
+                }
+            ],
         }
 
         assert do_enqueue(mock_client, 1) == "already_queued"
@@ -270,7 +321,7 @@ class TestDoAbort:
             },
         }
 
-        with patch("merge_queue.cli.batch_mod") as bm:
+        with patch("merge_queue.cli.batch_mod"):
             result = do_abort(mock_client, 1)
 
         assert result == "aborted"
@@ -328,16 +379,18 @@ class TestMain:
     def test_parses_status(self, monkeypatch):
         monkeypatch.setenv("GITHUB_REPOSITORY", "test/repo")
         monkeypatch.setenv("GITHUB_TOKEN", "tok")
-        with patch("merge_queue.cli._make_client"), \
-             patch("merge_queue.cli.do_status", return_value="ACTIVE: none"):
+        with patch("merge_queue.cli._make_client"), patch(
+            "merge_queue.cli.do_status", return_value="ACTIVE: none"
+        ):
             monkeypatch.setattr("sys.argv", ["merge-queue", "status"])
             main()
 
     def test_parses_enqueue(self, monkeypatch):
         monkeypatch.setenv("GITHUB_REPOSITORY", "test/repo")
         monkeypatch.setenv("GITHUB_TOKEN", "tok")
-        with patch("merge_queue.cli._make_client"), \
-             patch("merge_queue.cli.do_enqueue") as de:
+        with patch("merge_queue.cli._make_client"), patch(
+            "merge_queue.cli.do_enqueue"
+        ) as de:
             monkeypatch.setattr("sys.argv", ["merge-queue", "enqueue", "42"])
             main()
             assert de.call_args[0][1] == 42

@@ -28,7 +28,9 @@ def locked_prs_have_rulesets(state: QueueState) -> RuleResult:
     if not locked:
         return RuleResult("locked_prs_have_rulesets", True, "No locked PRs")
 
-    mq_rulesets = [rs for rs in state.rulesets if rs.get("name", "").startswith("mq-lock-")]
+    mq_rulesets = [
+        rs for rs in state.rulesets if rs.get("name", "").startswith("mq-lock-")
+    ]
     covered: set[str] = set()
     for rs in mq_rulesets:
         conditions = rs.get("conditions", {}).get("ref_name", {})

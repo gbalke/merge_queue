@@ -20,7 +20,9 @@ T1 = datetime.datetime(2026, 1, 1, 0, 1, tzinfo=datetime.timezone.utc)
 
 
 def _pr(number, head_ref, base_ref="main", labels=("queue",), queued_at=T0):
-    return PullRequest(number, f"sha-{number}", head_ref, base_ref, tuple(labels), queued_at)
+    return PullRequest(
+        number, f"sha-{number}", head_ref, base_ref, tuple(labels), queued_at
+    )
 
 
 def _state(prs=None, mq_branches=None, rulesets=None):
@@ -53,10 +55,14 @@ class TestLockedPrsHaveRulesets:
     def test_locked_with_matching_ruleset(self):
         state = _state(
             prs=[_pr(1, "feat-a", labels=("locked", "queue"))],
-            rulesets=[{
-                "name": "mq-lock-123",
-                "conditions": {"ref_name": {"include": ["refs/heads/feat-a"], "exclude": []}},
-            }],
+            rulesets=[
+                {
+                    "name": "mq-lock-123",
+                    "conditions": {
+                        "ref_name": {"include": ["refs/heads/feat-a"], "exclude": []}
+                    },
+                }
+            ],
         )
         assert locked_prs_have_rulesets(state).passed
 
@@ -116,10 +122,12 @@ class TestStackIntegrity:
         assert stack_integrity(state).passed
 
     def test_valid_chain(self):
-        state = _state(prs=[
-            _pr(1, "feat-a"),
-            _pr(2, "feat-b", "feat-a"),
-        ])
+        state = _state(
+            prs=[
+                _pr(1, "feat-a"),
+                _pr(2, "feat-b", "feat-a"),
+            ]
+        )
         assert stack_integrity(state).passed
 
     def test_no_queued_prs(self):

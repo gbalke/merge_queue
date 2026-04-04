@@ -1,115 +1,137 @@
 # Merge Queue for Stacked PRs
 
 [![CI](https://github.com/gbalke/merge_queue/actions/workflows/ci.yml/badge.svg)](https://github.com/gbalke/merge_queue/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-85%25+-brightgreen)](https://github.com/gbalke/merge_queue)
+[![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)](https://github.com/gbalke/merge_queue)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A lightweight, Python-based merge queue for GitHub that understands stacked/chained PRs (e.g., created by [revup](https://github.com/Skydio/revup)).
 
 ## How It Works
 
 1. Create stacked PRs where PR B targets PR A's branch
-2. Add the `queue` label to PRs you want merged (must be contiguous from the bottom of the stack)
-3. The merge queue processes stacks in **FIFO order** (earliest-labeled first):
-   - **Locks PR branches** via GitHub rulesets (prevents pushes)
-   - Adds the `locked` label for visibility
-   - Creates a temporary `mq/<batch-id>` branch from `main`
-   - Merges each PR's branch in order (`--no-ff`)
-   - Dispatches CI on the batch branch and waits for completion
-   - If CI passes: fast-forwards `main`, PRs auto-close as **"Merged"** (purple)
-   - If CI fails: unlocks, removes labels, notifies
-4. After completion, automatically processes the next queued stack
-5. To **abort**: remove the `queue` label from any locked PR
+2. Add the `queue` label to PRs you want merged (contiguous from the bottom of the stack)
+3. The merge queue processes stacks in **FIFO order**:
+   - Locks PR branches via GitHub rulesets (with retry + verification)
+   - Creates `mq/<batch-id>` branch, merges each PR `--no-ff`
+   - Dispatches CI and polls for completion
+   - On success: fast-forwards `main`, PRs auto-close as **"Merged"**
+   - On failure: unlocks, notifies with failed job/step details + CI run link
+4. After each batch, automatically processes the next queued stack
+5. To abort: remove the `queue` label
 
 ## Architecture
 
-The merge queue is a tested Python package. GitHub Actions workflows are thin shells that invoke `python -m merge_queue <command>`.
-
 ```
 merge_queue/
-    types.py             # Dataclasses: PullRequest, Stack, Batch, RuleResult
-    queue.py             # Pure logic: stack detection, FIFO ordering (95% test coverage)
+    cli.py               # Commands: enqueue, process, abort, status, check-rules
+    queue.py             # Pure logic: stack detection, FIFO ordering
     batch.py             # Batch lifecycle: lock, merge, CI, complete/fail
-    rules.py             # Invariant rules checked pre/post batch
-    github_client.py     # Thin GitHub API wrapper (requests)
-    cli.py               # CLI: enqueue, process, abort, check-rules
-tests/
-    test_queue.py        # 26 tests — stack detection, FIFO ordering
-    test_batch.py        # 10 tests — lifecycle with mocked client
-    test_rules.py        # 12 tests — each invariant rule
-    test_cli.py          # 8 tests — command routing
+    rules.py             # 5 invariant rules checked pre/post batch
+    store.py             # Persistent state on mq/state branch
+    status.py            # Markdown + terminal status rendering
+    comments.py          # PR comment templates (single updating comment per PR)
+    github_client.py     # GitHub API wrapper with rate limit tracking + caching
+    types.py             # Dataclasses
+tests/                   # 192 tests, 96% coverage (90% enforced)
+integration/             # End-to-end test script (pass + fail stacks)
 ```
 
 ### Commands
 
 | Command | Trigger | Description |
 |---------|---------|-------------|
-| `enqueue <pr>` | `queue` label added | Register PR in queue, start processing if idle |
-| `process` | workflow_dispatch | Process next queued stack or complete active batch |
-| `abort <pr>` | `queue` label removed | Abort active batch if PR is locked |
-| `check-rules` | workflow_dispatch | Run all invariant rules, exit 1 if any fail |
+| `enqueue <pr>` | `queue` label added | Add stack to queue, start processing if idle |
+| `process` | workflow_dispatch | Process next queued stack |
+| `abort <pr>` | `queue` label removed | Abort batch or remove from queue |
+| `status` | workflow_dispatch | Print current queue state |
+| `check-rules` | workflow_dispatch | Run invariant rules |
 
-### Invariant Rules
+### State Management
 
-Rules are checked before/after each batch and via `check-rules`:
+Queue state lives on the `mq/state` branch as `state.json`:
+- Queue ordering (FIFO by enqueue timestamp)
+- Active batch progress (locking -> running_ci -> completing)
+- History with timing stats
+- Comment IDs for single-comment updates
 
-1. **single_active_batch** — at most one `mq/*` branch exists
-2. **locked_prs_have_rulesets** — every locked PR has a matching lock ruleset
-3. **no_orphaned_locks** — no `locked` PRs without an active batch
-4. **queue_order_is_fifo** — active batch has the earliest queue timestamp
-5. **stack_integrity** — each stack forms a valid chain to main
+A rendered `STATUS.md` dashboard is auto-generated alongside.
 
-## Labels
+### Live UI
 
-| Label | Purpose |
-|-------|---------|
-| `queue` | Add to PRs to enter the merge queue. Remove to abort. |
-| `locked` | Auto-added when branches are locked. Auto-removed on completion/abort. |
+Each batch creates a **GitHub Deployment** in the `merge-queue` environment with real-time status updates (queued -> in_progress -> success/failure). PR comments link directly to the deployment and CI run pages.
 
-## Queue Ordering
+### PR Comments
 
-Stacks are processed in **FIFO order**. The queue position is determined by when the `queue` label was first added (via GitHub's timeline API). PRs labeled together (same stack) share a position.
+One comment per PR, updated as state changes:
+
+```
+Merge Queue — Merged to main.
+
+| Phase      | Duration |
+|:-----------|:---------|
+| Queue wait | 5s       |
+| CI + merge | 1m 8s    |
+| Total      | 1m 13s   |
+
+Commits:
+- #38 greg/revup/main/ci-coverage — Enforce coverage in CI
+- #39 greg/revup/main/readme-badges — Add badges to README
+
+View CI run ->
+View merge queue ->
+```
+
+Failed comments include the job name, failed step, and link to the CI run.
+
+### Safety
+
+- **Branch locking**: Rulesets with retry + verification (lock before merge, rollback on failure)
+- **Stale batch recovery**: Auto-clears if PRs are already merged or batch > 30min old
+- **Race condition guards**: Skip merged PRs, duplicates, recently-processed PRs
+- **Fast-forward only**: `main` updated via `force: false`
+- **Atomic**: Entire stack merges or nothing does
+- **Invariant rules**: 5 rules validated pre/post batch
+
+### API Optimization
+
+- Response caching: `list_open_prs`, `get_default_branch`, `list_mq_branches`, `list_rulesets`, `get_label_timestamp` cached per-run
+- `QueueState` snapshot: one fetch, used by rules + queue logic (zero additional calls)
+- Parallel cleanup: unlock + delete branches + post comments via ThreadPool
+- Merged PRs skip label removal (inert on closed PRs)
+- Rate limit tracking with low-remaining warnings
+- API call budget tests enforce limits (3-PR stack <= 35 calls)
 
 ## Setup
 
 ### 1. Repository Settings
 
-- **Settings > General > Pull Requests**: Enable "Automatically delete head branches"
-- **Settings > Actions > General**: Ensure workflows have read/write permissions
+- Enable "Automatically delete head branches"
+- Actions permissions: read/write
 
-### 2. Create Labels
+### 2. Labels
 
-- `queue` (green) — triggers the merge queue
-- `locked` (red) — indicates branch is locked
+- `queue` — triggers the merge queue
+- `locked` — auto-managed, indicates branch is locked
 
-### 3. Create `MQ_ADMIN_TOKEN` Secret
+### 3. `MQ_ADMIN_TOKEN` Secret
 
 Branch locking requires a fine-grained PAT with **Administration: Read and Write**:
 
-1. Go to https://github.com/settings/tokens?type=beta
-2. Scope to your merge queue repository
-3. Grant **Administration: Read and Write** permission
-4. Add as a repository secret:
-   ```bash
-   gh secret set MQ_ADMIN_TOKEN --repo <owner>/<repo>
-   ```
-
-Without this secret, the merge queue still works but branches won't be locked during processing.
-
-### 4. Install
-
 ```bash
-pip install -e .         # install package
-pytest tests/ -v         # run tests (73%+ coverage enforced)
+gh secret set MQ_ADMIN_TOKEN --repo <owner>/<repo>
 ```
 
-## Safety
+### 4. Install and Test
 
-- **Branch locking**: PR branches locked via rulesets while in queue
-- **Optimistic locking**: SHA verification catches concurrent modifications
-- **Fast-forward only**: `main` updated via fast-forward (`force: false`)
-- **Single batch**: One batch at a time (concurrency group)
-- **Atomic**: Entire stack merges or nothing does
-- **Abort**: Remove `queue` label to abort and unlock
-- **Invariant rules**: Validated pre/post batch
+```bash
+pip install -e ".[dev]"
+pytest tests/              # 192 tests, 90%+ coverage enforced
+```
+
+## Integration Testing
+
+```bash
+python integration/create_test_stacks.py run
+```
+
+Creates two stacks (one passing, one with syntax error), queues them, and verifies the pass stack merges while the fail stack is rejected.

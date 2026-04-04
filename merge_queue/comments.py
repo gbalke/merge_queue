@@ -82,7 +82,8 @@ def merged(
     stats = ""
     if queued_at and completed_at:
         try:
-            from datetime import datetime, timezone
+            from datetime import datetime
+
             t_queued = datetime.fromisoformat(queued_at)
             t_completed = datetime.fromisoformat(completed_at)
             total = (t_completed - t_queued).total_seconds()

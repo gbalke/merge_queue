@@ -8,7 +8,6 @@ from __future__ import annotations
 import base64
 import json
 import logging
-from typing import Any
 
 from merge_queue.github_client import GitHubClientProtocol
 from merge_queue.status import render_status_md
@@ -23,6 +22,7 @@ STATUS_PATH = "STATUS.md"
 
 class ConflictError(Exception):
     """State was modified by another process."""
+
     pass
 
 
@@ -58,18 +58,17 @@ class StateStore:
         Uses file SHA for optimistic concurrency. Raises ConflictError if
         the file was modified since our last read.
         """
-        from merge_queue.status import render_status_md
 
         self._ensure_branch()
 
         # Write state.json
-        content_b64 = base64.b64encode(
-            json.dumps(state, indent=2).encode()
-        ).decode()
+        content_b64 = base64.b64encode(json.dumps(state, indent=2).encode()).decode()
 
         try:
             result = self.client.put_file_content(
-                STATE_PATH, STATE_BRANCH, content_b64,
+                STATE_PATH,
+                STATE_BRANCH,
+                content_b64,
                 message="Update merge queue state",
                 sha=self._state_sha,
             )
@@ -84,7 +83,9 @@ class StateStore:
             status_md = render_status_md(state, self.client)
             status_b64 = base64.b64encode(status_md.encode()).decode()
             result = self.client.put_file_content(
-                STATUS_PATH, STATE_BRANCH, status_b64,
+                STATUS_PATH,
+                STATE_BRANCH,
+                status_b64,
                 message="Update merge queue status",
                 sha=self._status_sha,
             )
@@ -96,7 +97,9 @@ class StateStore:
                     data = self.client.get_file_content(STATUS_PATH, STATE_BRANCH)
                     self._status_sha = data["sha"]
                     result = self.client.put_file_content(
-                        STATUS_PATH, STATE_BRANCH, status_b64,
+                        STATUS_PATH,
+                        STATE_BRANCH,
+                        status_b64,
                         message="Update merge queue status",
                         sha=self._status_sha,
                     )
@@ -116,10 +119,13 @@ class StateStore:
 
         log.info("Creating mq/state branch with initial state")
         try:
-            self.client.create_orphan_branch(STATE_BRANCH, {
-                STATE_PATH: json.dumps(empty_state(), indent=2),
-                STATUS_PATH: "# Merge Queue Status\n\n_No activity yet._\n",
-            })
+            self.client.create_orphan_branch(
+                STATE_BRANCH,
+                {
+                    STATE_PATH: json.dumps(empty_state(), indent=2),
+                    STATUS_PATH: "# Merge Queue Status\n\n_No activity yet._\n",
+                },
+            )
         except Exception as e:
             if "422" in str(e) or "already exists" in str(e).lower():
                 return  # Race condition, branch was created by another run

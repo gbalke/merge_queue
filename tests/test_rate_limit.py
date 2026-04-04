@@ -65,6 +65,7 @@ class TestRateLimitInfo:
         }
 
         import logging
+
         with caplog.at_level(logging.WARNING):
             rl.update(resp)
 

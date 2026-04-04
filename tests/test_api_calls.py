@@ -30,9 +30,8 @@ from __future__ import annotations
 import datetime
 import json
 import base64
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 from merge_queue.cli import do_abort, do_check_rules, do_enqueue, do_process
 from merge_queue.types import Batch, BatchStatus, PullRequest, Stack, empty_state
@@ -70,8 +69,15 @@ def _queue_entry(
     return {
         "position": position,
         "queued_at": _iso(),
-        "stack": [{"number": number, "head_sha": f"sha-{number}",
-                   "head_ref": head_ref, "base_ref": base_ref, "title": "PR title"}],
+        "stack": [
+            {
+                "number": number,
+                "head_sha": f"sha-{number}",
+                "head_ref": head_ref,
+                "base_ref": base_ref,
+                "title": "PR title",
+            }
+        ],
         "deployment_id": deployment_id,
         "comment_ids": comment_ids or {number: 1000 + number},
     }
@@ -172,6 +178,7 @@ def _make_batch(
 # do_check_rules
 # ---------------------------------------------------------------------------
 
+
 class TestDoCheckRulesApiCalls:
     """do_check_rules: only QueueState.fetch, no writes."""
 
@@ -196,8 +203,12 @@ class TestDoCheckRulesApiCalls:
     def test_queued_prs_add_label_timestamp_calls(self):
         """Each queued PR requires one get_label_timestamp call."""
         queued_prs = [
-            {"number": i, "head": {"sha": f"sha-{i}", "ref": f"feat-{i}"},
-             "base": {"ref": "main"}, "labels": [{"name": "queue"}]}
+            {
+                "number": i,
+                "head": {"sha": f"sha-{i}", "ref": f"feat-{i}"},
+                "base": {"ref": "main"},
+                "labels": [{"name": "queue"}],
+            }
             for i in range(1, 4)
         ]
         client = _counting_client(open_prs=queued_prs)
@@ -219,6 +230,7 @@ class TestDoCheckRulesApiCalls:
 # ---------------------------------------------------------------------------
 # do_abort
 # ---------------------------------------------------------------------------
+
 
 class TestDoAbortApiCalls:
     """do_abort: reads state, conditionally writes, updates deployment, comments."""
@@ -245,21 +257,35 @@ class TestDoAbortApiCalls:
 
     def test_abort_active_batch_call_budget(self):
         """Aborting the active batch: batch_mod.abort_batch + 1 write + comment."""
-        state = _make_state(active_batch={
-            "batch_id": "123",
-            "branch": "mq/123",
-            "ruleset_id": 42,
-            "started_at": _iso(),
-            "progress": "running_ci",
-            "stack": [{"number": 1, "head_sha": "sha-1", "head_ref": "feat-a", "base_ref": "main"}],
-            "deployment_id": 99,
-            "comment_ids": {1: 1001},
-        })
+        state = _make_state(
+            active_batch={
+                "batch_id": "123",
+                "branch": "mq/123",
+                "ruleset_id": 42,
+                "started_at": _iso(),
+                "progress": "running_ci",
+                "stack": [
+                    {
+                        "number": 1,
+                        "head_sha": "sha-1",
+                        "head_ref": "feat-a",
+                        "base_ref": "main",
+                    }
+                ],
+                "deployment_id": 99,
+                "comment_ids": {1: 1001},
+            }
+        )
         client = _counting_client(
             state_dict=state,
             mq_branches=["mq/123"],
-            rulesets=[{"id": 42, "name": "mq-lock-123",
-                        "conditions": {"ref_name": {"include": ["refs/heads/feat-a"]}}}],
+            rulesets=[
+                {
+                    "id": 42,
+                    "name": "mq-lock-123",
+                    "conditions": {"ref_name": {"include": ["refs/heads/feat-a"]}},
+                }
+            ],
         )
 
         with patch("merge_queue.cli.batch_mod") as bm:
@@ -292,6 +318,7 @@ class TestDoAbortApiCalls:
 # do_enqueue
 # ---------------------------------------------------------------------------
 
+
 class TestDoEnqueueApiCalls:
     """do_enqueue: one get_pr guard + read + QueueState.fetch + write + process."""
 
@@ -305,14 +332,15 @@ class TestDoEnqueueApiCalls:
         """
         client = _counting_client()
 
-        with patch("merge_queue.cli.do_process", return_value="merged"), \
-             patch("merge_queue.cli.StateStore") as StoreCls:
+        with patch("merge_queue.cli.do_process", return_value="merged"), patch(
+            "merge_queue.cli.StateStore"
+        ) as StoreCls:
             store = MagicMock()
             store.read.return_value = empty_state()
             store.write.return_value = None
             StoreCls.return_value = store
 
-            result = do_enqueue(client, 1)
+            do_enqueue(client, 1)
 
         # get_pr called exactly once (guard), NOT again for stack_dicts fallback
         assert client.get_pr.call_count == 1, (
@@ -336,8 +364,9 @@ class TestDoEnqueueApiCalls:
         """
         client = _counting_client()
 
-        with patch("merge_queue.cli.do_process", return_value="merged"), \
-             patch("merge_queue.cli.StateStore") as StoreCls:
+        with patch("merge_queue.cli.do_process", return_value="merged"), patch(
+            "merge_queue.cli.StateStore"
+        ) as StoreCls:
             store = MagicMock()
             store.read.return_value = empty_state()
             store.write.return_value = None
@@ -347,9 +376,9 @@ class TestDoEnqueueApiCalls:
 
         get_pr_count = client.get_pr.call_count
         # Budget: exactly 1 get_pr — any more is wasteful
-        assert get_pr_count <= 1, (
-            f"get_pr called {get_pr_count} times; expected at most 1"
-        )
+        assert (
+            get_pr_count <= 1
+        ), f"get_pr called {get_pr_count} times; expected at most 1"
         assert client.create_deployment.call_count == 1
         assert client.update_deployment_status.call_count == 1
         assert client.create_comment.call_count == 1
@@ -362,10 +391,10 @@ class TestDoEnqueueApiCalls:
         result = do_enqueue(client, 1)
 
         assert result == "already_queued"
-        assert client.get_pr.call_count == 1      # guard only
+        assert client.get_pr.call_count == 1  # guard only
         assert client.get_file_content.call_count == 1  # StateStore.read
         assert client.get_default_branch.call_count == 0  # no QueueState.fetch
-        assert client.put_file_content.call_count == 0    # no write
+        assert client.put_file_content.call_count == 0  # no write
 
     def test_pr_not_open_makes_only_one_api_call(self):
         """Closed PR: only the guard get_pr call, nothing else."""
@@ -384,6 +413,7 @@ class TestDoEnqueueApiCalls:
 # ---------------------------------------------------------------------------
 # do_process
 # ---------------------------------------------------------------------------
+
 
 class TestDoProcessApiCalls:
     """
@@ -450,9 +480,13 @@ class TestDoProcessApiCalls:
 
         with patch("merge_queue.cli.QueueState") as QS:
             from merge_queue.state import QueueState as RealQS
+
             QS.fetch.return_value = RealQS(
-                default_branch="main", mq_branches=[], rulesets=[],
-                prs=[], all_pr_data=[],
+                default_branch="main",
+                mq_branches=[],
+                rulesets=[],
+                prs=[],
+                all_pr_data=[],
             )
             result = do_process(client)
 
@@ -467,34 +501,50 @@ class TestDoProcessApiCalls:
     def test_three_pr_stack_ci_passes_call_budget(self, batch_mod):
         """3-PR stacked batch, CI passes: total <= 35 API calls."""
         stack_entries = [
-            {"number": i, "head_sha": f"sha-{i}",
-             "head_ref": f"feat-{i}", "base_ref": "main" if i == 1 else f"feat-{i-1}",
-             "title": f"PR {i}"}
+            {
+                "number": i,
+                "head_sha": f"sha-{i}",
+                "head_ref": f"feat-{i}",
+                "base_ref": "main" if i == 1 else f"feat-{i-1}",
+                "title": f"PR {i}",
+            }
             for i in range(1, 4)
         ]
         comment_ids = {str(i): 1000 + i for i in range(1, 4)}
-        state = _make_state(queue=[{
-            "position": 1,
-            "queued_at": _iso(),
-            "stack": stack_entries,
-            "deployment_id": 99,
-            "comment_ids": comment_ids,
-        }])
+        state = _make_state(
+            queue=[
+                {
+                    "position": 1,
+                    "queued_at": _iso(),
+                    "stack": stack_entries,
+                    "deployment_id": 99,
+                    "comment_ids": comment_ids,
+                }
+            ]
+        )
         client = _counting_client(state_dict=state)
 
         prs = tuple(
-            PullRequest(i, f"sha-{i}", f"feat-{i}",
-                        "main" if i == 1 else f"feat-{i-1}", ("queue",), T0)
+            PullRequest(
+                i,
+                f"sha-{i}",
+                f"feat-{i}",
+                "main" if i == 1 else f"feat-{i-1}",
+                ("queue",),
+                T0,
+            )
             for i in range(1, 4)
         )
         batch = _make_batch(prs=prs)
         # Adjust ruleset to cover all 3 branch patterns
         client.get_ruleset.return_value = {
             "enforcement": "active",
-            "conditions": {"ref_name": {
-                "include": [f"refs/heads/feat-{i}" for i in range(1, 4)],
-                "exclude": [],
-            }},
+            "conditions": {
+                "ref_name": {
+                    "include": [f"refs/heads/feat-{i}" for i in range(1, 4)],
+                    "exclude": [],
+                }
+            },
         }
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
@@ -505,9 +555,13 @@ class TestDoProcessApiCalls:
 
         with patch("merge_queue.cli.QueueState") as QS:
             from merge_queue.state import QueueState as RealQS
+
             QS.fetch.return_value = RealQS(
-                default_branch="main", mq_branches=[], rulesets=[],
-                prs=[], all_pr_data=[],
+                default_branch="main",
+                mq_branches=[],
+                rulesets=[],
+                prs=[],
+                all_pr_data=[],
             )
             result = do_process(client)
 
@@ -534,9 +588,13 @@ class TestDoProcessApiCalls:
 
         with patch("merge_queue.cli.QueueState") as QS:
             from merge_queue.state import QueueState as RealQS
+
             QS.fetch.return_value = RealQS(
-                default_branch="main", mq_branches=[], rulesets=[],
-                prs=[], all_pr_data=[],
+                default_branch="main",
+                mq_branches=[],
+                rulesets=[],
+                prs=[],
+                all_pr_data=[],
             )
             result = do_process(client)
 
@@ -569,14 +627,16 @@ class TestDoProcessApiCalls:
         Budget: get_file_content=1 + get_pr=N where N is the number of PRs
         in the active batch's stack.
         """
-        state = _make_state(active_batch={
-            "batch_id": "123",
-            "branch": "mq/123",
-            "ruleset_id": 42,
-            "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "progress": "running_ci",
-            "stack": [{"number": 1}],
-        })
+        state = _make_state(
+            active_batch={
+                "batch_id": "123",
+                "branch": "mq/123",
+                "ruleset_id": 42,
+                "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "progress": "running_ci",
+                "stack": [{"number": 1}],
+            }
+        )
         client = _counting_client(state_dict=state)
 
         result = do_process(client)
@@ -584,8 +644,8 @@ class TestDoProcessApiCalls:
         assert result == "batch_active"
         # 1 get_file_content (state read) + 1 get_pr (stale-PR detection, 1 PR in stack)
         assert client.get_file_content.call_count == 1
-        assert client.get_pr.call_count == 1      # 1 per PR in stack
-        assert client.put_file_content.call_count == 0   # no writes
+        assert client.get_pr.call_count == 1  # 1 per PR in stack
+        assert client.put_file_content.call_count == 0  # no writes
         assert client.get_default_branch.call_count == 0  # no QueueState.fetch
         total = _total_api_calls(client)
         assert total == 2, (
@@ -597,6 +657,7 @@ class TestDoProcessApiCalls:
 # ---------------------------------------------------------------------------
 # No duplicate QueueState.fetch within do_process
 # ---------------------------------------------------------------------------
+
 
 class TestNoDuplicateFetch:
     """Guard against calling QueueState.fetch more than once per operation."""
@@ -617,29 +678,40 @@ class TestNoDuplicateFetch:
 
         with patch("merge_queue.cli.QueueState") as QS:
             from merge_queue.state import QueueState as RealQS
-            fetch_results = [RealQS(
-                default_branch="main", mq_branches=[], rulesets=[],
-                prs=[], all_pr_data=[],
-            )]
+
+            fetch_results = [
+                RealQS(
+                    default_branch="main",
+                    mq_branches=[],
+                    rulesets=[],
+                    prs=[],
+                    all_pr_data=[],
+                )
+            ]
             QS.fetch.side_effect = fetch_results
 
             do_process(client)
 
-        assert QS.fetch.call_count == 1, (
-            f"QueueState.fetch called {QS.fetch.call_count} times; expected 1"
-        )
+        assert (
+            QS.fetch.call_count == 1
+        ), f"QueueState.fetch called {QS.fetch.call_count} times; expected 1"
 
     @patch("merge_queue.cli.do_process", return_value="merged")
     def test_do_enqueue_fetches_state_once(self, _do_process):
         """QueueState.fetch must be called exactly once in do_enqueue."""
         client = _counting_client()
 
-        with patch("merge_queue.cli.QueueState") as QS, \
-             patch("merge_queue.cli.StateStore") as StoreCls:
+        with patch("merge_queue.cli.QueueState") as QS, patch(
+            "merge_queue.cli.StateStore"
+        ) as StoreCls:
             from merge_queue.state import QueueState as RealQS
+
             QS.fetch.return_value = RealQS(
-                default_branch="main", mq_branches=[], rulesets=[],
-                prs=[], all_pr_data=[],
+                default_branch="main",
+                mq_branches=[],
+                rulesets=[],
+                prs=[],
+                all_pr_data=[],
             )
             store = MagicMock()
             store.read.return_value = empty_state()
@@ -647,9 +719,9 @@ class TestNoDuplicateFetch:
 
             do_enqueue(client, 1)
 
-        assert QS.fetch.call_count == 1, (
-            f"QueueState.fetch called {QS.fetch.call_count} times in do_enqueue; expected 1"
-        )
+        assert (
+            QS.fetch.call_count == 1
+        ), f"QueueState.fetch called {QS.fetch.call_count} times in do_enqueue; expected 1"
 
 
 # ---------------------------------------------------------------------------
@@ -657,21 +729,39 @@ class TestNoDuplicateFetch:
 # ---------------------------------------------------------------------------
 
 _API_METHODS = [
-    "list_open_prs", "get_label_timestamp", "add_label", "remove_label",
-    "create_comment", "update_comment", "get_failed_job_info",
-    "create_ruleset", "get_ruleset", "delete_ruleset", "list_rulesets",
-    "list_mq_branches", "delete_branch", "get_branch_sha", "get_default_branch",
-    "dispatch_ci", "poll_ci", "poll_ci_with_url", "update_ref", "update_pr_base",
-    "compare_commits", "get_pr", "get_file_content", "put_file_content",
-    "create_orphan_branch", "create_deployment", "update_deployment_status",
+    "list_open_prs",
+    "get_label_timestamp",
+    "add_label",
+    "remove_label",
+    "create_comment",
+    "update_comment",
+    "get_failed_job_info",
+    "create_ruleset",
+    "get_ruleset",
+    "delete_ruleset",
+    "list_rulesets",
+    "list_mq_branches",
+    "delete_branch",
+    "get_branch_sha",
+    "get_default_branch",
+    "dispatch_ci",
+    "poll_ci",
+    "poll_ci_with_url",
+    "update_ref",
+    "update_pr_base",
+    "compare_commits",
+    "get_pr",
+    "get_file_content",
+    "put_file_content",
+    "create_orphan_branch",
+    "create_deployment",
+    "update_deployment_status",
 ]
 
 
 def _total_api_calls(client: MagicMock) -> int:
     return sum(
-        getattr(client, m).call_count
-        for m in _API_METHODS
-        if hasattr(client, m)
+        getattr(client, m).call_count for m in _API_METHODS if hasattr(client, m)
     )
 
 

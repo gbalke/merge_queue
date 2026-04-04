@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -19,7 +19,12 @@ def store(mock_client):
 
 class TestRead:
     def test_returns_state_from_branch(self, store, mock_client):
-        state = {"version": 1, "queue": [{"position": 1}], "active_batch": None, "history": []}
+        state = {
+            "version": 1,
+            "queue": [{"position": 1}],
+            "active_batch": None,
+            "history": [],
+        }
         encoded = base64.b64encode(json.dumps(state).encode()).decode()
         mock_client.get_file_content.return_value = {"sha": "abc", "content": encoded}
 
@@ -37,7 +42,10 @@ class TestRead:
 
     def test_caches_file_sha(self, store, mock_client):
         encoded = base64.b64encode(json.dumps(empty_state()).encode()).decode()
-        mock_client.get_file_content.return_value = {"sha": "abc123", "content": encoded}
+        mock_client.get_file_content.return_value = {
+            "sha": "abc123",
+            "content": encoded,
+        }
 
         store.read()
 
@@ -117,6 +125,8 @@ class TestEnsureBranch:
 
     def test_race_condition_handled(self, store, mock_client):
         mock_client.get_file_content.side_effect = RuntimeError("404")
-        mock_client.create_orphan_branch.side_effect = RuntimeError("422 already exists")
+        mock_client.create_orphan_branch.side_effect = RuntimeError(
+            "422 already exists"
+        )
 
         store._ensure_branch()  # Should not raise

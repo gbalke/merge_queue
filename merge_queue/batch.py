@@ -30,11 +30,13 @@ class BatchError(Exception):
 
 class LockError(BatchError):
     """Failed to lock branches after retries."""
+
     pass
 
 
 class UnlockError(BatchError):
     """Failed to unlock branches after retries."""
+
     pass
 
 
@@ -87,16 +89,16 @@ def _lock_branches(
                     f"Ruleset {ruleset_id} missing branch patterns: {missing}"
                 )
 
-            log.info("Verified lock ruleset %d is active and covers all branches", ruleset_id)
+            log.info(
+                "Verified lock ruleset %d is active and covers all branches", ruleset_id
+            )
             return ruleset_id
 
         except LockError:
             raise  # Verification failures are not retryable
         except Exception as e:
             last_error = e
-            log.warning(
-                "Lock attempt %d/%d failed: %s", attempt, max_retries, e
-            )
+            log.warning("Lock attempt %d/%d failed: %s", attempt, max_retries, e)
             if attempt < max_retries:
                 time.sleep(retry_delay)
 
@@ -130,9 +132,7 @@ def _unlock_ruleset(
             try:
                 client.get_ruleset(ruleset_id)
                 # If we get here, the ruleset still exists
-                raise UnlockError(
-                    f"Ruleset {ruleset_id} still exists after deletion"
-                )
+                raise UnlockError(f"Ruleset {ruleset_id} still exists after deletion")
             except Exception as verify_err:
                 # 404 means it's gone — that's what we want
                 err_str = str(verify_err)
@@ -143,16 +143,16 @@ def _unlock_ruleset(
                 if isinstance(verify_err, UnlockError):
                     raise
                 # Other errors during verification — ruleset is probably gone
-                log.info("Ruleset %d likely deleted (verify got: %s)", ruleset_id, verify_err)
+                log.info(
+                    "Ruleset %d likely deleted (verify got: %s)", ruleset_id, verify_err
+                )
                 return
 
         except UnlockError:
             raise
         except Exception as e:
             last_error = e
-            log.warning(
-                "Unlock attempt %d/%d failed: %s", attempt, max_retries, e
-            )
+            log.warning("Unlock attempt %d/%d failed: %s", attempt, max_retries, e)
             if attempt < max_retries:
                 time.sleep(retry_delay)
 
@@ -182,9 +182,7 @@ def create_batch(
     branch_patterns = [f"refs/heads/{pr.head_ref}" for pr in stack.prs]
     ruleset_id = None
     try:
-        ruleset_id = _lock_branches(
-            client, f"mq-lock-{batch_id}", branch_patterns
-        )
+        ruleset_id = _lock_branches(client, f"mq-lock-{batch_id}", branch_patterns)
     except LockError as e:
         raise BatchError(f"Could not lock branches: {e}") from e
 
@@ -233,8 +231,11 @@ def _git_create_and_merge(
             )
 
         git(
-            "merge", "--no-ff", f"origin/{pr.head_ref}",
-            "-m", f"Merge PR #{pr.number} (head:{pr.head_sha} ref:{pr.head_ref})",
+            "merge",
+            "--no-ff",
+            f"origin/{pr.head_ref}",
+            "-m",
+            f"Merge PR #{pr.number} (head:{pr.head_sha} ref:{pr.head_ref})",
         )
 
     git("push", "origin", f"HEAD:refs/heads/{branch}")
@@ -243,12 +244,15 @@ def _git_create_and_merge(
 
 class CIResult:
     """Result of a CI run."""
+
     def __init__(self, passed: bool, run_url: str = ""):
         self.passed = passed
         self.run_url = run_url
 
 
-def run_ci(client: GitHubClientProtocol, batch: Batch, timeout: int = 30 * 60) -> CIResult:
+def run_ci(
+    client: GitHubClientProtocol, batch: Batch, timeout: int = 30 * 60
+) -> CIResult:
     """Dispatch CI and poll for result. Returns CIResult with pass/fail and run URL."""
     client.dispatch_ci(batch.branch)
     passed, run_url = client.poll_ci_with_url(batch.branch, timeout)
@@ -298,6 +302,7 @@ def _parallel_cleanup(
     default_branch: str,
 ) -> None:
     """Run post-merge cleanup tasks in parallel."""
+
     def unlock():
         try:
             _unlock(client, batch)
@@ -311,6 +316,7 @@ def _parallel_cleanup(
 
     def post_comments():
         from merge_queue.comments import merged
+
         owner = getattr(client, "owner", "")
         repo = getattr(client, "repo", "")
         for pr in batch.stack.prs:
@@ -357,7 +363,7 @@ def abort_batch(client: GitHubClientProtocol) -> None:
                 log.error("Failed to unlock ruleset %d during abort: %s", rs["id"], e)
 
     for pr_data in client.list_open_prs():
-        labels = [l["name"] for l in pr_data.get("labels", [])]
+        labels = [lbl["name"] for lbl in pr_data.get("labels", [])]
         if "locked" in labels:
             client.remove_label(pr_data["number"], "locked")
 

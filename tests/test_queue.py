@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime
 
-import pytest
 
 from merge_queue.queue import (
     build_pr_graph,

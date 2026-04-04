@@ -15,7 +15,13 @@ def _state_with_active():
                 "position": 1,
                 "queued_at": "2026-04-04T00:05:00Z",
                 "stack": [
-                    {"number": 3, "head_sha": "aaa", "head_ref": "fix-x", "base_ref": "main", "title": "Fix X"},
+                    {
+                        "number": 3,
+                        "head_sha": "aaa",
+                        "head_ref": "fix-x",
+                        "base_ref": "main",
+                        "title": "Fix X",
+                    },
                 ],
             }
         ],
@@ -70,6 +76,7 @@ class TestRenderStatusMd:
 
     def test_pr_links_with_client(self):
         from unittest.mock import MagicMock
+
         client = MagicMock()
         client.owner = "testowner"
         client.repo = "testrepo"

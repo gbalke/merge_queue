@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import datetime
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-import merge_queue.cli as cli_mod
 from merge_queue.cli import (
     _comment,
     _stack_to_dicts,
@@ -80,8 +78,14 @@ def test_comment_logs_warning_on_exception(mock_client: MagicMock) -> None:
 
 def test_stack_to_dicts_fetches_titles(mock_client: MagicMock) -> None:
     mock_client.get_pr.return_value = {"title": "My Feature", "head": {}, "base": {}}
-    pr = PullRequest(number=7, head_sha="sha7", head_ref="feat-x", base_ref="main",
-                     labels=("queue",), queued_at=T0)
+    pr = PullRequest(
+        number=7,
+        head_sha="sha7",
+        head_ref="feat-x",
+        base_ref="main",
+        labels=("queue",),
+        queued_at=T0,
+    )
     stack = Stack(prs=(pr,), queued_at=T0)
 
     result = _stack_to_dicts(stack, mock_client)
@@ -95,8 +99,14 @@ def test_stack_to_dicts_fetches_titles(mock_client: MagicMock) -> None:
 def test_stack_to_dicts_tolerates_api_error(mock_client: MagicMock) -> None:
     """If get_pr raises, title should be empty string and no exception raised."""
     mock_client.get_pr.side_effect = RuntimeError("not found")
-    pr = PullRequest(number=8, head_sha="sha8", head_ref="feat-y", base_ref="main",
-                     labels=("queue",), queued_at=T0)
+    pr = PullRequest(
+        number=8,
+        head_sha="sha8",
+        head_ref="feat-y",
+        base_ref="main",
+        labels=("queue",),
+        queued_at=T0,
+    )
     stack = Stack(prs=(pr,), queued_at=T0)
 
     result = _stack_to_dicts(stack, mock_client)
@@ -107,14 +117,18 @@ def test_stack_to_dicts_tolerates_api_error(mock_client: MagicMock) -> None:
 # --- do_enqueue guards ---
 
 
-def test_enqueue_pr_not_open_returns_pr_not_open(mock_client: MagicMock, mock_store: MagicMock) -> None:
+def test_enqueue_pr_not_open_returns_pr_not_open(
+    mock_client: MagicMock, mock_store: MagicMock
+) -> None:
     mock_client.get_pr.return_value = {"state": "closed"}
     result = do_enqueue(mock_client, 1)
     assert result == "pr_not_open"
     mock_store.write.assert_not_called()
 
 
-def test_enqueue_already_in_active_batch(mock_client: MagicMock, mock_store: MagicMock) -> None:
+def test_enqueue_already_in_active_batch(
+    mock_client: MagicMock, mock_store: MagicMock
+) -> None:
     mock_client.get_pr.return_value = {"state": "open"}
     mock_store.read.return_value = {
         **empty_state(),
@@ -132,8 +146,9 @@ def test_enqueue_recently_processed_within_5_minutes(
 ) -> None:
     """PR processed 30 seconds ago should be skipped as recently_processed."""
     mock_client.get_pr.return_value = {"state": "open"}
-    recent = (datetime.datetime.now(datetime.timezone.utc)
-              - datetime.timedelta(seconds=30)).isoformat()
+    recent = (
+        datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=30)
+    ).isoformat()
     mock_store.read.return_value = {
         **empty_state(),
         "history": [{"prs": [7], "completed_at": recent}],
@@ -154,15 +169,17 @@ def test_enqueue_not_recently_processed_older_than_5_minutes(
         "title": "Old",
     }
     mock_client.create_comment.return_value = 1
-    old_time = (datetime.datetime.now(datetime.timezone.utc)
-                - datetime.timedelta(minutes=10)).isoformat()
+    old_time = (
+        datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=10)
+    ).isoformat()
     mock_store.read.return_value = {
         **empty_state(),
         "history": [{"prs": [7], "completed_at": old_time}],
     }
 
-    with patch("merge_queue.cli.QueueState") as QS, \
-         patch("merge_queue.cli.do_process", return_value="queued_waiting"):
+    with patch("merge_queue.cli.QueueState") as QS, patch(
+        "merge_queue.cli.do_process", return_value="queued_waiting"
+    ):
         QS.fetch.return_value = _api_state()
         result = do_enqueue(mock_client, 7)
 
@@ -174,8 +191,8 @@ def test_enqueue_pr_get_raises_does_not_skip(
 ) -> None:
     """If get_pr raises an exception, enqueue should proceed (not skip)."""
     mock_client.get_pr.side_effect = [
-        RuntimeError("API error"),   # first call (state check) — raises → continues
-        {                            # second call (stack building fallback)
+        RuntimeError("API error"),  # first call (state check) — raises → continues
+        {  # second call (stack building fallback)
             "state": "open",
             "head": {"sha": "sha-9", "ref": "feat-w"},
             "base": {"ref": "main"},
@@ -184,8 +201,9 @@ def test_enqueue_pr_get_raises_does_not_skip(
     ]
     mock_client.create_comment.return_value = 1
 
-    with patch("merge_queue.cli.QueueState") as QS, \
-         patch("merge_queue.cli.do_process", return_value="queued_waiting"):
+    with patch("merge_queue.cli.QueueState") as QS, patch(
+        "merge_queue.cli.do_process", return_value="queued_waiting"
+    ):
         QS.fetch.return_value = _api_state()
         result = do_enqueue(mock_client, 9)
 
@@ -195,14 +213,17 @@ def test_enqueue_pr_get_raises_does_not_skip(
 # --- do_process: stale batch recovery ---
 
 
-def test_process_stale_batch_is_recovered(mock_client: MagicMock, mock_store: MagicMock) -> None:
+def test_process_stale_batch_is_recovered(
+    mock_client: MagicMock, mock_store: MagicMock
+) -> None:
     """A batch older than 30 minutes is aborted and the queue is processed.
 
     The PR must be "open" so the code does NOT take the all_merged fast-path
     and instead checks the 30-minute stale threshold.
     """
-    stale_time = (datetime.datetime.now(datetime.timezone.utc)
-                  - datetime.timedelta(minutes=35)).isoformat()
+    stale_time = (
+        datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=35)
+    ).isoformat()
     mock_store.read.return_value = {
         **empty_state(),
         "active_batch": {
@@ -229,8 +250,9 @@ def test_process_stale_batch_is_recovered(mock_client: MagicMock, mock_store: Ma
 def test_cmd_process_exits_1_on_rules_failed(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setenv("GITHUB_TOKEN", "tok")
-    with patch("merge_queue.cli._make_client"), \
-         patch("merge_queue.cli.do_process", return_value="rules_failed"):
+    with patch("merge_queue.cli._make_client"), patch(
+        "merge_queue.cli.do_process", return_value="rules_failed"
+    ):
         args = MagicMock()
         with pytest.raises(SystemExit) as exc_info:
             cmd_process(args)
@@ -240,8 +262,9 @@ def test_cmd_process_exits_1_on_rules_failed(monkeypatch: pytest.MonkeyPatch) ->
 def test_cmd_process_no_exit_on_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setenv("GITHUB_TOKEN", "tok")
-    with patch("merge_queue.cli._make_client"), \
-         patch("merge_queue.cli.do_process", return_value="merged"):
+    with patch("merge_queue.cli._make_client"), patch(
+        "merge_queue.cli.do_process", return_value="merged"
+    ):
         args = MagicMock()
         cmd_process(args)  # should not raise
 
@@ -252,8 +275,9 @@ def test_cmd_process_no_exit_on_success(monkeypatch: pytest.MonkeyPatch) -> None
 def test_cmd_abort_calls_do_abort(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setenv("GITHUB_TOKEN", "tok")
-    with patch("merge_queue.cli._make_client"), \
-         patch("merge_queue.cli.do_abort", return_value="aborted") as da:
+    with patch("merge_queue.cli._make_client"), patch(
+        "merge_queue.cli.do_abort", return_value="aborted"
+    ) as da:
         args = MagicMock()
         args.pr_number = 7
         cmd_abort(args)
@@ -272,8 +296,9 @@ def test_cmd_check_rules_exits_1_on_failure(
     failing_result.passed = False
     failing_result.name = "no_open_prs"
     failing_result.message = "Too many open PRs"
-    with patch("merge_queue.cli._make_client"), \
-         patch("merge_queue.cli.do_check_rules", return_value=[failing_result]):
+    with patch("merge_queue.cli._make_client"), patch(
+        "merge_queue.cli.do_check_rules", return_value=[failing_result]
+    ):
         args = MagicMock()
         with pytest.raises(SystemExit) as exc_info:
             cmd_check_rules(args)
@@ -291,8 +316,9 @@ def test_cmd_check_rules_no_exit_when_all_pass(
     passing_result.passed = True
     passing_result.name = "some_rule"
     passing_result.message = "All good"
-    with patch("merge_queue.cli._make_client"), \
-         patch("merge_queue.cli.do_check_rules", return_value=[passing_result]):
+    with patch("merge_queue.cli._make_client"), patch(
+        "merge_queue.cli.do_check_rules", return_value=[passing_result]
+    ):
         args = MagicMock()
         cmd_check_rules(args)  # should not raise
 

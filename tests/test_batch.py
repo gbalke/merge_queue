@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime
-from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -34,8 +33,11 @@ def _stack(*prs):
 
 def _batch(stack, **kwargs):
     defaults = dict(
-        batch_id="123", branch="mq/123", stack=stack,
-        status=BatchStatus.RUNNING, ruleset_id=42,
+        batch_id="123",
+        branch="mq/123",
+        stack=stack,
+        status=BatchStatus.RUNNING,
+        ruleset_id=42,
     )
     defaults.update(kwargs)
     return Batch(**defaults)
@@ -76,7 +78,9 @@ class TestLockBranches:
         mock_client.get_ruleset.return_value = _good_ruleset()
 
         result = _lock_branches(
-            mock_client, "mq-lock-1", ["refs/heads/feat-a"],
+            mock_client,
+            "mq-lock-1",
+            ["refs/heads/feat-a"],
             retry_delay=0,
         )
 
@@ -88,7 +92,9 @@ class TestLockBranches:
 
         with pytest.raises(LockError, match="Failed to lock.*3 attempts"):
             _lock_branches(
-                mock_client, "mq-lock-1", ["refs/heads/feat-a"],
+                mock_client,
+                "mq-lock-1",
+                ["refs/heads/feat-a"],
                 retry_delay=0,
             )
 
@@ -99,12 +105,16 @@ class TestLockBranches:
         mock_client.get_ruleset.return_value = {
             "id": 42,
             "enforcement": "disabled",
-            "conditions": {"ref_name": {"include": ["refs/heads/feat-a"], "exclude": []}},
+            "conditions": {
+                "ref_name": {"include": ["refs/heads/feat-a"], "exclude": []}
+            },
         }
 
         with pytest.raises(LockError, match="enforcement.*disabled"):
             _lock_branches(
-                mock_client, "mq-lock-1", ["refs/heads/feat-a"],
+                mock_client,
+                "mq-lock-1",
+                ["refs/heads/feat-a"],
                 retry_delay=0,
             )
 
@@ -118,7 +128,9 @@ class TestLockBranches:
 
         with pytest.raises(LockError, match="missing branch patterns"):
             _lock_branches(
-                mock_client, "mq-lock-1", ["refs/heads/feat-a"],
+                mock_client,
+                "mq-lock-1",
+                ["refs/heads/feat-a"],
                 retry_delay=0,
             )
 
@@ -133,7 +145,9 @@ class TestLockBranches:
 
         with pytest.raises(LockError):
             _lock_branches(
-                mock_client, "mq-lock-1", ["refs/heads/feat-a"],
+                mock_client,
+                "mq-lock-1",
+                ["refs/heads/feat-a"],
                 retry_delay=0,
             )
 
@@ -286,7 +300,10 @@ class TestCreateBatch:
         stack = _stack(pr)
         mock_client.get_ruleset.return_value = _good_ruleset()
         call_order = []
-        mock_client.create_ruleset.side_effect = lambda *a, **k: (call_order.append("lock"), 42)[1]
+        mock_client.create_ruleset.side_effect = lambda *a, **k: (
+            call_order.append("lock"),
+            42,
+        )[1]
         mock_client.add_label.side_effect = lambda *a, **k: call_order.append("label")
 
         def tracking_git(*args):

@@ -49,7 +49,9 @@ def test_batch_started_without_ci_url() -> None:
 
 
 def test_batch_started_with_ci_url() -> None:
-    result = comments.batch_started("mq/123", _STACK, ci_run_url="https://actions.example.com/run/1")
+    result = comments.batch_started(
+        "mq/123", _STACK, ci_run_url="https://actions.example.com/run/1"
+    )
     assert "[View CI run →](https://actions.example.com/run/1)" in result
 
 

@@ -50,6 +50,7 @@ class RuleResult:
 @dataclasses.dataclass
 class QueueEntry:
     """A stack waiting in the queue."""
+
     position: int
     queued_at: str  # ISO 8601
     stack: list[dict]  # [{number, head_sha, head_ref, base_ref, title}]
@@ -59,6 +60,7 @@ class QueueEntry:
 @dataclasses.dataclass
 class ActiveBatch:
     """The currently processing batch."""
+
     batch_id: str
     branch: str
     ruleset_id: int | None
@@ -71,6 +73,7 @@ class ActiveBatch:
 @dataclasses.dataclass
 class HistoryEntry:
     """A completed batch."""
+
     batch_id: str
     status: str  # "merged", "failed", "aborted"
     completed_at: str  # ISO 8601

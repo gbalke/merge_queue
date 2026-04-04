@@ -25,9 +25,7 @@ def build_pr_graph(
     return by_head, by_base
 
 
-def detect_stacks(
-    prs: list[PullRequest], default_branch: str = "main"
-) -> list[Stack]:
+def detect_stacks(prs: list[PullRequest], default_branch: str = "main") -> list[Stack]:
     """Group PRs into stacks by following base_ref chains.
 
     A stack is a chain where the bottom PR targets default_branch and each
@@ -70,9 +68,7 @@ def detect_stacks(
         if not queued_times:
             continue
 
-        stacks.append(
-            Stack(prs=tuple(chain), queued_at=min(queued_times))
-        )
+        stacks.append(Stack(prs=tuple(chain), queued_at=min(queued_times)))
 
     return order_queue(stacks)
 
@@ -89,9 +85,7 @@ def select_next(stacks: list[Stack]) -> Stack | None:
     return stacks[0]
 
 
-def validate_contiguous(
-    stack: Stack, default_branch: str = "main"
-) -> tuple[bool, str]:
+def validate_contiguous(stack: Stack, default_branch: str = "main") -> tuple[bool, str]:
     """Check that a stack forms a valid contiguous chain to default_branch.
 
     Returns (valid, error_message).

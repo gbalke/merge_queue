@@ -10,11 +10,20 @@ def test_render_status_md_queued_at_trimmed_to_19_chars() -> None:
     """queued_at strings longer than 19 chars are trimmed to YYYY-MM-DDTHH:MM:SS."""
     state = {
         **empty_state(),
-        "queue": [{
-            "position": 1,
-            "queued_at": "2026-04-04T12:34:56.789012+00:00",  # 32 chars
-            "stack": [{"number": 1, "head_sha": "s", "head_ref": "feat", "base_ref": "main"}],
-        }],
+        "queue": [
+            {
+                "position": 1,
+                "queued_at": "2026-04-04T12:34:56.789012+00:00",  # 32 chars
+                "stack": [
+                    {
+                        "number": 1,
+                        "head_sha": "s",
+                        "head_ref": "feat",
+                        "base_ref": "main",
+                    }
+                ],
+            }
+        ],
     }
     md = render_status_md(state)
     # The trimmed value (19 chars) should appear; the full ISO with TZ should not
@@ -26,13 +35,15 @@ def test_render_status_md_history_duration_over_60s() -> None:
     """History entries with duration >= 60s are formatted as Xm Ys."""
     state = {
         **empty_state(),
-        "history": [{
-            "batch_id": "b1",
-            "status": "merged",
-            "completed_at": "2026-04-04T01:00:00Z",
-            "prs": [5],
-            "duration_seconds": 125,  # 2m 5s
-        }],
+        "history": [
+            {
+                "batch_id": "b1",
+                "status": "merged",
+                "completed_at": "2026-04-04T01:00:00Z",
+                "prs": [5],
+                "duration_seconds": 125,  # 2m 5s
+            }
+        ],
     }
     md = render_status_md(state)
     assert "2m 5s" in md
@@ -42,13 +53,15 @@ def test_render_status_md_history_duration_under_60s() -> None:
     """History entries with duration < 60s are formatted as Xs."""
     state = {
         **empty_state(),
-        "history": [{
-            "batch_id": "b2",
-            "status": "merged",
-            "completed_at": "2026-04-04T01:00:00Z",
-            "prs": [6],
-            "duration_seconds": 45,
-        }],
+        "history": [
+            {
+                "batch_id": "b2",
+                "status": "merged",
+                "completed_at": "2026-04-04T01:00:00Z",
+                "prs": [6],
+                "duration_seconds": 45,
+            }
+        ],
     }
     md = render_status_md(state)
     assert "45s" in md

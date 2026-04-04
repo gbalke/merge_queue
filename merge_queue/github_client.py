@@ -52,7 +52,9 @@ class RateLimitInfo:
         if self.remaining > 0 and self.remaining <= 100:
             log.warning(
                 "GitHub API rate limit low: %d/%d remaining (resets %s)",
-                self.remaining, self.limit, self.reset_at,
+                self.remaining,
+                self.limit,
+                self.reset_at,
             )
 
     def summary(self) -> str:
@@ -67,7 +69,9 @@ class GitHubClientProtocol(Protocol):
     """Protocol for testing — mock this instead of the concrete class."""
 
     def list_open_prs(self) -> list[dict[str, Any]]: ...
-    def get_label_timestamp(self, pr_number: int, label: str) -> datetime.datetime | None: ...
+    def get_label_timestamp(
+        self, pr_number: int, label: str
+    ) -> datetime.datetime | None: ...
     def add_label(self, pr_number: int, label: str) -> None: ...
     def remove_label(self, pr_number: int, label: str) -> None: ...
     def create_comment(self, pr_number: int, body: str) -> int: ...
@@ -83,16 +87,27 @@ class GitHubClientProtocol(Protocol):
     def get_default_branch(self) -> str: ...
     def dispatch_ci(self, branch: str) -> None: ...
     def poll_ci(self, branch: str, timeout_seconds: int) -> bool: ...
-    def poll_ci_with_url(self, branch: str, timeout_seconds: int) -> tuple[bool, str]: ...
+    def poll_ci_with_url(
+        self, branch: str, timeout_seconds: int
+    ) -> tuple[bool, str]: ...
     def update_ref(self, ref: str, sha: str) -> None: ...
     def update_pr_base(self, pr_number: int, base: str) -> None: ...
     def compare_commits(self, base: str, head: str) -> str: ...
     def get_pr(self, pr_number: int) -> dict[str, Any]: ...
     def get_file_content(self, path: str, ref: str) -> dict[str, Any]: ...
-    def put_file_content(self, path: str, branch: str, content_b64: str, message: str, sha: str | None = None) -> dict[str, Any]: ...
+    def put_file_content(
+        self,
+        path: str,
+        branch: str,
+        content_b64: str,
+        message: str,
+        sha: str | None = None,
+    ) -> dict[str, Any]: ...
     def create_orphan_branch(self, branch: str, files: dict[str, str]) -> None: ...
     def create_deployment(self, description: str, ref: str = "main") -> int: ...
-    def update_deployment_status(self, deployment_id: int, state: str, description: str = "") -> None: ...
+    def update_deployment_status(
+        self, deployment_id: int, state: str, description: str = ""
+    ) -> None: ...
     @property
     def rate_limit(self) -> RateLimitInfo: ...
 
@@ -114,19 +129,23 @@ class GitHubClient:
         self._base_url = f"https://api.github.com/repos/{owner}/{repo}"
 
         self._session = requests.Session()
-        self._session.headers.update({
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {self._token}",
-            "X-GitHub-Api-Version": "2022-11-28",
-        })
+        self._session.headers.update(
+            {
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {self._token}",
+                "X-GitHub-Api-Version": "2022-11-28",
+            }
+        )
 
         self._admin_session = requests.Session()
         admin_tok = self._admin_token or self._token
-        self._admin_session.headers.update({
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {admin_tok}",
-            "X-GitHub-Api-Version": "2022-11-28",
-        })
+        self._admin_session.headers.update(
+            {
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {admin_tok}",
+                "X-GitHub-Api-Version": "2022-11-28",
+            }
+        )
 
         self.rate_limit = RateLimitInfo()
 
@@ -135,7 +154,9 @@ class GitHubClient:
         self._cache_default_branch: str | None = None
         self._cache_mq_branches: list[str] | None = None
         self._cache_rulesets: list[dict[str, Any]] | None = None
-        self._cache_label_timestamps: dict[tuple[int, str], datetime.datetime | None] = {}
+        self._cache_label_timestamps: dict[
+            tuple[int, str], datetime.datetime | None
+        ] = {}
 
     def invalidate_cache(self) -> None:
         """Clear all caches. Call after write operations that change state."""
@@ -273,9 +294,7 @@ class GitHubClient:
                 "name": name,
                 "target": "branch",
                 "enforcement": "active",
-                "conditions": {
-                    "ref_name": {"include": branch_patterns, "exclude": []}
-                },
+                "conditions": {"ref_name": {"include": branch_patterns, "exclude": []}},
                 "rules": [{"type": "update"}],
             },
         )
@@ -315,7 +334,8 @@ class GitHubClient:
             return self._cache_mq_branches
         refs = self._get("/git/matching-refs/heads/mq/")
         self._cache_mq_branches = [
-            r["ref"].removeprefix("refs/heads/") for r in refs
+            r["ref"].removeprefix("refs/heads/")
+            for r in refs
             if r["ref"] != "refs/heads/mq/state"
         ]
         return self._cache_mq_branches
@@ -446,45 +466,59 @@ class GitHubClient:
         # Create blobs for each file
         tree_items = []
         for path, content in files.items():
-            blob = self._post("/git/blobs", json={
-                "content": content,
-                "encoding": "utf-8",
-            })
-            tree_items.append({
-                "path": path,
-                "mode": "100644",
-                "type": "blob",
-                "sha": blob["sha"],
-            })
+            blob = self._post(
+                "/git/blobs",
+                json={
+                    "content": content,
+                    "encoding": "utf-8",
+                },
+            )
+            tree_items.append(
+                {
+                    "path": path,
+                    "mode": "100644",
+                    "type": "blob",
+                    "sha": blob["sha"],
+                }
+            )
 
         # Create tree (no base_tree = orphan)
         tree = self._post("/git/trees", json={"tree": tree_items})
 
         # Create commit (no parents = orphan)
-        commit = self._post("/git/commits", json={
-            "message": f"Initialize {branch}",
-            "tree": tree["sha"],
-            "parents": [],
-        })
+        commit = self._post(
+            "/git/commits",
+            json={
+                "message": f"Initialize {branch}",
+                "tree": tree["sha"],
+                "parents": [],
+            },
+        )
 
         # Create ref
-        self._post("/git/refs", json={
-            "ref": f"refs/heads/{branch}",
-            "sha": commit["sha"],
-        })
+        self._post(
+            "/git/refs",
+            json={
+                "ref": f"refs/heads/{branch}",
+                "sha": commit["sha"],
+            },
+        )
         log.info("Created orphan branch %s", branch)
 
     # --- Deployments API (for live UI) ---
 
     def create_deployment(self, description: str, ref: str = "main") -> int:
         """Create a deployment in the merge-queue environment. Returns deployment ID."""
-        data = self._post("/deployments", json={
-            "ref": ref,
-            "environment": "merge-queue",
-            "description": description,
-            "auto_merge": False,
-            "required_contexts": [],
-        })
+        data = self._post(
+            "/deployments",
+            json={
+                "ref": ref,
+                "environment": "merge-queue",
+                "description": description,
+                "auto_merge": False,
+                "required_contexts": [],
+            },
+        )
         return data["id"]
 
     def update_deployment_status(

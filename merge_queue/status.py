@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime
 from typing import Any
 
 
@@ -38,7 +37,9 @@ def render_status_md(state: dict, client: Any = None) -> str:
     # Queue
     queue = state.get("queue", [])
     if queue:
-        lines.append(f"## Queue ({len(queue)} stack{'s' if len(queue) != 1 else ''} waiting)")
+        lines.append(
+            f"## Queue ({len(queue)} stack{'s' if len(queue) != 1 else ''} waiting)"
+        )
         lines.append("")
         lines.append("| Position | PRs | Queued At |")
         lines.append("|----------|-----|-----------|")
@@ -71,7 +72,9 @@ def render_status_md(state: dict, client: Any = None) -> str:
                 dur_str = f"{int(dur)}s"
             status = entry.get("status", "?")
             emoji = {"merged": "✅", "failed": "❌", "aborted": "⏹️"}.get(status, "")
-            lines.append(f"| `{entry.get('batch_id', '?')}` | {prs} | {emoji} {status} | {dur_str} |")
+            lines.append(
+                f"| `{entry.get('batch_id', '?')}` | {prs} | {emoji} {status} | {dur_str} |"
+            )
         lines.append("")
 
     # Footer
@@ -88,7 +91,9 @@ def render_status_terminal(state: dict) -> str:
     batch = state.get("active_batch")
     if batch:
         prs = ", ".join(f"#{pr['number']}" for pr in batch.get("stack", []))
-        lines.append(f"ACTIVE: {prs} [{batch.get('progress', '?')}] on {batch.get('branch', '?')}")
+        lines.append(
+            f"ACTIVE: {prs} [{batch.get('progress', '?')}] on {batch.get('branch', '?')}"
+        )
     else:
         lines.append("ACTIVE: none")
 

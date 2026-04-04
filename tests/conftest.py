@@ -56,5 +56,5 @@ def make_pr_data(
         "number": number,
         "head": {"ref": head_ref, "sha": head_sha or f"sha-{number}"},
         "base": {"ref": base_ref},
-        "labels": [{"name": l} for l in (labels or [])],
+        "labels": [{"name": lbl} for lbl in (labels or [])],
     }
