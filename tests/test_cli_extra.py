@@ -177,8 +177,9 @@ def test_enqueue_not_recently_processed_older_than_5_minutes(
         "history": [{"prs": [7], "completed_at": old_time}],
     }
 
-    with patch("merge_queue.cli.QueueState") as QS, patch(
-        "merge_queue.cli.do_process", return_value="queued_waiting"
+    with (
+        patch("merge_queue.cli.QueueState") as QS,
+        patch("merge_queue.cli.do_process", return_value="queued_waiting"),
     ):
         QS.fetch.return_value = _api_state()
         result = do_enqueue(mock_client, 7)
@@ -201,8 +202,9 @@ def test_enqueue_pr_get_raises_does_not_skip(
     ]
     mock_client.create_comment.return_value = 1
 
-    with patch("merge_queue.cli.QueueState") as QS, patch(
-        "merge_queue.cli.do_process", return_value="queued_waiting"
+    with (
+        patch("merge_queue.cli.QueueState") as QS,
+        patch("merge_queue.cli.do_process", return_value="queued_waiting"),
     ):
         QS.fetch.return_value = _api_state()
         result = do_enqueue(mock_client, 9)
@@ -250,8 +252,9 @@ def test_process_stale_batch_is_recovered(
 def test_cmd_process_exits_1_on_rules_failed(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setenv("GITHUB_TOKEN", "tok")
-    with patch("merge_queue.cli._make_client"), patch(
-        "merge_queue.cli.do_process", return_value="rules_failed"
+    with (
+        patch("merge_queue.cli._make_client"),
+        patch("merge_queue.cli.do_process", return_value="rules_failed"),
     ):
         args = MagicMock()
         with pytest.raises(SystemExit) as exc_info:
@@ -262,8 +265,9 @@ def test_cmd_process_exits_1_on_rules_failed(monkeypatch: pytest.MonkeyPatch) ->
 def test_cmd_process_no_exit_on_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setenv("GITHUB_TOKEN", "tok")
-    with patch("merge_queue.cli._make_client"), patch(
-        "merge_queue.cli.do_process", return_value="merged"
+    with (
+        patch("merge_queue.cli._make_client"),
+        patch("merge_queue.cli.do_process", return_value="merged"),
     ):
         args = MagicMock()
         cmd_process(args)  # should not raise
@@ -275,9 +279,10 @@ def test_cmd_process_no_exit_on_success(monkeypatch: pytest.MonkeyPatch) -> None
 def test_cmd_abort_calls_do_abort(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setenv("GITHUB_TOKEN", "tok")
-    with patch("merge_queue.cli._make_client"), patch(
-        "merge_queue.cli.do_abort", return_value="aborted"
-    ) as da:
+    with (
+        patch("merge_queue.cli._make_client"),
+        patch("merge_queue.cli.do_abort", return_value="aborted") as da,
+    ):
         args = MagicMock()
         args.pr_number = 7
         cmd_abort(args)
@@ -296,8 +301,9 @@ def test_cmd_check_rules_exits_1_on_failure(
     failing_result.passed = False
     failing_result.name = "no_open_prs"
     failing_result.message = "Too many open PRs"
-    with patch("merge_queue.cli._make_client"), patch(
-        "merge_queue.cli.do_check_rules", return_value=[failing_result]
+    with (
+        patch("merge_queue.cli._make_client"),
+        patch("merge_queue.cli.do_check_rules", return_value=[failing_result]),
     ):
         args = MagicMock()
         with pytest.raises(SystemExit) as exc_info:
@@ -316,8 +322,9 @@ def test_cmd_check_rules_no_exit_when_all_pass(
     passing_result.passed = True
     passing_result.name = "some_rule"
     passing_result.message = "All good"
-    with patch("merge_queue.cli._make_client"), patch(
-        "merge_queue.cli.do_check_rules", return_value=[passing_result]
+    with (
+        patch("merge_queue.cli._make_client"),
+        patch("merge_queue.cli.do_check_rules", return_value=[passing_result]),
     ):
         args = MagicMock()
         cmd_check_rules(args)  # should not raise
