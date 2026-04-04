@@ -2,7 +2,7 @@ name: "Merge Queue"
 
 on:
   pull_request:
-    types: [labeled]
+    types: [labeled, unlabeled]
 
 permissions:
   contents: write
@@ -15,8 +15,63 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  abort:
+    if: github.event.action == 'unlabeled' && github.event.label.name == 'queue'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Abort merge queue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+
+            // Find and delete any mq-lock rulesets
+            const { data: rulesets } = await github.rest.repos.getRepoRulesets({
+              owner, repo, per_page: 100
+            });
+            for (const rs of rulesets) {
+              if (rs.name.startsWith('mq-lock-')) {
+                try {
+                  await github.rest.repos.deleteRepoRuleset({ owner, repo, ruleset_id: rs.id });
+                  console.log(`Deleted lock ruleset ${rs.name} (${rs.id})`);
+                } catch (e) {
+                  console.log(`Could not delete ruleset ${rs.id}: ${e.message}`);
+                }
+              }
+            }
+
+            // Remove locked label from all PRs that have it
+            const { data: allOpen } = await github.rest.pulls.list({
+              owner, repo, state: 'open', per_page: 100
+            });
+            for (const openPr of allOpen) {
+              if (openPr.labels.some(l => l.name === 'locked')) {
+                await github.rest.issues.removeLabel({
+                  owner, repo, issue_number: openPr.number, name: 'locked'
+                }).catch(() => {});
+                await github.rest.issues.removeLabel({
+                  owner, repo, issue_number: openPr.number, name: 'queue'
+                }).catch(() => {});
+              }
+            }
+
+            // Delete mq/* branches
+            const { data: refs } = await github.rest.git.listMatchingRefs({
+              owner, repo, ref: 'heads/mq/'
+            });
+            for (const ref of refs) {
+              await github.rest.git.deleteRef({ owner, repo, ref: ref.ref.replace('refs/', '') }).catch(() => {});
+              console.log(`Deleted ${ref.ref}`);
+            }
+
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: pr.number,
+              body: `**Merge Queue:** Aborted — \`queue\` label was removed. Branches unlocked.`
+            });
+
   enqueue:
-    if: github.event.label.name == 'queue'
+    if: github.event.action == 'labeled' && github.event.label.name == 'queue'
     runs-on: ubuntu-latest
     outputs:
       batch: ${{ steps.discover.outputs.batch }}
@@ -208,6 +263,13 @@ jobs:
 
             core.setOutput('ruleset_ids', JSON.stringify(rulesetIds));
 
+            // Add 'locked' label to all PRs in batch
+            for (const entry of batch) {
+              await github.rest.issues.addLabels({
+                owner, repo, issue_number: entry.number, labels: ['locked']
+              });
+            }
+
       - name: Post queued comments
         if: steps.discover.outputs.batch_count > 0
         uses: actions/github-script@v7
@@ -368,8 +430,10 @@ jobs:
               }
             }
 
-            // --- 6. Post success + cleanup ---
+            // --- 6. Remove labels + post success ---
             for (const entry of batch) {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: entry.number, name: 'locked' }).catch(() => {});
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: entry.number, name: 'queue' }).catch(() => {});
               await github.rest.issues.createComment({
                 owner, repo, issue_number: entry.number,
                 body: `**Merge Queue:** Successfully merged to \`${defaultBranch}\`.`
@@ -420,9 +484,8 @@ jobs:
                 owner, repo, issue_number: entry.number,
                 body: `**Merge Queue:** Batch failed. Fix the issue and re-add the \`queue\` label to retry.${ciLink}`
               });
-              await github.rest.issues.removeLabel({
-                owner, repo, issue_number: entry.number, name: 'queue'
-              }).catch(() => {});
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: entry.number, name: 'queue' }).catch(() => {});
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: entry.number, name: 'locked' }).catch(() => {});
             }
 
             try {
