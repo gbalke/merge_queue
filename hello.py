@@ -25,3 +25,6 @@ def test_c():
 
 def lock_v2_a():
     return "Lock V2 A"
+
+def lock_v2_b():
+    return "Lock V2 B"
