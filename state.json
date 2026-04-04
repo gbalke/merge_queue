@@ -1,30 +1,18 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:09:47.340379+00:00",
+  "updated_at": "2026-04-04T19:09:57.101406+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775329699",
-    "branch": "mq/1775329699",
-    "ruleset_id": 14697434,
-    "started_at": "2026-04-04T19:08:18.190393+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 34,
-        "head_sha": "320568d267bfced587977b8f70904aebab6b8fb5",
-        "head_ref": "greg/revup/main/pass-a1",
-        "base_ref": "main",
-        "title": "Add greet function"
-      },
-      {
-        "number": 35,
-        "head_sha": "98c87648f90b6f6e2b8c23b55233f53d2f1e8a56",
-        "head_ref": "greg/revup/main/pass-a2",
-        "base_ref": "greg/revup/main/pass-a1",
-        "title": "Add farewell function"
-      }
-    ],
-    "deployment_id": 4271059331
-  },
-  "history": []
+  "active_batch": null,
+  "history": [
+    {
+      "batch_id": "1775329699",
+      "status": "merged",
+      "completed_at": "2026-04-04T19:09:57.101380+00:00",
+      "prs": [
+        34,
+        35
+      ],
+      "duration_seconds": 98.910987
+    }
+  ]
 }
