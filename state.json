@@ -1,37 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T21:44:53.681890+00:00",
+  "updated_at": "2026-04-04T21:45:03.233923+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775339007",
-    "branch": "mq/1775339007",
-    "ruleset_id": 14700272,
-    "started_at": "2026-04-04T21:43:26.644973+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 51,
-        "head_sha": "63e2b2c679c8f90e2a6096dc86c5bd06d9de7662",
-        "head_ref": "greg/revup/main/claude-md",
-        "base_ref": "main",
-        "title": "Add CLAUDE.md with development workflow"
-      },
-      {
-        "number": 52,
-        "head_sha": "b4dabb1619b159e7537d883ce28545971879c2f9",
-        "head_ref": "greg/revup/main/update-readme",
-        "base_ref": "greg/revup/main/claude-md",
-        "title": "Update README to reflect current features and architecture"
-      }
-    ],
-    "deployment_id": 4271794384,
-    "comment_ids": {
-      "51": 4187793838,
-      "52": 4187793847
-    },
-    "queued_at": "2026-04-04T21:43:24.223584+00:00",
-    "ci_started_at": "2026-04-04T21:43:29.773818+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775331440",
@@ -133,6 +104,16 @@
         49
       ],
       "duration_seconds": 93.201553
+    },
+    {
+      "batch_id": "1775339007",
+      "status": "merged",
+      "completed_at": "2026-04-04T21:45:03.233902+00:00",
+      "prs": [
+        51,
+        52
+      ],
+      "duration_seconds": 96.588929
     }
   ]
 }
