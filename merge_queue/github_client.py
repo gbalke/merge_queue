@@ -3,6 +3,10 @@
 Two tokens are used:
 - GITHUB_TOKEN: for most operations (PRs, labels, comments, branches, CI dispatch)
 - MQ_ADMIN_TOKEN: for ruleset operations (requires Administration permission)
+
+Rate limit tracking: every response updates the rate limit counters.
+Call counting: every request increments a counter for auditing.
+Caching: read-only endpoints are cached within a single process run.
 """
 
 from __future__ import annotations
@@ -17,9 +21,46 @@ import requests
 
 log = logging.getLogger(__name__)
 
-# How long to wait for CI before giving up (seconds)
 DEFAULT_CI_TIMEOUT = 30 * 60
 DEFAULT_CI_POLL_INTERVAL = 15
+
+
+class RateLimitInfo:
+    """Tracks GitHub API rate limit state from response headers."""
+
+    def __init__(self) -> None:
+        self.limit: int = 0
+        self.remaining: int = 0
+        self.used: int = 0
+        self.reset_at: datetime.datetime | None = None
+        self.request_count: int = 0
+
+    def update(self, response: requests.Response) -> None:
+        self.request_count += 1
+        headers = response.headers
+        if "X-RateLimit-Limit" in headers:
+            self.limit = int(headers["X-RateLimit-Limit"])
+        if "X-RateLimit-Remaining" in headers:
+            self.remaining = int(headers["X-RateLimit-Remaining"])
+        if "X-RateLimit-Used" in headers:
+            self.used = int(headers["X-RateLimit-Used"])
+        if "X-RateLimit-Reset" in headers:
+            self.reset_at = datetime.datetime.fromtimestamp(
+                int(headers["X-RateLimit-Reset"]), tz=datetime.timezone.utc
+            )
+
+        if self.remaining > 0 and self.remaining <= 100:
+            log.warning(
+                "GitHub API rate limit low: %d/%d remaining (resets %s)",
+                self.remaining, self.limit, self.reset_at,
+            )
+
+    def summary(self) -> str:
+        return (
+            f"requests={self.request_count}, "
+            f"remaining={self.remaining}/{self.limit}, "
+            f"resets={self.reset_at}"
+        )
 
 
 class GitHubClientProtocol(Protocol):
@@ -44,10 +85,12 @@ class GitHubClientProtocol(Protocol):
     def update_pr_base(self, pr_number: int, base: str) -> None: ...
     def compare_commits(self, base: str, head: str) -> str: ...
     def get_pr(self, pr_number: int) -> dict[str, Any]: ...
+    @property
+    def rate_limit(self) -> RateLimitInfo: ...
 
 
 class GitHubClient:
-    """Concrete GitHub API client."""
+    """Concrete GitHub API client with rate limit tracking and caching."""
 
     def __init__(
         self,
@@ -77,34 +120,55 @@ class GitHubClient:
             "X-GitHub-Api-Version": "2022-11-28",
         })
 
+        self.rate_limit = RateLimitInfo()
+
+        # Per-run caches for read-only data
+        self._cache_open_prs: list[dict[str, Any]] | None = None
+        self._cache_default_branch: str | None = None
+        self._cache_mq_branches: list[str] | None = None
+        self._cache_rulesets: list[dict[str, Any]] | None = None
+        self._cache_label_timestamps: dict[tuple[int, str], datetime.datetime | None] = {}
+
+    def invalidate_cache(self) -> None:
+        """Clear all caches. Call after write operations that change state."""
+        self._cache_open_prs = None
+        self._cache_mq_branches = None
+        self._cache_rulesets = None
+        # label timestamps and default branch don't change within a run
+
+    def _track(self, response: requests.Response) -> None:
+        self.rate_limit.update(response)
+
     def _get(self, path: str, **kwargs: Any) -> Any:
         r = self._session.get(f"{self._base_url}{path}", **kwargs)
+        self._track(r)
         r.raise_for_status()
         return r.json()
 
     def _post(self, path: str, json: Any = None, **kwargs: Any) -> Any:
         r = self._session.post(f"{self._base_url}{path}", json=json, **kwargs)
-        r.raise_for_status()
-        return r.json() if r.content else None
-
-    def _put(self, path: str, json: Any = None, **kwargs: Any) -> Any:
-        r = self._session.put(f"{self._base_url}{path}", json=json, **kwargs)
+        self._track(r)
         r.raise_for_status()
         return r.json() if r.content else None
 
     def _patch(self, path: str, json: Any = None, **kwargs: Any) -> Any:
         r = self._session.patch(f"{self._base_url}{path}", json=json, **kwargs)
+        self._track(r)
         r.raise_for_status()
         return r.json() if r.content else None
 
     def _delete(self, path: str, **kwargs: Any) -> None:
         r = self._session.delete(f"{self._base_url}{path}", **kwargs)
+        self._track(r)
         r.raise_for_status()
 
     # --- PRs ---
 
     def list_open_prs(self) -> list[dict[str, Any]]:
-        return self._get("/pulls?state=open&per_page=100")
+        if self._cache_open_prs is not None:
+            return self._cache_open_prs
+        self._cache_open_prs = self._get("/pulls?state=open&per_page=100")
+        return self._cache_open_prs
 
     def get_pr(self, pr_number: int) -> dict[str, Any]:
         return self._get(f"/pulls/{pr_number}")
@@ -112,12 +176,16 @@ class GitHubClient:
     def get_label_timestamp(
         self, pr_number: int, label: str
     ) -> datetime.datetime | None:
-        """Get when a label was added to a PR using the timeline API."""
+        cache_key = (pr_number, label)
+        if cache_key in self._cache_label_timestamps:
+            return self._cache_label_timestamps[cache_key]
+
         events = self._get(
             f"/issues/{pr_number}/timeline",
             headers={"Accept": "application/vnd.github.mockingbird-preview+json"},
             params={"per_page": 100},
         )
+        result = None
         for event in events:
             if (
                 event.get("event") == "labeled"
@@ -125,8 +193,10 @@ class GitHubClient:
             ):
                 ts = event.get("created_at")
                 if ts:
-                    return datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
-        return None
+                    result = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                    break
+        self._cache_label_timestamps[cache_key] = result
+        return result
 
     def update_pr_base(self, pr_number: int, base: str) -> None:
         self._patch(f"/pulls/{pr_number}", json={"base": base})
@@ -135,13 +205,15 @@ class GitHubClient:
 
     def add_label(self, pr_number: int, label: str) -> None:
         self._post(f"/issues/{pr_number}/labels", json={"labels": [label]})
+        self.invalidate_cache()  # labels changed
 
     def remove_label(self, pr_number: int, label: str) -> None:
         try:
             self._delete(f"/issues/{pr_number}/labels/{label}")
+            self.invalidate_cache()
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code == 404:
-                pass  # Label wasn't there
+                pass
             else:
                 raise
 
@@ -165,30 +237,42 @@ class GitHubClient:
                 "rules": [{"type": "update"}],
             },
         )
+        self._track(r)
         r.raise_for_status()
+        self._cache_rulesets = None
         return r.json()["id"]
 
     def get_ruleset(self, ruleset_id: int) -> dict[str, Any]:
         r = self._admin_session.get(f"{self._base_url}/rulesets/{ruleset_id}")
+        self._track(r)
         r.raise_for_status()
         return r.json()
 
     def delete_ruleset(self, ruleset_id: int) -> None:
         r = self._admin_session.delete(f"{self._base_url}/rulesets/{ruleset_id}")
+        self._track(r)
         r.raise_for_status()
+        self._cache_rulesets = None
 
     def list_rulesets(self) -> list[dict[str, Any]]:
+        if self._cache_rulesets is not None:
+            return self._cache_rulesets
         r = self._admin_session.get(
             f"{self._base_url}/rulesets", params={"per_page": 100}
         )
+        self._track(r)
         r.raise_for_status()
-        return r.json()
+        self._cache_rulesets = r.json()
+        return self._cache_rulesets
 
     # --- Branches ---
 
     def list_mq_branches(self) -> list[str]:
+        if self._cache_mq_branches is not None:
+            return self._cache_mq_branches
         refs = self._get("/git/matching-refs/heads/mq/")
-        return [r["ref"].removeprefix("refs/heads/") for r in refs]
+        self._cache_mq_branches = [r["ref"].removeprefix("refs/heads/") for r in refs]
+        return self._cache_mq_branches
 
     def get_branch_sha(self, branch: str) -> str:
         data = self._get(f"/git/ref/heads/{branch}")
@@ -197,9 +281,10 @@ class GitHubClient:
     def delete_branch(self, ref: str) -> None:
         try:
             self._delete(f"/git/refs/heads/{ref}")
+            self._cache_mq_branches = None
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code == 422:
-                pass  # Branch already deleted
+                pass
             else:
                 raise
 
@@ -209,8 +294,12 @@ class GitHubClient:
     # --- CI ---
 
     def get_default_branch(self) -> str:
-        data = self._session.get(f"{self._base_url}").json()
-        return data.get("default_branch", "main")
+        if self._cache_default_branch is not None:
+            return self._cache_default_branch
+        r = self._session.get(f"{self._base_url}")
+        self._track(r)
+        self._cache_default_branch = r.json().get("default_branch", "main")
+        return self._cache_default_branch
 
     def dispatch_ci(self, branch: str) -> None:
         self._post(
@@ -224,8 +313,7 @@ class GitHubClient:
         branch: str,
         timeout_seconds: int = DEFAULT_CI_TIMEOUT,
     ) -> bool:
-        """Poll for CI completion on a branch. Returns True if passed."""
-        time.sleep(5)  # Wait for run to appear
+        time.sleep(5)
 
         run_id = None
         for attempt in range(10):
@@ -265,6 +353,5 @@ class GitHubClient:
     # --- Compare ---
 
     def compare_commits(self, base: str, head: str) -> str:
-        """Compare two refs. Returns 'ahead', 'behind', 'identical', or 'diverged'."""
         data = self._get(f"/compare/{base}...{head}")
         return data["status"]

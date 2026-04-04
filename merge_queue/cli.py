@@ -227,14 +227,22 @@ def do_check_rules(client: GitHubClientProtocol) -> list[rules_mod.RuleResult]:
 # --- CLI entry points (thin wrappers) ---
 
 
+def _log_rate_limit(client: GitHubClientProtocol) -> None:
+    rl = getattr(client, "rate_limit", None)
+    if rl:
+        log.info("API usage: %s", rl.summary())
+
+
 def cmd_enqueue(args: argparse.Namespace) -> None:
     client = _make_client()
     do_enqueue(client, args.pr_number)
+    _log_rate_limit(client)
 
 
 def cmd_process(args: argparse.Namespace) -> None:
     client = _make_client()
     result = do_process(client)
+    _log_rate_limit(client)
     if result == "rules_failed":
         sys.exit(1)
 
@@ -242,11 +250,13 @@ def cmd_process(args: argparse.Namespace) -> None:
 def cmd_abort(args: argparse.Namespace) -> None:
     client = _make_client()
     do_abort(client, args.pr_number)
+    _log_rate_limit(client)
 
 
 def cmd_check_rules(args: argparse.Namespace) -> None:
     client = _make_client()
     results = do_check_rules(client)
+    _log_rate_limit(client)
     any_failed = False
     for r in results:
         status = "PASS" if r.passed else "FAIL"
