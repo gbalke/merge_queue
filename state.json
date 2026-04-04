@@ -1,26 +1,28 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T22:45:29.639042+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-04T22:45:28.834267+00:00",
-      "stack": [
-        {
-          "number": 56,
-          "head_sha": "b073d305e256e1cd1e93c933e938980ffc377a23",
-          "head_ref": "greg/revup/main/readme-breakglass",
-          "base_ref": "main",
-          "title": "Add break-glass label to README labels section"
-        }
-      ],
-      "deployment_id": 4272055119,
-      "comment_ids": {
-        "56": 4187869839
+  "updated_at": "2026-04-04T22:45:30.935210+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-04T22:45:30.935195+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 56,
+        "head_sha": "b073d305e256e1cd1e93c933e938980ffc377a23",
+        "head_ref": "greg/revup/main/readme-breakglass",
+        "base_ref": "main",
+        "title": "Add break-glass label to README labels section"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4272055119,
+    "comment_ids": {
+      "56": 4187869839
+    },
+    "queued_at": "2026-04-04T22:45:28.834267+00:00"
+  },
   "history": [
     {
       "batch_id": "1775340971",
