@@ -154,6 +154,8 @@ class GitHubClient:
             }
         )
 
+        self._ci_workflow = os.environ.get("MQ_CI_WORKFLOW", "ci.yml")
+
         self.rate_limit = RateLimitInfo()
 
         # Per-run caches for read-only data
@@ -376,7 +378,7 @@ class GitHubClient:
 
     def dispatch_ci(self, branch: str) -> None:
         self._post(
-            "/actions/workflows/ci.yml/dispatches",
+            f"/actions/workflows/{self._ci_workflow}/dispatches",
             json={"ref": branch, "inputs": {"ref": branch}},
         )
         log.info("Dispatched CI on %s", branch)
@@ -401,7 +403,7 @@ class GitHubClient:
         run_url = ""
         for attempt in range(10):
             data = self._get(
-                "/actions/workflows/ci.yml/runs",
+                f"/actions/workflows/{self._ci_workflow}/runs",
                 params={
                     "branch": branch,
                     "event": "workflow_dispatch",
