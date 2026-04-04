@@ -64,24 +64,68 @@ def batch_started(
     )
 
 
-def merged(default_branch: str, owner: str = "", repo: str = "") -> str:
+def merged(
+    default_branch: str,
+    stack: list[dict] | None = None,
+    queued_at: str = "",
+    ci_started_at: str = "",
+    completed_at: str = "",
+    owner: str = "",
+    repo: str = "",
+) -> str:
     link = _mq_link(owner, repo)
-    return f"**Merge Queue — Merged** to `{default_branch}`.{link}"
+    stats = ""
+    if queued_at and completed_at:
+        try:
+            from datetime import datetime, timezone
+            t_queued = datetime.fromisoformat(queued_at)
+            t_completed = datetime.fromisoformat(completed_at)
+            total = (t_completed - t_queued).total_seconds()
+            parts = []
+            if ci_started_at:
+                t_ci = datetime.fromisoformat(ci_started_at)
+                wait = (t_ci - t_queued).total_seconds()
+                ci_dur = (t_completed - t_ci).total_seconds()
+                parts.append(f"Queue wait: {_fmt_duration(wait)}")
+                parts.append(f"CI + merge: {_fmt_duration(ci_dur)}")
+            parts.append(f"Total: {_fmt_duration(total)}")
+            stats = "\n\n" + " | ".join(parts)
+        except Exception:
+            pass
+
+    stack_list = ""
+    if stack:
+        stack_list = "\n\nCommits:\n" + _stack_list(stack)
+
+    return f"**Merge Queue — Merged** to `{default_branch}`.{stats}{stack_list}{link}"
+
+
+def _fmt_duration(seconds: float) -> str:
+    if seconds >= 60:
+        return f"{int(seconds // 60)}m {int(seconds % 60)}s"
+    return f"{int(seconds)}s"
 
 
 def failed(
     reason: str,
     ci_run_url: str = "",
+    failed_job: str = "",
+    failed_step: str = "",
     owner: str = "",
     repo: str = "",
 ) -> str:
     link = _mq_link(owner, repo)
+    details = ""
+    if failed_job:
+        details += f"\n**Job:** {failed_job}"
+    if failed_step:
+        details += f"\n**Step:** {failed_step}"
     ci_link = ""
     if ci_run_url:
         ci_link = f"\n\n[View failed CI run →]({ci_run_url})"
     return (
         f"**Merge Queue — Failed**\n\n"
-        f"{reason}{ci_link}\n\n"
+        f"{reason}{details}{ci_link}\n\n"
         f"Fix the issue and re-add the `queue` label to retry."
         f"{link}"
     )

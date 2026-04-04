@@ -70,7 +70,9 @@ class GitHubClientProtocol(Protocol):
     def get_label_timestamp(self, pr_number: int, label: str) -> datetime.datetime | None: ...
     def add_label(self, pr_number: int, label: str) -> None: ...
     def remove_label(self, pr_number: int, label: str) -> None: ...
-    def create_comment(self, pr_number: int, body: str) -> None: ...
+    def create_comment(self, pr_number: int, body: str) -> int: ...
+    def update_comment(self, comment_id: int, body: str) -> None: ...
+    def get_failed_job_info(self, run_url: str) -> tuple[str, str]: ...
     def create_ruleset(self, name: str, branch_patterns: list[str]) -> int: ...
     def get_ruleset(self, ruleset_id: int) -> dict[str, Any]: ...
     def delete_ruleset(self, ruleset_id: int) -> None: ...
@@ -231,8 +233,36 @@ class GitHubClient:
 
     # --- Comments ---
 
-    def create_comment(self, pr_number: int, body: str) -> None:
-        self._post(f"/issues/{pr_number}/comments", json={"body": body})
+    def create_comment(self, pr_number: int, body: str) -> int:
+        """Create a comment on a PR. Returns the comment ID."""
+        data = self._post(f"/issues/{pr_number}/comments", json={"body": body})
+        return data["id"]
+
+    def update_comment(self, comment_id: int, body: str) -> None:
+        """Update an existing comment by ID."""
+        self._patch(f"/issues/comments/{comment_id}", json={"body": body})
+
+    def get_failed_job_info(self, run_url: str) -> tuple[str, str]:
+        """Extract the failed job name and error snippet from a CI run.
+
+        Returns (job_name, error_snippet). Best effort — returns ("", "") on failure.
+        """
+        try:
+            # Extract run_id from URL like .../actions/runs/12345
+            run_id = run_url.rstrip("/").split("/")[-1]
+            jobs_data = self._get(f"/actions/runs/{run_id}/jobs")
+            for job in jobs_data.get("jobs", []):
+                if job.get("conclusion") == "failure":
+                    job_name = job.get("name", "unknown")
+                    # Get the failed step
+                    for step in job.get("steps", []):
+                        if step.get("conclusion") == "failure":
+                            step_name = step.get("name", "")
+                            return job_name, f"Failed at step: {step_name}"
+                    return job_name, ""
+        except Exception as e:
+            log.warning("Could not fetch failed job info: %s", e)
+        return "", ""
 
     # --- Rulesets (uses admin token) ---
 
