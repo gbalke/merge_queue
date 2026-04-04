@@ -1,7 +1,25 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:59:45.367598+00:00",
-  "queue": [],
+  "updated_at": "2026-04-04T20:05:18.773226+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-04T20:05:17.937171+00:00",
+      "stack": [
+        {
+          "number": 46,
+          "head_sha": "ce0cc573482997b889079237246548634e3b8730",
+          "head_ref": "greg/revup/main/ci-badge-fix",
+          "base_ref": "main",
+          "title": "Set commit status on main after merge for CI badge"
+        }
+      ],
+      "deployment_id": 4271333374,
+      "comment_ids": {
+        "46": 4187669400
+      }
+    }
+  ],
   "active_batch": null,
   "history": [
     {
