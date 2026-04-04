@@ -82,6 +82,13 @@ class StateStore:
         try:
             status_md = render_status_md(state, self.client)
             status_b64 = base64.b64encode(status_md.encode()).decode()
+            # Always fetch current SHA to avoid stale-SHA 422 errors
+            if self._status_sha is None:
+                try:
+                    data = self.client.get_file_content(STATUS_PATH, STATE_BRANCH)
+                    self._status_sha = data["sha"]
+                except Exception:
+                    pass  # File may not exist yet
             result = self.client.put_file_content(
                 STATUS_PATH,
                 STATE_BRANCH,
@@ -91,8 +98,8 @@ class StateStore:
             )
             self._status_sha = result["content"]["sha"]
         except Exception as e:
-            if "409" in str(e) or "conflict" in str(e).lower():
-                # Re-read to get current SHA and retry once
+            if "422" in str(e) or "409" in str(e) or "conflict" in str(e).lower():
+                # SHA mismatch — re-read and retry once
                 try:
                     data = self.client.get_file_content(STATUS_PATH, STATE_BRANCH)
                     self._status_sha = data["sha"]
