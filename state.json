@@ -1,29 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:55:37.914959+00:00",
+  "updated_at": "2026-04-04T19:55:45.745928+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775332468",
-    "branch": "mq/1775332468",
-    "ruleset_id": 14699067,
-    "started_at": "2026-04-04T19:54:27.950940+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 45,
-        "head_sha": "e9df865c6f3e3e18edf8821af5595b6d01d0e3bd",
-        "head_ref": "greg/revup/main/fix-format",
-        "base_ref": "main",
-        "title": "Fix ruff format for agent-written test files"
-      }
-    ],
-    "deployment_id": 4271279435,
-    "comment_ids": {
-      "45": 4187654948
-    },
-    "queued_at": "2026-04-04T19:54:26.137521+00:00",
-    "ci_started_at": "2026-04-04T19:54:29.920052+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775331440",
@@ -52,6 +31,15 @@
         44
       ],
       "duration_seconds": 78.665754
+    },
+    {
+      "batch_id": "1775332468",
+      "status": "merged",
+      "completed_at": "2026-04-04T19:55:45.745901+00:00",
+      "prs": [
+        45
+      ],
+      "duration_seconds": 77.794961
     }
   ]
 }
