@@ -72,3 +72,11 @@ Reviewers: alice"
 - Commits for a child topic (Relative) must come AFTER the parent topic's commits in git history
 - After committing, remind the user to run `revup upload` to create/update PRs
 - If the user wants to modify a previous commit in the stack, suggest `revup amend <topic-name>`
+
+## Best Practices
+
+- **Keep changes small and focused.** Each topic should represent one logical change.
+- **Use Relative stacking** when changes build on each other, but keep each topic independently reviewable.
+- **Separate concerns:** lint fixes, feature code, tests, and config changes should be different topics.
+- **Run tests before uploading:** Always verify `pytest tests/` passes before `revup upload`.
+- **Run lint before uploading:** Always verify `ruff check merge_queue/ tests/` passes.
