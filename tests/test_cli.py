@@ -96,7 +96,10 @@ class TestDoProcess:
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/123", Stack(prs=(), queued_at=T0))
         batch_mod.create_batch.return_value = batch
-        batch_mod.run_ci.return_value = True
+        ci_result = MagicMock()
+        ci_result.passed = True
+        ci_result.run_url = ""
+        batch_mod.run_ci.return_value = ci_result
         batch_mod.BatchError = Exception
 
         result = do_process(mock_client)
@@ -104,9 +107,7 @@ class TestDoProcess:
         assert result == "merged"
         batch_mod.create_batch.assert_called_once()
         batch_mod.complete_batch.assert_called_once()
-        # State written multiple times (progress updates)
         assert mock_store.write.call_count >= 3
-        # Deployment updated
         mock_client.update_deployment_status.assert_any_call(99, "in_progress", "Locking branches...")
 
     @patch("merge_queue.cli.QueueState")
@@ -125,11 +126,17 @@ class TestDoProcess:
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/123", Stack(prs=(), queued_at=T0))
         batch_mod.create_batch.return_value = batch
-        batch_mod.run_ci.return_value = False
+        ci_result = MagicMock()
+        ci_result.passed = False
+        ci_result.run_url = "https://example.com/run/fail"
+        batch_mod.run_ci.return_value = ci_result
         batch_mod.BatchError = Exception
 
         assert do_process(mock_client) == "ci_failed"
         batch_mod.fail_batch.assert_called_once()
+        # Should comment with link to failed CI run
+        comment_calls = [c[0][1] for c in mock_client.create_comment.call_args_list]
+        assert any("https://example.com/run/fail" in c for c in comment_calls)
 
     @patch("merge_queue.cli.QueueState")
     @patch("merge_queue.cli.batch_mod")
@@ -166,12 +173,14 @@ class TestDoProcess:
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/123", Stack(prs=(), queued_at=T0))
         batch_mod.create_batch.return_value = batch
-        batch_mod.run_ci.return_value = True
+        ci_result = MagicMock()
+        ci_result.passed = True
+        ci_result.run_url = ""
+        batch_mod.run_ci.return_value = ci_result
         batch_mod.BatchError = Exception
 
         do_process(mock_client)
 
-        # Final write should have history entry and no active_batch
         final_state = mock_store.write.call_args_list[-1][0][0]
         assert final_state["active_batch"] is None
         assert len(final_state["history"]) == 1
@@ -236,7 +245,7 @@ class TestDoAbort:
             result = do_abort(mock_client, 1)
 
         assert result == "aborted"
-        mock_client.update_deployment_status.assert_any_call(42, "inactive", "Aborted by user")
+        mock_client.update_deployment_status.assert_any_call(42, "inactive", "Aborted")
         final = mock_store.write.call_args[0][0]
         assert final["active_batch"] is None
 
@@ -254,9 +263,9 @@ class TestDoAbort:
         assert result == "removed"
         final = mock_store.write.call_args[0][0]
         assert len(final["queue"]) == 1
-        assert final["queue"][0]["position"] == 1  # re-numbered
+        assert final["queue"][0]["position"] == 1
         assert final["queue"][0]["stack"][0]["number"] == 2
-        mock_client.update_deployment_status.assert_any_call(10, "inactive", "Removed from queue")
+        mock_client.update_deployment_status.assert_any_call(10, "inactive", "Removed")
 
     def test_not_found(self, mock_client, mock_store):
         assert do_abort(mock_client, 99) == "not_found"

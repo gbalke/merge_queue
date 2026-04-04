@@ -241,10 +241,18 @@ def _git_create_and_merge(
     log.info("Pushed batch branch %s", branch)
 
 
-def run_ci(client: GitHubClientProtocol, batch: Batch, timeout: int = 30 * 60) -> bool:
-    """Dispatch CI and poll for result."""
+class CIResult:
+    """Result of a CI run."""
+    def __init__(self, passed: bool, run_url: str = ""):
+        self.passed = passed
+        self.run_url = run_url
+
+
+def run_ci(client: GitHubClientProtocol, batch: Batch, timeout: int = 30 * 60) -> CIResult:
+    """Dispatch CI and poll for result. Returns CIResult with pass/fail and run URL."""
     client.dispatch_ci(batch.branch)
-    return client.poll_ci(batch.branch, timeout)
+    passed, run_url = client.poll_ci_with_url(batch.branch, timeout)
+    return CIResult(passed, run_url)
 
 
 def complete_batch(client: GitHubClientProtocol, batch: Batch) -> None:
@@ -302,11 +310,11 @@ def _parallel_cleanup(
             client.delete_branch(pr.head_ref)
 
     def post_comments():
+        from merge_queue.comments import merged
+        owner = getattr(client, "owner", "")
+        repo = getattr(client, "repo", "")
         for pr in batch.stack.prs:
-            client.create_comment(
-                pr.number,
-                f"**Merge Queue:** Successfully merged to `{default_branch}`.",
-            )
+            client.create_comment(pr.number, merged(default_branch, owner, repo))
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
         futures = [
@@ -334,11 +342,6 @@ def fail_batch(
     for pr in batch.stack.prs:
         client.remove_label(pr.number, "locked")
         client.remove_label(pr.number, "queue")
-        client.create_comment(
-            pr.number,
-            f"**Merge Queue:** Batch failed — {reason}. "
-            f"Fix the issue and re-add the `queue` label to retry.",
-        )
 
     client.delete_branch(batch.branch)
     batch.status = BatchStatus.FAILED

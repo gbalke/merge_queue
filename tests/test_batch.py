@@ -337,14 +337,18 @@ class TestCreateBatch:
 class TestRunCi:
     def test_dispatches_and_polls(self, mock_client):
         batch = _batch(_stack(make_pr(1, "feat-a")))
-        mock_client.poll_ci.return_value = True
-        assert run_ci(mock_client, batch) is True
+        mock_client.poll_ci_with_url.return_value = (True, "https://example.com/run/1")
+        result = run_ci(mock_client, batch)
+        assert result.passed is True
+        assert result.run_url == "https://example.com/run/1"
         mock_client.dispatch_ci.assert_called_once_with("mq/123")
 
     def test_returns_false_on_failure(self, mock_client):
         batch = _batch(_stack(make_pr(1, "feat-a")))
-        mock_client.poll_ci.return_value = False
-        assert run_ci(mock_client, batch) is False
+        mock_client.poll_ci_with_url.return_value = (False, "https://example.com/run/2")
+        result = run_ci(mock_client, batch)
+        assert result.passed is False
+        assert result.run_url == "https://example.com/run/2"
 
 
 # ── complete_batch ─────────────────────────────────────────────
@@ -453,7 +457,8 @@ class TestFailBatch:
         mock_client.delete_ruleset.assert_called_once_with(42)
         mock_client.remove_label.assert_any_call(1, "locked")
         mock_client.remove_label.assert_any_call(1, "queue")
-        assert "CI failed" in mock_client.create_comment.call_args[0][1]
+        # Comments are now handled by cli.py, not fail_batch
+        mock_client.create_comment.assert_not_called()
         mock_client.delete_branch.assert_called_once_with("mq/123")
 
     def test_unlock_failure_continues(self, mock_client):

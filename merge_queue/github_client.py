@@ -81,6 +81,7 @@ class GitHubClientProtocol(Protocol):
     def get_default_branch(self) -> str: ...
     def dispatch_ci(self, branch: str) -> None: ...
     def poll_ci(self, branch: str, timeout_seconds: int) -> bool: ...
+    def poll_ci_with_url(self, branch: str, timeout_seconds: int) -> tuple[bool, str]: ...
     def update_ref(self, ref: str, sha: str) -> None: ...
     def update_pr_base(self, pr_number: int, base: str) -> None: ...
     def compare_commits(self, base: str, head: str) -> str: ...
@@ -328,9 +329,19 @@ class GitHubClient:
         branch: str,
         timeout_seconds: int = DEFAULT_CI_TIMEOUT,
     ) -> bool:
+        passed, _ = self.poll_ci_with_url(branch, timeout_seconds)
+        return passed
+
+    def poll_ci_with_url(
+        self,
+        branch: str,
+        timeout_seconds: int = DEFAULT_CI_TIMEOUT,
+    ) -> tuple[bool, str]:
+        """Poll for CI completion. Returns (passed, run_html_url)."""
         time.sleep(5)
 
         run_id = None
+        run_url = ""
         for attempt in range(10):
             data = self._get(
                 "/actions/workflows/ci.yml/runs",
@@ -343,27 +354,29 @@ class GitHubClient:
             runs = data.get("workflow_runs", [])
             if runs:
                 run_id = runs[0]["id"]
+                run_url = runs[0].get("html_url", "")
                 break
             log.info("Waiting for CI run to appear (attempt %d)...", attempt + 1)
             time.sleep(5)
 
         if run_id is None:
             log.error("CI run did not appear after dispatch")
-            return False
+            return False, ""
 
         log.info("Found CI run %d, polling...", run_id)
         start = time.monotonic()
         while time.monotonic() - start < timeout_seconds:
             data = self._get(f"/actions/runs/{run_id}")
+            run_url = data.get("html_url", run_url)
             if data["status"] == "completed":
                 conclusion = data["conclusion"]
                 log.info("CI completed: %s", conclusion)
-                return conclusion == "success"
+                return conclusion == "success", run_url
             log.info("CI status: %s...", data["status"])
             time.sleep(DEFAULT_CI_POLL_INTERVAL)
 
         log.error("CI timed out after %d seconds", timeout_seconds)
-        return False
+        return False, run_url
 
     # --- Compare ---
 

@@ -9,6 +9,7 @@ import os
 import sys
 
 from merge_queue import batch as batch_mod
+from merge_queue import comments
 from merge_queue import rules as rules_mod
 from merge_queue.github_client import GitHubClient, GitHubClientProtocol
 from merge_queue.queue import detect_stacks, order_queue, select_next
@@ -18,8 +19,6 @@ from merge_queue.store import StateStore
 from merge_queue.types import empty_state
 
 log = logging.getLogger("merge_queue")
-
-MQ_DEPLOYMENTS_URL = "https://github.com/{owner}/{repo}/deployments/merge-queue"
 
 
 def _make_client() -> GitHubClient:
@@ -34,61 +33,49 @@ def _make_client() -> GitHubClient:
     return GitHubClient(owner, repo)
 
 
-def _mq_url(client: GitHubClientProtocol) -> str:
-    owner = getattr(client, "owner", "")
-    repo = getattr(client, "repo", "")
-    if owner and repo:
-        return MQ_DEPLOYMENTS_URL.format(owner=owner, repo=repo)
-    return ""
+def _owner_repo(client: GitHubClientProtocol) -> tuple[str, str]:
+    return getattr(client, "owner", ""), getattr(client, "repo", "")
 
 
 def _now_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
-def _stack_to_dicts(prs) -> list[dict]:
-    """Convert PullRequest objects to serializable dicts for state.json."""
-    return [
-        {"number": pr.number, "head_sha": pr.head_sha, "head_ref": pr.head_ref,
-         "base_ref": pr.base_ref, "title": ""}
-        for pr in prs
-    ]
+def _comment(client, pr_number: int, body: str) -> None:
+    try:
+        client.create_comment(pr_number, body)
+    except Exception as e:
+        log.warning("Could not comment on PR #%d: %s", pr_number, e)
 
 
-# --- Core logic functions ---
+# --- Core logic ---
 
 
 def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
     """Enqueue a PR: update state, create deployment, trigger processing."""
     store = StateStore(client)
     state = store.read()
-    mq_url = _mq_url(client)
+    owner, repo = _owner_repo(client)
 
-    # Check if this PR's stack is already queued
+    # Already queued?
     for entry in state.get("queue", []):
         if any(pr["number"] == pr_number for pr in entry.get("stack", [])):
-            log.info("PR #%d is already in queue position %d", pr_number, entry.get("position", 0))
-            client.create_comment(
-                pr_number,
-                f"**Merge Queue:** PR already queued (position {entry.get('position', '?')}).\n\n"
-                f"[View merge queue →]({mq_url})",
-            )
+            _comment(client, pr_number, comments.already_queued(entry.get("position", 0), owner, repo))
             return "already_queued"
 
-    # Detect the stack this PR belongs to
+    # Detect the stack
     api_state = QueueState.fetch(client)
-    stack = None
+    stack_dicts = None
     for pr in api_state.prs:
         if pr.number == pr_number:
             stacks = detect_stacks(api_state.queued_prs, api_state.default_branch)
             for s in stacks:
                 if any(p.number == pr_number for p in s.prs):
-                    stack = s
+                    stack_dicts = _stack_to_dicts(s, client)
                     break
             break
 
-    if stack is None:
-        # Single PR or stack not detected yet — just add this PR
+    if stack_dicts is None:
         pr_data = client.get_pr(pr_number)
         stack_dicts = [{
             "number": pr_number,
@@ -97,15 +84,9 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
             "base_ref": pr_data["base"]["ref"],
             "title": pr_data.get("title", ""),
         }]
-    else:
-        stack_dicts = [
-            {"number": pr.number, "head_sha": pr.head_sha, "head_ref": pr.head_ref,
-             "base_ref": pr.base_ref, "title": ""}
-            for pr in stack.prs
-        ]
 
-    # Add to queue
     position = len(state.get("queue", [])) + 1
+    total = position
     entry = {
         "position": position,
         "queued_at": _now_iso(),
@@ -113,7 +94,7 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
         "deployment_id": None,
     }
 
-    # Create deployment for live tracking
+    # Create deployment
     try:
         prs_desc = ", ".join(f"#{pr['number']}" for pr in stack_dicts)
         dep_id = client.create_deployment(f"Queue position {position}: {prs_desc}")
@@ -126,39 +107,51 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
     state["updated_at"] = _now_iso()
     store.write(state)
 
-    # Comment on all PRs in the stack
     for pr in stack_dicts:
-        client.create_comment(
-            pr["number"],
-            f"**Merge Queue:** Queued at position {position}.\n\n"
-            f"[View merge queue →]({mq_url})",
-        )
+        _comment(client, pr["number"], comments.queued(position, total, stack_dicts, owner, repo))
 
-    log.info("Enqueued stack at position %d: %s", position, prs_desc)
+    log.info("Enqueued stack at position %d", position)
 
-    # Trigger processing if no active batch
+    # Trigger processing if idle
     if state.get("active_batch") is None and not api_state.has_active_batch:
         return do_process(client)
     return "queued_waiting"
+
+
+def _stack_to_dicts(stack, client) -> list[dict]:
+    """Convert Stack to serializable dicts, fetching titles."""
+    result = []
+    for pr in stack.prs:
+        title = ""
+        try:
+            pr_data = client.get_pr(pr.number)
+            title = pr_data.get("title", "")
+        except Exception:
+            pass
+        result.append({
+            "number": pr.number, "head_sha": pr.head_sha,
+            "head_ref": pr.head_ref, "base_ref": pr.base_ref,
+            "title": title,
+        })
+    return result
 
 
 def do_process(client: GitHubClientProtocol) -> str:
     """Process the next batch from the queue."""
     store = StateStore(client)
     state = store.read()
+    owner, repo = _owner_repo(client)
 
-    # Already processing?
     if state.get("active_batch") is not None:
         log.info("Active batch in progress, skipping")
         return "batch_active"
 
-    # Nothing queued?
     queue = state.get("queue", [])
     if not queue:
         log.info("Queue empty, nothing to do")
         return "no_stacks"
 
-    # Run pre-condition rules
+    # Pre-condition rules
     api_state = QueueState.fetch(client)
     results = rules_mod.check_all(api_state)
     failures = [r for r in results if not r.passed]
@@ -167,13 +160,12 @@ def do_process(client: GitHubClientProtocol) -> str:
             log.error("Rule failed: %s — %s", f.name, f.message)
         return "rules_failed"
 
-    # Pop first entry (FIFO)
+    # Pop first (FIFO)
     entry = queue.pop(0)
-    # Re-number remaining
     for i, e in enumerate(queue):
         e["position"] = i + 1
 
-    # Build stack from entry
+    # Build stack
     from merge_queue.types import PullRequest, Stack
     prs = tuple(
         PullRequest(
@@ -186,25 +178,20 @@ def do_process(client: GitHubClientProtocol) -> str:
     )
     next_stack = Stack(prs=prs, queued_at=datetime.datetime.fromisoformat(entry["queued_at"]))
 
-    log.info("Processing stack: %s", " -> ".join(f"#{pr.number}" for pr in prs))
+    log.info("Processing: %s", " -> ".join(f"#{pr.number}" for pr in prs))
 
-    # Update deployment: in_progress
     dep_id = entry.get("deployment_id")
     if dep_id:
         try:
             client.update_deployment_status(dep_id, "in_progress", "Locking branches...")
-        except Exception as e:
-            log.warning("Could not update deployment: %s", e)
+        except Exception:
+            pass
 
-    # Update state: active_batch
+    # Set active batch in state
     state["active_batch"] = {
-        "batch_id": "",
-        "branch": "",
-        "ruleset_id": None,
-        "started_at": _now_iso(),
-        "progress": "locking",
-        "stack": entry["stack"],
-        "deployment_id": dep_id,
+        "batch_id": "", "branch": "", "ruleset_id": None,
+        "started_at": _now_iso(), "progress": "locking",
+        "stack": entry["stack"], "deployment_id": dep_id,
     }
     state["updated_at"] = _now_iso()
     store.write(state)
@@ -214,9 +201,8 @@ def do_process(client: GitHubClientProtocol) -> str:
         batch = batch_mod.create_batch(client, next_stack)
     except batch_mod.BatchError as e:
         log.error("Failed to create batch: %s", e)
-        mq_url = _mq_url(client)
         for pr in prs:
-            client.create_comment(pr.number, f"**Merge Queue:** Failed — {e}.\n\n[View merge queue →]({mq_url})")
+            _comment(client, pr.number, comments.batch_error(str(e), owner, repo))
             client.remove_label(pr.number, "queue")
         if dep_id:
             try:
@@ -228,7 +214,7 @@ def do_process(client: GitHubClientProtocol) -> str:
         store.write(state)
         return "batch_error"
 
-    # Update state with batch info
+    # Update state
     state["active_batch"]["batch_id"] = batch.batch_id
     state["active_batch"]["branch"] = batch.branch
     state["active_batch"]["ruleset_id"] = batch.ruleset_id
@@ -236,43 +222,35 @@ def do_process(client: GitHubClientProtocol) -> str:
     state["updated_at"] = _now_iso()
     store.write(state)
 
-    # Update deployment
     if dep_id:
         try:
             client.update_deployment_status(dep_id, "in_progress", f"CI running on {batch.branch}")
         except Exception:
             pass
 
-    # Post queued comments
-    mq_url = _mq_url(client)
-    pr_list = "\n".join(f"- #{pr.number} ({pr.head_ref})" for pr in prs)
+    # Notify PRs
     for pr in prs:
-        client.create_comment(
-            pr.number,
-            f"**Merge Queue:** CI running on `{batch.branch}`.\n\n"
-            f"Batch:\n{pr_list}\n\n[View merge queue →]({mq_url})",
-        )
+        _comment(client, pr.number, comments.batch_started(batch.branch, entry["stack"], owner, repo))
 
     # Run CI
-    ci_passed = batch_mod.run_ci(client, batch)
+    ci_result = batch_mod.run_ci(client, batch)
 
-    if ci_passed:
+    if ci_result.passed:
         state["active_batch"]["progress"] = "completing"
         state["updated_at"] = _now_iso()
         store.write(state)
 
         try:
             batch_mod.complete_batch(client, batch)
-            log.info("Batch merged successfully!")
+            log.info("Batch merged!")
             status = "merged"
             if dep_id:
-                prs_desc = ", ".join(f"#{pr.number}" for pr in prs)
                 try:
-                    client.update_deployment_status(dep_id, "success", f"Merged {prs_desc}")
+                    client.update_deployment_status(dep_id, "success", f"Merged to {api_state.default_branch}")
                 except Exception:
                     pass
         except batch_mod.BatchError as e:
-            log.error("Failed to complete batch: %s", e)
+            log.error("Complete failed: %s", e)
             batch_mod.fail_batch(client, batch, str(e))
             status = "complete_error"
             if dep_id:
@@ -280,6 +258,8 @@ def do_process(client: GitHubClientProtocol) -> str:
                     client.update_deployment_status(dep_id, "failure", str(e)[:140])
                 except Exception:
                     pass
+            for pr in prs:
+                _comment(client, pr.number, comments.failed(str(e), ci_result.run_url, owner, repo))
     else:
         batch_mod.fail_batch(client, batch, "CI failed")
         status = "ci_failed"
@@ -288,30 +268,27 @@ def do_process(client: GitHubClientProtocol) -> str:
                 client.update_deployment_status(dep_id, "failure", "CI failed")
             except Exception:
                 pass
+        for pr in prs:
+            _comment(client, pr.number, comments.failed("CI failed", ci_result.run_url, owner, repo))
 
-    # Move to history
+    # Record history
     started = state["active_batch"]["started_at"]
     completed = _now_iso()
     try:
-        dur = (
-            datetime.datetime.fromisoformat(completed) -
-            datetime.datetime.fromisoformat(started)
-        ).total_seconds()
+        dur = (datetime.datetime.fromisoformat(completed) - datetime.datetime.fromisoformat(started)).total_seconds()
     except Exception:
         dur = 0
 
     state.setdefault("history", []).append({
-        "batch_id": batch.batch_id,
-        "status": status,
-        "completed_at": completed,
-        "prs": [pr.number for pr in prs],
+        "batch_id": batch.batch_id, "status": status,
+        "completed_at": completed, "prs": [pr.number for pr in prs],
         "duration_seconds": dur,
     })
     state["active_batch"] = None
     state["updated_at"] = _now_iso()
     store.write(state)
 
-    # Process next if queue has more
+    # Process next
     if state.get("queue"):
         log.info("More stacks queued, continuing...")
         return do_process(client)
@@ -320,58 +297,44 @@ def do_process(client: GitHubClientProtocol) -> str:
 
 
 def do_abort(client: GitHubClientProtocol, pr_number: int) -> str:
-    """Abort active batch if PR is locked, or remove from queue."""
+    """Abort active batch or remove from queue."""
     store = StateStore(client)
     state = store.read()
+    owner, repo = _owner_repo(client)
 
-    # Check if PR is in active batch
+    # In active batch?
     active = state.get("active_batch")
     if active and any(pr["number"] == pr_number for pr in active.get("stack", [])):
         log.info("Aborting active batch for PR #%d", pr_number)
         batch_mod.abort_batch(client)
-
         dep_id = active.get("deployment_id")
         if dep_id:
             try:
-                client.update_deployment_status(dep_id, "inactive", "Aborted by user")
+                client.update_deployment_status(dep_id, "inactive", "Aborted")
             except Exception:
                 pass
-
         state["active_batch"] = None
         state["updated_at"] = _now_iso()
         store.write(state)
-
-        client.create_comment(
-            pr_number,
-            f"**Merge Queue:** Aborted — `queue` label was removed.\n\n"
-            f"[View merge queue →]({_mq_url(client)})",
-        )
+        _comment(client, pr_number, comments.aborted(owner, repo))
         return "aborted"
 
-    # Check if PR is in the queue (not yet processing)
+    # In queue?
     queue = state.get("queue", [])
     for i, entry in enumerate(queue):
         if any(pr["number"] == pr_number for pr in entry.get("stack", [])):
             removed = queue.pop(i)
-            # Re-number
             for j, e in enumerate(queue):
                 e["position"] = j + 1
-
             dep_id = removed.get("deployment_id")
             if dep_id:
                 try:
-                    client.update_deployment_status(dep_id, "inactive", "Removed from queue")
+                    client.update_deployment_status(dep_id, "inactive", "Removed")
                 except Exception:
                     pass
-
             state["updated_at"] = _now_iso()
             store.write(state)
-
-            client.create_comment(
-                pr_number,
-                f"**Merge Queue:** Removed from queue.\n\n"
-                f"[View merge queue →]({_mq_url(client)})",
-            )
+            _comment(client, pr_number, comments.removed_from_queue(owner, repo))
             return "removed"
 
     log.info("PR #%d not found in queue or active batch", pr_number)
@@ -379,19 +342,16 @@ def do_abort(client: GitHubClientProtocol, pr_number: int) -> str:
 
 
 def do_check_rules(client: GitHubClientProtocol) -> list[rules_mod.RuleResult]:
-    """Run all rules."""
     state = QueueState.fetch(client)
     return rules_mod.check_all(state)
 
 
 def do_status(client: GitHubClientProtocol) -> str:
-    """Print current queue status."""
     store = StateStore(client)
-    state = store.read()
-    return render_status_terminal(state)
+    return render_status_terminal(store.read())
 
 
-# --- CLI entry points ---
+# --- CLI wrappers ---
 
 
 def _log_rate_limit(client: GitHubClientProtocol) -> None:
@@ -441,30 +401,23 @@ def cmd_status(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(levelname)s %(name)s: %(message)s",
-    )
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
     parser = argparse.ArgumentParser(prog="merge-queue")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command", required=True)
 
-    p_enqueue = subparsers.add_parser("enqueue")
-    p_enqueue.add_argument("pr_number", type=int)
-    p_enqueue.set_defaults(func=cmd_enqueue)
+    p = sub.add_parser("enqueue")
+    p.add_argument("pr_number", type=int)
+    p.set_defaults(func=cmd_enqueue)
 
-    p_process = subparsers.add_parser("process")
-    p_process.set_defaults(func=cmd_process)
+    sub.add_parser("process").set_defaults(func=cmd_process)
 
-    p_abort = subparsers.add_parser("abort")
-    p_abort.add_argument("pr_number", type=int)
-    p_abort.set_defaults(func=cmd_abort)
+    p = sub.add_parser("abort")
+    p.add_argument("pr_number", type=int)
+    p.set_defaults(func=cmd_abort)
 
-    p_rules = subparsers.add_parser("check-rules")
-    p_rules.set_defaults(func=cmd_check_rules)
-
-    p_status = subparsers.add_parser("status")
-    p_status.set_defaults(func=cmd_status)
+    sub.add_parser("check-rules").set_defaults(func=cmd_check_rules)
+    sub.add_parser("status").set_defaults(func=cmd_status)
 
     args = parser.parse_args()
     args.func(args)
