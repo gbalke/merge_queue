@@ -1,13 +1,16 @@
 # Merge Queue Status
 
 ## Active Batch
-_None — queue is idle._
+**Branch:** ``
+**Status:** locking
+**Started:** 2026-04-04T22:45:30.935195+00:00
 
-## Queue (1 stack waiting)
+| PR | Branch | Title |
+|----|--------|-------|
+| [#56](https://github.com/gbalke/merge_queue/pull/56) | `greg/revup/main/readme-breakglass` | Add break-glass label to README labels section |
 
-| Position | PRs | Queued At |
-|----------|-----|-----------|
-| 1 | #56 | 2026-04-04T22:45:28 |
+## Queue
+_Empty — nothing waiting._
 
 ## Recent History (last 2)
 
@@ -16,4 +19,4 @@ _None — queue is idle._
 | `1775341162` | #54 | ✅ merged | 1m 37s |
 | `1775340971` | #55 | ✅ merged | 1m 34s |
 
-_Updated 2026-04-04T22:45:29.639042+00:00_
+_Updated 2026-04-04T22:45:30.935210+00:00_
