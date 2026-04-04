@@ -1,0 +1,212 @@
+"""Batch lifecycle — lock, merge, CI, complete/fail.
+
+Orchestrates GitHubClient calls for a single merge queue batch.
+"""
+
+from __future__ import annotations
+
+import logging
+import subprocess
+import time
+
+from merge_queue.github_client import GitHubClientProtocol
+from merge_queue.types import Batch, BatchStatus, Stack
+
+log = logging.getLogger(__name__)
+
+
+class BatchError(Exception):
+    pass
+
+
+def create_batch(
+    client: GitHubClientProtocol,
+    stack: Stack,
+    *,
+    work_dir: str | None = None,
+) -> Batch:
+    """Create an mq/ branch, merge PR branches, lock branches, add locked label.
+
+    This uses git CLI for the merge operations (clone, merge --no-ff, push)
+    since the GitHub merge API doesn't support --no-ff merges into arbitrary branches.
+    """
+    batch_id = str(int(time.time()))
+    branch = f"mq/{batch_id}"
+    default_branch = client.get_default_branch()
+
+    # --- Create mq branch and merge PRs via git CLI ---
+    main_sha = client.get_branch_sha(default_branch)
+    _git_create_and_merge(client, branch, default_branch, stack)
+
+    # --- Lock branches via ruleset ---
+    branch_patterns = [f"refs/heads/{pr.head_ref}" for pr in stack.prs]
+    ruleset_id = None
+    try:
+        ruleset_id = client.create_ruleset(f"mq-lock-{batch_id}", branch_patterns)
+        log.info("Created lock ruleset %s", ruleset_id)
+    except Exception as e:
+        log.warning("Could not create lock ruleset: %s", e)
+
+    # --- Add locked label ---
+    for pr in stack.prs:
+        client.add_label(pr.number, "locked")
+
+    return Batch(
+        batch_id=batch_id,
+        branch=branch,
+        stack=stack,
+        status=BatchStatus.RUNNING,
+        ruleset_id=ruleset_id,
+    )
+
+
+def _git_create_and_merge(
+    client: GitHubClientProtocol,
+    branch: str,
+    default_branch: str,
+    stack: Stack,
+) -> None:
+    """Use git CLI to create the mq branch and merge PR branches."""
+    # This runs in the GitHub Actions checkout directory.
+    # The workflow checks out the default branch with fetch-depth: 0.
+    _run_git("checkout", "-b", branch)
+
+    for pr in stack.prs:
+        log.info("Merging PR #%d (%s @ %s)...", pr.number, pr.head_ref, pr.head_sha)
+        _run_git("fetch", "origin", pr.head_ref)
+
+        # Verify SHA hasn't changed
+        actual_sha = _run_git("rev-parse", f"origin/{pr.head_ref}").strip()
+        if actual_sha != pr.head_sha:
+            raise BatchError(
+                f"PR #{pr.number} head changed: expected {pr.head_sha}, got {actual_sha}"
+            )
+
+        _run_git(
+            "merge", "--no-ff", f"origin/{pr.head_ref}",
+            "-m", f"Merge PR #{pr.number} (head:{pr.head_sha} ref:{pr.head_ref})",
+        )
+
+    _run_git("push", "origin", f"HEAD:refs/heads/{branch}")
+    log.info("Pushed batch branch %s", branch)
+
+
+def _run_git(*args: str) -> str:
+    result = subprocess.run(
+        ["git", *args],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout
+
+
+def run_ci(client: GitHubClientProtocol, batch: Batch, timeout: int = 30 * 60) -> bool:
+    """Dispatch CI and poll for result."""
+    client.dispatch_ci(batch.branch)
+    return client.poll_ci(batch.branch, timeout)
+
+
+def complete_batch(client: GitHubClientProtocol, batch: Batch) -> None:
+    """Merge completed batch: retarget PRs, fast-forward main, clean up."""
+    default_branch = client.get_default_branch()
+    batch_sha = client.get_branch_sha(batch.branch)
+
+    # Verify optimistic locks
+    for pr in batch.stack.prs:
+        current = client.get_pr(pr.number)
+        if current["head"]["sha"] != pr.head_sha:
+            raise BatchError(f"PR #{pr.number} head changed during batch")
+
+    # Verify main hasn't diverged
+    status = client.compare_commits(default_branch, batch_sha)
+    if status != "ahead":
+        raise BatchError(f"Main has diverged (status: {status})")
+
+    # Retarget PRs to main BEFORE fast-forward (so GitHub sees new commits)
+    for pr in batch.stack.prs:
+        try:
+            client.update_pr_base(pr.number, default_branch)
+            log.info("Retargeted PR #%d to %s", pr.number, default_branch)
+        except Exception as e:
+            log.warning("Could not retarget PR #%d: %s", pr.number, e)
+
+    # Fast-forward main
+    client.update_ref(default_branch, batch_sha)
+    log.info("Fast-forwarded %s to %s", default_branch, batch_sha)
+
+    # Wait for GitHub to process reachability
+    time.sleep(5)
+
+    # Unlock
+    _unlock(client, batch)
+
+    # Remove labels + comment
+    for pr in batch.stack.prs:
+        client.remove_label(pr.number, "locked")
+        client.remove_label(pr.number, "queue")
+        client.create_comment(
+            pr.number,
+            f"**Merge Queue:** Successfully merged to `{default_branch}`.",
+        )
+
+    # Delete branches
+    client.delete_branch(batch.branch)
+    for pr in batch.stack.prs:
+        client.delete_branch(pr.head_ref)
+
+    batch.status = BatchStatus.PASSED
+
+
+def fail_batch(
+    client: GitHubClientProtocol,
+    batch: Batch,
+    reason: str,
+) -> None:
+    """Handle a failed batch: unlock, remove labels, notify."""
+    _unlock(client, batch)
+
+    for pr in batch.stack.prs:
+        client.remove_label(pr.number, "locked")
+        client.remove_label(pr.number, "queue")
+        client.create_comment(
+            pr.number,
+            f"**Merge Queue:** Batch failed — {reason}. "
+            f"Fix the issue and re-add the `queue` label to retry.",
+        )
+
+    client.delete_branch(batch.branch)
+    batch.status = BatchStatus.FAILED
+
+
+def abort_batch(client: GitHubClientProtocol) -> None:
+    """Abort any active batch: delete rulesets, remove locked labels, delete mq branches."""
+    # Delete all mq-lock rulesets
+    for rs in client.list_rulesets():
+        if rs.get("name", "").startswith("mq-lock-"):
+            try:
+                client.delete_ruleset(rs["id"])
+                log.info("Deleted ruleset %s (%d)", rs["name"], rs["id"])
+            except Exception as e:
+                log.warning("Could not delete ruleset %d: %s", rs["id"], e)
+
+    # Remove locked label from all open PRs
+    for pr_data in client.list_open_prs():
+        labels = [l["name"] for l in pr_data.get("labels", [])]
+        if "locked" in labels:
+            client.remove_label(pr_data["number"], "locked")
+
+    # Delete mq/* branches
+    for branch in client.list_mq_branches():
+        client.delete_branch(branch)
+        log.info("Deleted branch %s", branch)
+
+
+def _unlock(client: GitHubClientProtocol, batch: Batch) -> None:
+    """Delete the lock ruleset for a batch."""
+    if batch.ruleset_id is not None:
+        try:
+            client.delete_ruleset(batch.ruleset_id)
+            log.info("Deleted lock ruleset %d", batch.ruleset_id)
+        except Exception as e:
+            log.warning("Could not delete ruleset %d: %s", batch.ruleset_id, e)

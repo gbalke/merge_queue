@@ -1,0 +1,60 @@
+name: Merge Queue
+
+on:
+  pull_request:
+    types: [labeled, unlabeled]
+  workflow_dispatch:
+    inputs:
+      command:
+        type: choice
+        options: [process, check-rules]
+        default: process
+
+concurrency:
+  group: merge-queue
+  cancel-in-progress: false
+
+jobs:
+  run:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'queue'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -e .
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine command
+        id: cmd
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "cmd=${{ inputs.command }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.action }}" = "labeled" ]; then
+            echo "cmd=enqueue ${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.action }}" = "unlabeled" ]; then
+            echo "cmd=abort ${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run merge queue
+        run: python -m merge_queue ${{ steps.cmd.outputs.cmd }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MQ_ADMIN_TOKEN: ${{ secrets.MQ_ADMIN_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}

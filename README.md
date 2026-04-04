@@ -1,29 +1,70 @@
 # Merge Queue for Stacked PRs
 
-A lightweight, GitHub Actions-based merge queue that understands stacked/chained PRs.
+A lightweight, Python-based merge queue for GitHub that understands stacked/chained PRs (e.g., created by [revup](https://github.com/Skydio/revup)).
 
 ## How It Works
 
-1. Create stacked PRs (e.g., with [revup](https://github.com/Skydio/revup)) where PR B targets PR A's branch
-2. Get reviews + CI passing on each PR
-3. Add the `queue` label to PRs you want merged (must be contiguous from the bottom of the stack)
-4. The merge queue:
-   - Detects the full stack chain
-   - **Locks PR branches** via GitHub rulesets (prevents pushes during queue)
-   - Adds the `locked` label to all queued PRs
+1. Create stacked PRs where PR B targets PR A's branch
+2. Add the `queue` label to PRs you want merged (must be contiguous from the bottom of the stack)
+3. The merge queue processes stacks in **FIFO order** (earliest-labeled first):
+   - **Locks PR branches** via GitHub rulesets (prevents pushes)
+   - Adds the `locked` label for visibility
    - Creates a temporary `mq/<batch-id>` branch from `main`
    - Merges each PR's branch in order (`--no-ff`)
    - Dispatches CI on the batch branch and waits for completion
    - If CI passes: fast-forwards `main`, PRs auto-close as **"Merged"** (purple)
-   - If CI fails: unlocks branches, removes `queue` and `locked` labels, cleans up
-5. To **abort**: remove the `queue` label from any PR in the batch. This unlocks all branches, removes `locked` labels, and deletes the batch branch.
+   - If CI fails: unlocks, removes labels, notifies
+4. After completion, automatically processes the next queued stack
+5. To **abort**: remove the `queue` label from any locked PR
+
+## Architecture
+
+The merge queue is a tested Python package. GitHub Actions workflows are thin shells that invoke `python -m merge_queue <command>`.
+
+```
+merge_queue/
+    types.py             # Dataclasses: PullRequest, Stack, Batch, RuleResult
+    queue.py             # Pure logic: stack detection, FIFO ordering (95% test coverage)
+    batch.py             # Batch lifecycle: lock, merge, CI, complete/fail
+    rules.py             # Invariant rules checked pre/post batch
+    github_client.py     # Thin GitHub API wrapper (requests)
+    cli.py               # CLI: enqueue, process, abort, check-rules
+tests/
+    test_queue.py        # 26 tests — stack detection, FIFO ordering
+    test_batch.py        # 10 tests — lifecycle with mocked client
+    test_rules.py        # 12 tests — each invariant rule
+    test_cli.py          # 8 tests — command routing
+```
+
+### Commands
+
+| Command | Trigger | Description |
+|---------|---------|-------------|
+| `enqueue <pr>` | `queue` label added | Register PR in queue, start processing if idle |
+| `process` | workflow_dispatch | Process next queued stack or complete active batch |
+| `abort <pr>` | `queue` label removed | Abort active batch if PR is locked |
+| `check-rules` | workflow_dispatch | Run all invariant rules, exit 1 if any fail |
+
+### Invariant Rules
+
+Rules are checked before/after each batch and via `check-rules`:
+
+1. **single_active_batch** — at most one `mq/*` branch exists
+2. **locked_prs_have_rulesets** — every locked PR has a matching lock ruleset
+3. **no_orphaned_locks** — no `locked` PRs without an active batch
+4. **queue_order_is_fifo** — active batch has the earliest queue timestamp
+5. **stack_integrity** — each stack forms a valid chain to main
 
 ## Labels
 
 | Label | Purpose |
 |-------|---------|
 | `queue` | Add to PRs to enter the merge queue. Remove to abort. |
-| `locked` | Automatically added when branches are locked during queue processing. Automatically removed on completion or abort. |
+| `locked` | Auto-added when branches are locked. Auto-removed on completion/abort. |
+
+## Queue Ordering
+
+Stacks are processed in **FIFO order**. The queue position is determined by when the `queue` label was first added (via GitHub's timeline API). PRs labeled together (same stack) share a position.
 
 ## Setup
 
@@ -31,97 +72,39 @@ A lightweight, GitHub Actions-based merge queue that understands stacked/chained
 
 - **Settings > General > Pull Requests**: Enable "Automatically delete head branches"
 - **Settings > Actions > General**: Ensure workflows have read/write permissions
-- Repository must be **public** (rulesets require GitHub Pro for private repos)
 
 ### 2. Create Labels
 
-Create two labels in **Issues > Labels**:
 - `queue` (green) — triggers the merge queue
-- `locked` (red) — indicates branch is locked by merge queue
+- `locked` (red) — indicates branch is locked
 
 ### 3. Create `MQ_ADMIN_TOKEN` Secret
 
-Branch locking uses GitHub rulesets, which require elevated permissions that `GITHUB_TOKEN` cannot provide. Create a fine-grained Personal Access Token:
+Branch locking requires a fine-grained PAT with **Administration: Read and Write**:
 
 1. Go to https://github.com/settings/tokens?type=beta
-2. Create a token scoped to your merge queue repository
+2. Scope to your merge queue repository
 3. Grant **Administration: Read and Write** permission
-4. Add it as a repository secret:
+4. Add as a repository secret:
    ```bash
    gh secret set MQ_ADMIN_TOKEN --repo <owner>/<repo>
    ```
 
-Without this secret, the merge queue still works but branches won't be locked during processing (optimistic SHA verification is used as a fallback).
+Without this secret, the merge queue still works but branches won't be locked during processing.
 
-### 4. Workflows
-
-| Workflow | Purpose |
-|----------|---------|
-| `ci.yml` | CI pipeline (replace with your real CI) |
-| `merge-queue-enqueue.yml` | Main merge queue workflow — enqueue, lock, CI, merge, unlock |
-
-## Usage
+### 4. Install
 
 ```bash
-# Label individual PRs (must be contiguous from bottom of stack)
-gh pr edit 1 --add-label queue
-gh pr edit 2 --add-label queue
-gh pr edit 3 --add-label queue
-
-# To abort the merge queue, remove the label from any PR:
-gh pr edit 1 --remove-label queue
+pip install -e .         # install package
+pytest tests/ -v         # run tests (73%+ coverage enforced)
 ```
-
-Or add/remove labels via the GitHub UI.
-
-## Stack Detection
-
-The merge queue walks the PR dependency graph:
-
-```
-main <- PR #1 (feature-a) <- PR #2 (feature-b) <- PR #3 (feature-c)
-```
-
-If you label #1, #2, and #3 with `queue`, all three are batched together.
-If you only label #1 and #2, only those two are merged.
-If you label #2 and #3 but not #1, you get an error (non-contiguous).
-
-## Branch Locking
-
-When PRs enter the merge queue:
-
-1. A GitHub **ruleset** is created that blocks `git push` to all PR branches in the batch
-2. The `locked` label is added to each PR for visibility
-3. Any attempt to push will be rejected with: `GH013: Repository rule violations found`
-
-Branches are unlocked when:
-- The batch **succeeds** (merged to main)
-- The batch **fails** (CI failure, merge conflict, etc.)
-- The `queue` label is **removed** (manual abort)
 
 ## Safety
 
-- **Branch locking**: PR branches are locked via rulesets while in the queue — pushes are rejected
-- **Optimistic locking**: SHA verification at merge time catches any edge cases
-- **Fast-forward only**: `main` is only updated via fast-forward (`force: false`)
-- **Single batch**: Only one batch runs at a time (concurrency group)
-- **Atomic**: Either the entire batch merges or nothing does
-- **Abort support**: Remove `queue` label to abort and unlock branches
-
-## Adapting for Production
-
-1. **Use a GitHub App** for elevated permissions (replace `github.token` with app token):
-   ```yaml
-   - uses: tibdex/github-app-token@v2
-     with:
-       app_id: ${{ secrets.APP_ID }}
-       private_key: ${{ secrets.APP_PRIVATE_KEY }}
-   ```
-
-2. **Add approval checks** in the enqueue workflow (currently relaxed for testing)
-
-3. **Update `ci.yml`** workflow name to match your real CI
-
-4. **Add branch protection** on `main` requiring status checks
-
-5. **For private repos**: Use branch protection API with admin PAT instead of rulesets
+- **Branch locking**: PR branches locked via rulesets while in queue
+- **Optimistic locking**: SHA verification catches concurrent modifications
+- **Fast-forward only**: `main` updated via fast-forward (`force: false`)
+- **Single batch**: One batch at a time (concurrency group)
+- **Atomic**: Entire stack merges or nothing does
+- **Abort**: Remove `queue` label to abort and unlock
+- **Invariant rules**: Validated pre/post batch
