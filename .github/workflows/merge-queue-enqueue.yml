@@ -177,6 +177,31 @@ jobs:
           echo "branch=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
           echo "Batch branch created: ${BRANCH_NAME}"
 
+      - name: Lock PR branches
+        if: steps.discover.outputs.batch_count > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const batch = JSON.parse('${{ steps.discover.outputs.batch }}');
+
+            for (const entry of batch) {
+              try {
+                await github.rest.repos.updateBranchProtection({
+                  owner, repo,
+                  branch: entry.head_ref,
+                  required_status_checks: null,
+                  enforce_admins: true,
+                  required_pull_request_reviews: null,
+                  restrictions: null,
+                  lock_branch: true
+                });
+                console.log(`Locked branch ${entry.head_ref}`);
+              } catch (e) {
+                console.log(`Could not lock branch ${entry.head_ref}: ${e.message}`);
+              }
+            }
+
       - name: Post queued comments
         if: steps.discover.outputs.batch_count > 0
         uses: actions/github-script@v7
@@ -189,7 +214,7 @@ jobs:
             for (const entry of batch) {
               await github.rest.issues.createComment({
                 owner, repo, issue_number: entry.number,
-                body: `**Merge Queue:** Queued in batch \`${branch}\`. CI running.\n\nBatch contents:\n${prList}`
+                body: `**Merge Queue:** Queued in batch \`${branch}\`. CI running. Branches locked.\n\nBatch contents:\n${prList}`
               });
             }
 
@@ -326,7 +351,19 @@ jobs:
             // Wait for GitHub to process reachability
             await new Promise(r => setTimeout(r, 5000));
 
-            // --- 5. Post success + cleanup ---
+            // --- 5. Unlock branches ---
+            for (const entry of batch) {
+              try {
+                await github.rest.repos.deleteBranchProtection({
+                  owner, repo, branch: entry.head_ref
+                });
+                console.log(`Unlocked branch ${entry.head_ref}`);
+              } catch (e) {
+                console.log(`Could not unlock ${entry.head_ref}: ${e.message}`);
+              }
+            }
+
+            // --- 6. Post success + cleanup ---
             for (const entry of batch) {
               await github.rest.issues.createComment({
                 owner, repo, issue_number: entry.number,
@@ -360,6 +397,18 @@ jobs:
 
             if (!batchJson || !batchBranch) return;
             const batch = JSON.parse(batchJson);
+
+            // Unlock branches first
+            for (const entry of batch) {
+              try {
+                await github.rest.repos.deleteBranchProtection({
+                  owner, repo, branch: entry.head_ref
+                });
+                console.log(`Unlocked branch ${entry.head_ref}`);
+              } catch (e) {
+                console.log(`Could not unlock ${entry.head_ref}: ${e.message}`);
+              }
+            }
 
             for (const entry of batch) {
               const ciLink = ciRunUrl ? `\n\n[View CI run](${ciRunUrl})` : '';

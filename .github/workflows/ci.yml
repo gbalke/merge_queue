@@ -32,7 +32,10 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.sha }}
       - name: Run tests
-        run: echo "Tests passed"
+        run: |
+          echo "Running tests (with 60s delay for merge queue lock testing)..."
+          sleep 60
+          echo "Tests passed"
 
   results:
     name: Final Results
