@@ -1,26 +1,28 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:20:31.558247+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-04T19:20:30.683398+00:00",
-      "stack": [
-        {
-          "number": 39,
-          "head_sha": "48a525e6e27ea9e65fb1e2f0b1fefe0766e2a360",
-          "head_ref": "greg/revup/main/readme-badges",
-          "base_ref": "main",
-          "title": "Add badges to README"
-        }
-      ],
-      "deployment_id": 4271120821,
-      "comment_ids": {
-        "39": 4187612498
+  "updated_at": "2026-04-04T19:20:32.582978+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-04T19:20:32.582968+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 39,
+        "head_sha": "48a525e6e27ea9e65fb1e2f0b1fefe0766e2a360",
+        "head_ref": "greg/revup/main/readme-badges",
+        "base_ref": "main",
+        "title": "Add badges to README"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4271120821,
+    "comment_ids": {
+      "39": 4187612498
+    },
+    "queued_at": "2026-04-04T19:20:30.683398+00:00"
+  },
   "history": [
     {
       "batch_id": "1775329699",
