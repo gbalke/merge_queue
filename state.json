@@ -1,26 +1,28 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:39:43.226851+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-04T19:39:42.338665+00:00",
-      "stack": [
-        {
-          "number": 41,
-          "head_sha": "75805e9fa175e0113b82dee1b265c65ed67190a0",
-          "head_ref": "greg/revup/main/ratchet-coverage",
-          "base_ref": "main",
-          "title": "Ratchet test coverage to 90% with new tests"
-        }
-      ],
-      "deployment_id": 4271210131,
-      "comment_ids": {
-        "41": 4187636022
+  "updated_at": "2026-04-04T19:39:44.250995+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-04T19:39:44.250980+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 41,
+        "head_sha": "75805e9fa175e0113b82dee1b265c65ed67190a0",
+        "head_ref": "greg/revup/main/ratchet-coverage",
+        "base_ref": "main",
+        "title": "Ratchet test coverage to 90% with new tests"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4271210131,
+    "comment_ids": {
+      "41": 4187636022
+    },
+    "queued_at": "2026-04-04T19:39:42.338665+00:00"
+  },
   "history": [
     {
       "batch_id": "1775331440",
