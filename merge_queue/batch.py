@@ -44,12 +44,9 @@ def create_batch(
     batch_id = str(int(time.time()))
     branch = f"mq/{batch_id}"
     default_branch = client.get_default_branch()
-
-    # --- Create mq branch and merge PRs via git CLI ---
     client.get_branch_sha(default_branch)  # validate branch exists
-    _git_create_and_merge(branch, stack, git=git)
 
-    # --- Lock branches via ruleset ---
+    # --- Lock branches FIRST to prevent pushes during merge ---
     branch_patterns = [f"refs/heads/{pr.head_ref}" for pr in stack.prs]
     ruleset_id = None
     try:
@@ -58,9 +55,18 @@ def create_batch(
     except Exception as e:
         log.warning("Could not create lock ruleset: %s", e)
 
-    # --- Add locked label ---
     for pr in stack.prs:
         client.add_label(pr.number, "locked")
+
+    # --- Create mq branch and merge PRs via git CLI ---
+    try:
+        _git_create_and_merge(branch, stack, git=git)
+    except Exception:
+        # Merge failed — unlock before propagating
+        _unlock_ruleset(client, ruleset_id)
+        for pr in stack.prs:
+            client.remove_label(pr.number, "locked")
+        raise
 
     return Batch(
         batch_id=batch_id,
@@ -200,9 +206,14 @@ def abort_batch(client: GitHubClientProtocol) -> None:
 
 def _unlock(client: GitHubClientProtocol, batch: Batch) -> None:
     """Delete the lock ruleset for a batch."""
-    if batch.ruleset_id is not None:
+    _unlock_ruleset(client, batch.ruleset_id)
+
+
+def _unlock_ruleset(client: GitHubClientProtocol, ruleset_id: int | None) -> None:
+    """Delete a specific lock ruleset by ID."""
+    if ruleset_id is not None:
         try:
-            client.delete_ruleset(batch.ruleset_id)
-            log.info("Deleted lock ruleset %d", batch.ruleset_id)
+            client.delete_ruleset(ruleset_id)
+            log.info("Deleted lock ruleset %d", ruleset_id)
         except Exception as e:
-            log.warning("Could not delete ruleset %d: %s", batch.ruleset_id, e)
+            log.warning("Could not delete ruleset %d: %s", ruleset_id, e)

@@ -11,6 +11,7 @@ from merge_queue.batch import (
     BatchError,
     _git_create_and_merge,
     _unlock,
+    _unlock_ruleset,
     abort_batch,
     complete_batch,
     create_batch,
@@ -121,6 +122,46 @@ class TestCreateBatch:
         assert batch.ruleset_id is None
         assert batch.status == BatchStatus.RUNNING
         mock_client.add_label.assert_called_once()
+
+    def test_locks_before_merge(self, mock_client):
+        """Verify lock happens before git operations."""
+        pr = make_pr(1, "feat-a", head_sha="sha-1")
+        stack = _stack(pr)
+        call_order = []
+
+        mock_client.create_ruleset.side_effect = lambda *a, **k: (call_order.append("lock"), 42)[1]
+        mock_client.add_label.side_effect = lambda *a, **k: call_order.append("label")
+
+        def fake_git(*args):
+            call_order.append(f"git:{args[0]}")
+            if args[0] == "rev-parse":
+                return "sha-1\n"
+            return ""
+
+        create_batch(mock_client, stack, git=fake_git)
+
+        lock_idx = call_order.index("lock")
+        label_idx = call_order.index("label")
+        first_git_idx = next(i for i, c in enumerate(call_order) if c.startswith("git:"))
+        assert lock_idx < first_git_idx, f"Lock must come before git ops: {call_order}"
+        assert label_idx < first_git_idx, f"Label must come before git ops: {call_order}"
+
+    def test_merge_failure_rolls_back_lock(self, mock_client):
+        """If git merge fails, ruleset and labels should be cleaned up."""
+        pr = make_pr(1, "feat-a", head_sha="sha-1")
+        stack = _stack(pr)
+
+        def failing_git(*args):
+            if args[0] == "rev-parse":
+                return "wrong-sha\n"  # SHA mismatch triggers BatchError
+            return ""
+
+        with pytest.raises(BatchError, match="head changed"):
+            create_batch(mock_client, stack, git=failing_git)
+
+        # Verify rollback: ruleset deleted and label removed
+        mock_client.delete_ruleset.assert_called_once_with(42)
+        mock_client.remove_label.assert_called_once_with(1, "locked")
 
 
 class TestUnlock:
