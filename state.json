@@ -1,50 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:06:18.445962+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-04T19:05:47.194449+00:00",
-      "stack": [
-        {
-          "number": 30,
-          "head_sha": "239a945287b880d5d8910ad3c3b60bf85ac2ec7d",
-          "head_ref": "greg/revup/main/pass-a1",
-          "base_ref": "main",
-          "title": "Add greet function"
-        },
-        {
-          "number": 31,
-          "head_sha": "1ce60e15f616434002df2ef46c10a48581f40b0d",
-          "head_ref": "greg/revup/main/pass-a2",
-          "base_ref": "greg/revup/main/pass-a1",
-          "title": "Add farewell function"
-        }
-      ],
-      "deployment_id": 4271048219
-    },
-    {
-      "position": 2,
-      "queued_at": "2026-04-04T19:06:09.254966+00:00",
-      "stack": [
-        {
-          "number": 32,
-          "head_sha": "527a62da92227146121291047e0ca919b1236875",
-          "head_ref": "greg/revup/main/fail-b1",
-          "base_ref": "main",
-          "title": "Add calculate function"
-        },
-        {
-          "number": 33,
-          "head_sha": "2258c717e1291862e42843c7983e80f2489e4206",
-          "head_ref": "greg/revup/main/fail-b2",
-          "base_ref": "greg/revup/main/fail-b1",
-          "title": "Add broken function (intentional syntax error)"
-        }
-      ],
-      "deployment_id": 4271049922
-    }
-  ],
+  "updated_at": "",
+  "queue": [],
   "active_batch": null,
   "history": []
 }
