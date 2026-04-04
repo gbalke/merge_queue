@@ -1,34 +1,36 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:51:15.407243+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-04T19:51:13.827070+00:00",
-      "stack": [
-        {
-          "number": 42,
-          "head_sha": "2882761d6077c1bec624f57609a876026bda2901",
-          "head_ref": "greg/revup/main/mit-license",
-          "base_ref": "main",
-          "title": "Add MIT LICENSE file"
-        },
-        {
-          "number": 44,
-          "head_sha": "d58094c26346dd9922d38d99d0186cf70386fb96",
-          "head_ref": "greg/revup/main/cleanup-files",
-          "base_ref": "greg/revup/main/mit-license",
-          "title": "Remove stale test files, update gitignore"
-        }
-      ],
-      "deployment_id": 4271264450,
-      "comment_ids": {
-        "42": 4187650982,
-        "44": 4187650994
+  "updated_at": "2026-04-04T19:51:16.567520+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-04T19:51:16.567511+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 42,
+        "head_sha": "2882761d6077c1bec624f57609a876026bda2901",
+        "head_ref": "greg/revup/main/mit-license",
+        "base_ref": "main",
+        "title": "Add MIT LICENSE file"
+      },
+      {
+        "number": 44,
+        "head_sha": "d58094c26346dd9922d38d99d0186cf70386fb96",
+        "head_ref": "greg/revup/main/cleanup-files",
+        "base_ref": "greg/revup/main/mit-license",
+        "title": "Remove stale test files, update gitignore"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4271264450,
+    "comment_ids": {
+      "42": 4187650982,
+      "44": 4187650994
+    },
+    "queued_at": "2026-04-04T19:51:13.827070+00:00"
+  },
   "history": [
     {
       "batch_id": "1775331440",
