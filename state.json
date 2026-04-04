@@ -1,29 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T20:23:38.814548+00:00",
+  "updated_at": "2026-04-04T20:25:05.801985+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775334217",
-    "branch": "mq/1775334217",
-    "ruleset_id": 14699717,
-    "started_at": "2026-04-04T20:23:36.441324+00:00",
-    "progress": "running_ci",
-    "stack": [
-      {
-        "number": 49,
-        "head_sha": "3300b23b84b58d63247ccef5b9b5534d515b6308",
-        "head_ref": "greg/revup/main/ci-gate",
-        "base_ref": "main",
-        "title": "Add CI gate: PRs must pass CI before entering queue + re-test label"
-      }
-    ],
-    "deployment_id": 4271434516,
-    "comment_ids": {
-      "49": 4187694898
-    },
-    "queued_at": "2026-04-04T20:23:34.676331+00:00",
-    "ci_started_at": "2026-04-04T20:23:38.814530+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775331440",
@@ -107,6 +86,15 @@
         48
       ],
       "duration_seconds": 96.348346
+    },
+    {
+      "batch_id": "1775334217",
+      "status": "ci_failed",
+      "completed_at": "2026-04-04T20:25:05.801963+00:00",
+      "prs": [
+        49
+      ],
+      "duration_seconds": 89.360639
     }
   ]
 }
