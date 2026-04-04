@@ -1,7 +1,25 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T21:45:03.233923+00:00",
-  "queue": [],
+  "updated_at": "2026-04-04T21:57:58.753829+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-04T21:57:57.881068+00:00",
+      "stack": [
+        {
+          "number": 55,
+          "head_sha": "54b21b4d5bf2a3733466d784245466529d877066",
+          "head_ref": "greg/revup/main/fix-ci-pending",
+          "base_ref": "main",
+          "title": "TDD fix: CI gate allows pending CI, only rejects explicit failures"
+        }
+      ],
+      "deployment_id": 4271855524,
+      "comment_ids": {
+        "55": 4187811517
+      }
+    }
+  ],
   "active_batch": null,
   "history": [
     {
