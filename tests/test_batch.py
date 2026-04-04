@@ -20,7 +20,7 @@ from merge_queue.batch import (
 )
 from merge_queue.types import BatchStatus
 
-from tests.conftest import T0, make_batch, make_pr, make_stack
+from tests.conftest import make_batch, make_pr, make_stack
 
 
 def _batch(stack, **kwargs):

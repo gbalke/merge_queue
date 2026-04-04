@@ -3,3 +3,4 @@
 __pycache__/
 .pytest_cache/
 stack_*.py
+.claude/worktrees/
