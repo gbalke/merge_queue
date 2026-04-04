@@ -1,37 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:20:06.390650+00:00",
+  "updated_at": "2026-04-04T19:20:16.198038+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775330335",
-    "branch": "mq/1775330335",
-    "ruleset_id": 14697807,
-    "started_at": "2026-04-04T19:18:54.927883+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 38,
-        "head_sha": "32d1e33fe678b7773847dcb3a09c7025e62b0b57",
-        "head_ref": "greg/revup/main/ci-coverage",
-        "base_ref": "main",
-        "title": "Enforce coverage in CI"
-      },
-      {
-        "number": 39,
-        "head_sha": "48a525e6e27ea9e65fb1e2f0b1fefe0766e2a360",
-        "head_ref": "greg/revup/main/readme-badges",
-        "base_ref": "greg/revup/main/ci-coverage",
-        "title": "Add badges to README"
-      }
-    ],
-    "deployment_id": 4271112805,
-    "comment_ids": {
-      "38": 4187610425,
-      "39": 4187610440
-    },
-    "queued_at": "2026-04-04T19:18:52.732696+00:00",
-    "ci_started_at": "2026-04-04T19:18:57.869693+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775329699",
@@ -52,6 +23,16 @@
         37
       ],
       "duration_seconds": 29.059745
+    },
+    {
+      "batch_id": "1775330335",
+      "status": "merged",
+      "completed_at": "2026-04-04T19:20:16.198020+00:00",
+      "prs": [
+        38,
+        39
+      ],
+      "duration_seconds": 81.270137
     }
   ]
 }
