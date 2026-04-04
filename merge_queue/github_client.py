@@ -85,6 +85,11 @@ class GitHubClientProtocol(Protocol):
     def update_pr_base(self, pr_number: int, base: str) -> None: ...
     def compare_commits(self, base: str, head: str) -> str: ...
     def get_pr(self, pr_number: int) -> dict[str, Any]: ...
+    def get_file_content(self, path: str, ref: str) -> dict[str, Any]: ...
+    def put_file_content(self, path: str, branch: str, content_b64: str, message: str, sha: str | None = None) -> dict[str, Any]: ...
+    def create_orphan_branch(self, branch: str, files: dict[str, str]) -> None: ...
+    def create_deployment(self, description: str, ref: str = "main") -> int: ...
+    def update_deployment_status(self, deployment_id: int, state: str, description: str = "") -> None: ...
     @property
     def rate_limit(self) -> RateLimitInfo: ...
 
@@ -355,3 +360,88 @@ class GitHubClient:
     def compare_commits(self, base: str, head: str) -> str:
         data = self._get(f"/compare/{base}...{head}")
         return data["status"]
+
+    # --- Contents API (for state branch) ---
+
+    def get_file_content(self, path: str, ref: str) -> dict[str, Any]:
+        """Get file content from a specific branch. Returns {sha, content(base64)}."""
+        return self._get(f"/contents/{path}", params={"ref": ref})
+
+    def put_file_content(
+        self,
+        path: str,
+        branch: str,
+        content_b64: str,
+        message: str,
+        sha: str | None = None,
+    ) -> dict[str, Any]:
+        """Create or update a file. Returns response with content.sha."""
+        body: dict[str, Any] = {
+            "message": message,
+            "content": content_b64,
+            "branch": branch,
+        }
+        if sha is not None:
+            body["sha"] = sha
+        return self._put(f"/contents/{path}", json=body)
+
+    def create_orphan_branch(self, branch: str, files: dict[str, str]) -> None:
+        """Create an orphan branch with the given files.
+
+        Uses the Git Data API: create blobs, tree, commit, then ref.
+        """
+        # Create blobs for each file
+        tree_items = []
+        for path, content in files.items():
+            blob = self._post("/git/blobs", json={
+                "content": content,
+                "encoding": "utf-8",
+            })
+            tree_items.append({
+                "path": path,
+                "mode": "100644",
+                "type": "blob",
+                "sha": blob["sha"],
+            })
+
+        # Create tree (no base_tree = orphan)
+        tree = self._post("/git/trees", json={"tree": tree_items})
+
+        # Create commit (no parents = orphan)
+        commit = self._post("/git/commits", json={
+            "message": f"Initialize {branch}",
+            "tree": tree["sha"],
+            "parents": [],
+        })
+
+        # Create ref
+        self._post("/git/refs", json={
+            "ref": f"refs/heads/{branch}",
+            "sha": commit["sha"],
+        })
+        log.info("Created orphan branch %s", branch)
+
+    # --- Deployments API (for live UI) ---
+
+    def create_deployment(self, description: str, ref: str = "main") -> int:
+        """Create a deployment in the merge-queue environment. Returns deployment ID."""
+        data = self._post("/deployments", json={
+            "ref": ref,
+            "environment": "merge-queue",
+            "description": description,
+            "auto_merge": False,
+            "required_contexts": [],
+        })
+        return data["id"]
+
+    def update_deployment_status(
+        self,
+        deployment_id: int,
+        state: str,
+        description: str = "",
+    ) -> None:
+        """Update deployment status. state: queued, in_progress, success, failure, inactive."""
+        self._post(f"/deployments/{deployment_id}/statuses", json={
+            "state": state,
+            "description": description[:140],  # GitHub truncates at 140
+        })
