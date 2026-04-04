@@ -1,7 +1,7 @@
 # Merge Queue for Stacked PRs
 
 [![CI](https://github.com/gbalke/merge_queue/actions/workflows/ci.yml/badge.svg)](https://github.com/gbalke/merge_queue/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)](https://github.com/gbalke/merge_queue)
+[![Coverage](https://img.shields.io/badge/coverage-90%25+-brightgreen)](https://github.com/gbalke/merge_queue)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org)
 
 A lightweight, Python-based merge queue for GitHub that understands stacked/chained PRs (e.g., created by [revup](https://github.com/Skydio/revup)).
@@ -28,11 +28,12 @@ merge_queue/
     batch.py             # Batch lifecycle: lock, merge, CI, complete/fail
     rules.py             # 5 invariant rules checked pre/post batch
     store.py             # Persistent state on mq/state branch
+    state.py             # Queue state dataclass + serialization
     status.py            # Markdown + terminal status rendering
     comments.py          # PR comment templates (single updating comment per PR)
     github_client.py     # GitHub API wrapper with rate limit tracking + caching
     types.py             # Dataclasses
-tests/                   # 192 tests, 96% coverage (90% enforced)
+tests/                   # 215+ tests, 90%+ coverage enforced
 integration/             # End-to-end test script (pass + fail stacks)
 ```
 
@@ -44,6 +45,7 @@ integration/             # End-to-end test script (pass + fail stacks)
 | `process` | workflow_dispatch | Process next queued stack |
 | `abort <pr>` | `queue` label removed | Abort batch or remove from queue |
 | `status` | workflow_dispatch | Print current queue state |
+| `retest <pr>` | `re-test` label added | Retrigger CI on a PR's head branch |
 | `check-rules` | workflow_dispatch | Run invariant rules |
 
 ### State Management
@@ -111,6 +113,8 @@ Install merge-queue in any GitHub repository:
 4. Add `MQ_ADMIN_TOKEN` secret (fine-grained PAT with Administration: Write)
 5. Add `queue` label to PRs to start using the merge queue
 
+The `MQ_CI_WORKFLOW` env var controls which workflow is dispatched for CI checks. PRs must pass CI before the merge queue will accept them.
+
 The merge queue auto-detects your repository's default branch.
 
 ## Setup
@@ -124,6 +128,7 @@ The merge queue auto-detects your repository's default branch.
 
 - `queue` — triggers the merge queue
 - `locked` — auto-managed, indicates branch is locked
+- `re-test` — retrigger CI on a PR's head branch
 
 ### 3. `MQ_ADMIN_TOKEN` Secret
 
@@ -137,7 +142,7 @@ gh secret set MQ_ADMIN_TOKEN --repo <owner>/<repo>
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/              # 192 tests, 90%+ coverage enforced
+pytest tests/              # 215+ tests, 90%+ coverage enforced
 ```
 
 ## Integration Testing
@@ -147,3 +152,7 @@ python integration/create_test_stacks.py run
 ```
 
 Creates two stacks (one passing, one with syntax error), queues them, and verifies the pass stack merges while the fail stack is rejected.
+
+## Development
+
+See [CLAUDE.md](CLAUDE.md) for development workflow.
