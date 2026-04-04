@@ -38,10 +38,23 @@ revup upload --skip-confirm      # upload PRs
 python -m merge_queue status     # check merge queue
 ```
 
+## Bug Fixes: TDD Required
+
+All bug fixes MUST follow Test-Driven Development:
+
+1. Write a test that reproduces the bug (test must FAIL)
+2. Run the test to confirm it fails
+3. Implement the fix
+4. Run the test to confirm it passes
+5. Run the full test suite
+
+This ensures every bug has a regression test and the fix is verified.
+
 ## CI Requirements
 
-PRs must pass lint, format, and tests before the merge queue will accept them.
-Use the `re-test` label to retrigger CI.
+- PRs must pass lint, format, and tests before the merge queue accepts them
+- Use `re-test` label to retrigger CI
+- Use `break-glass` label to bypass CI gate (only when MQ itself is broken)
 
 ## Architecture
 
