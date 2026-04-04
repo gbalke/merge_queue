@@ -1,34 +1,36 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T19:18:53.987802+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-04T19:18:52.732696+00:00",
-      "stack": [
-        {
-          "number": 38,
-          "head_sha": "32d1e33fe678b7773847dcb3a09c7025e62b0b57",
-          "head_ref": "greg/revup/main/ci-coverage",
-          "base_ref": "main",
-          "title": "Enforce coverage in CI"
-        },
-        {
-          "number": 39,
-          "head_sha": "48a525e6e27ea9e65fb1e2f0b1fefe0766e2a360",
-          "head_ref": "greg/revup/main/readme-badges",
-          "base_ref": "greg/revup/main/ci-coverage",
-          "title": "Add badges to README"
-        }
-      ],
-      "deployment_id": 4271112805,
-      "comment_ids": {
-        "38": 4187610425,
-        "39": 4187610440
+  "updated_at": "2026-04-04T19:18:54.927897+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-04T19:18:54.927883+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 38,
+        "head_sha": "32d1e33fe678b7773847dcb3a09c7025e62b0b57",
+        "head_ref": "greg/revup/main/ci-coverage",
+        "base_ref": "main",
+        "title": "Enforce coverage in CI"
+      },
+      {
+        "number": 39,
+        "head_sha": "48a525e6e27ea9e65fb1e2f0b1fefe0766e2a360",
+        "head_ref": "greg/revup/main/readme-badges",
+        "base_ref": "greg/revup/main/ci-coverage",
+        "title": "Add badges to README"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4271112805,
+    "comment_ids": {
+      "38": 4187610425,
+      "39": 4187610440
+    },
+    "queued_at": "2026-04-04T19:18:52.732696+00:00"
+  },
   "history": [
     {
       "batch_id": "1775329699",
