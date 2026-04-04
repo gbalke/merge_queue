@@ -1,26 +1,28 @@
 {
   "version": 1,
-  "updated_at": "2026-04-04T20:18:43.711642+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-04T20:18:42.668063+00:00",
-      "stack": [
-        {
-          "number": 47,
-          "head_sha": "950d35f8a07800d840ba12ce1bc8f30c42ab3053",
-          "head_ref": "greg/revup/main/integration-docs",
-          "base_ref": "main",
-          "title": "Add integration docs and template workflow for external repos"
-        }
-      ],
-      "deployment_id": 4271399216,
-      "comment_ids": {
-        "47": 4187688348
+  "updated_at": "2026-04-04T20:18:45.026549+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-04T20:18:45.026536+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 47,
+        "head_sha": "950d35f8a07800d840ba12ce1bc8f30c42ab3053",
+        "head_ref": "greg/revup/main/integration-docs",
+        "base_ref": "main",
+        "title": "Add integration docs and template workflow for external repos"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4271399216,
+    "comment_ids": {
+      "47": 4187688348
+    },
+    "queued_at": "2026-04-04T20:18:42.668063+00:00"
+  },
   "history": [
     {
       "batch_id": "1775331440",
