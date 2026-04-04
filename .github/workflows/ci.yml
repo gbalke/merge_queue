@@ -42,8 +42,8 @@ jobs:
           find . -name '*.py' -not -path './.venv/*' -not -path './merge_queue.egg-info/*' | \
             xargs python -m py_compile
 
-      - name: Run tests
-        run: pytest tests/ -x -q --no-header --override-ini="addopts="
+      - name: Run tests with coverage
+        run: pytest tests/ -x -q --no-header --cov=merge_queue --cov-report=term-missing --cov-fail-under=85
 
       - name: CI delay
         run: |
