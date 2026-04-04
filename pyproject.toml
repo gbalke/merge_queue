@@ -8,6 +8,9 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = ["requests>=2.31"]
 
+[tool.setuptools.packages.find]
+include = ["merge_queue*"]
+
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-mock>=3.12", "pytest-cov>=5.0"]
 
