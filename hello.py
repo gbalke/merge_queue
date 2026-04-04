@@ -25,3 +25,6 @@ def test_c():
 
 def final_a():
     return "Final A"
+
+def final_b():
+    return "Final B"
