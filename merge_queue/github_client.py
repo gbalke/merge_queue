@@ -279,10 +279,14 @@ class GitHubClient:
     # --- Branches ---
 
     def list_mq_branches(self) -> list[str]:
+        """List mq/* batch branches (excludes mq/state)."""
         if self._cache_mq_branches is not None:
             return self._cache_mq_branches
         refs = self._get("/git/matching-refs/heads/mq/")
-        self._cache_mq_branches = [r["ref"].removeprefix("refs/heads/") for r in refs]
+        self._cache_mq_branches = [
+            r["ref"].removeprefix("refs/heads/") for r in refs
+            if r["ref"] != "refs/heads/mq/state"
+        ]
         return self._cache_mq_branches
 
     def get_branch_sha(self, branch: str) -> str:
