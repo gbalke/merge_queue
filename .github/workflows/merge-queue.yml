@@ -36,7 +36,22 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: pip install -e .
+      - name: Install merge queue
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Install from the PR branch so new MQ code is available immediately.
+            # Avoids bootstrap problem where main doesn't have the PR's changes.
+            # Uses non-editable install so restoring main's tree doesn't affect it.
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            echo "Installing merge-queue from PR head: ${HEAD_SHA:0:8}"
+            git stash
+            git checkout "$HEAD_SHA" 2>/dev/null
+            pip install ".[dev]"
+            git checkout "${{ github.event.repository.default_branch }}"
+            git stash pop 2>/dev/null || true
+          else
+            pip install ".[dev]"
+          fi
 
       - name: Configure git
         run: |
