@@ -1,13 +1,16 @@
 # Merge Queue Status
 
 ## Active Batch
-_None — queue is idle._
+**Branch:** ``
+**Status:** locking
+**Started:** 2026-04-05T06:24:03.774888+00:00
 
-## Queue (1 stack waiting)
+| PR | Branch | Title |
+|----|--------|-------|
+| [#60](https://github.com/gbalke/merge_queue/pull/60) | `greg/revup/main/security-fixes` | Fix critical security: revert bootstrap, fix shell injection |
 
-| Position | PRs | Queued At |
-|----------|-----|-----------|
-| 1 | #60 | 2026-04-05T06:24:01 |
+## Queue
+_Empty — nothing waiting._
 
 ## Recent History (last 4)
 
@@ -18,4 +21,4 @@ _None — queue is idle._
 | `1775368214` | #58 |  ci_failed | 1m 27s |
 | `1775367984` | #57 | ✅ merged | 1m 34s |
 
-_Updated 2026-04-05T06:24:02.176151+00:00_
+_Updated 2026-04-05T06:24:03.774905+00:00_
