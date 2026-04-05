@@ -6,6 +6,8 @@ Merge queue for stacked PRs. Python package invoked by GitHub Actions.
 
 ALL changes go through revup + merge queue. **NEVER force push or push directly to main under ANY circumstances.** This includes hotfixes, urgent fixes, and "just this once" situations. No exceptions.
 
+**Hotfixes** go through the merge queue with the `hotfix` label. They are NOT pushed directly to main. A hotfix PR jumps to position 0 (front) of the queue, aborts any active batch (re-queuing its PRs behind the hotfix), and processes immediately. Only authorized users (admins/break_glass_users) can use this label.
+
 - Use the `/revup-commit` skill (`.claude/skills/revup-commit/SKILL.md`) for creating commits with topic trailers
 - Each change = one focused revup topic
 - Stack related changes with `Relative:` trailer

@@ -1211,10 +1211,12 @@ def do_retest(client: GitHubClientProtocol, pr_number: int) -> str:
 
 
 def do_hotfix(client: GitHubClientProtocol, pr_number: int) -> str:
-    """Emergency merge — skip queue, skip CI gate, merge immediately.
+    """Hotfix — insert at front of queue, abort active batch, process immediately.
 
     Only authorized users (admins or break_glass_users) can use this.
-    Use when the MQ itself is broken and needs a fix on main.
+    The hotfix PR goes through the normal MQ pipeline but jumps to position 0.
+    If there is an active batch, it is aborted and its PRs are re-queued behind
+    the hotfix.
     """
     owner, repo = _owner_repo(client)
     sender = os.environ.get("MQ_SENDER", "")
@@ -1230,13 +1232,10 @@ def do_hotfix(client: GitHubClientProtocol, pr_number: int) -> str:
         client.remove_label(pr_number, "hotfix")
         return "denied"
 
-    log.warning(
-        "HOTFIX by %s on PR #%d — skipping queue, CI still runs", sender, pr_number
-    )
+    log.warning("HOTFIX by %s on PR #%d — jumping to front of queue", sender, pr_number)
 
     # Get PR info
     pr_data = client.get_pr(pr_number)
-    from merge_queue.types import PullRequest, Stack
     from merge_queue import config
 
     target_branch = pr_data["base"]["ref"]
@@ -1244,54 +1243,72 @@ def do_hotfix(client: GitHubClientProtocol, pr_number: int) -> str:
     if target_branch not in target_branches:
         target_branch = client.get_default_branch()
 
-    pr_obj = PullRequest(
-        number=pr_number,
-        head_sha=pr_data["head"]["sha"],
-        head_ref=pr_data["head"]["ref"],
-        base_ref=pr_data["base"]["ref"],
-        labels=("hotfix",),
+    store = StateStore(client)
+    state = store.read()
+
+    branch_state = state.setdefault("branches", {}).setdefault(
+        target_branch, empty_branch_state()
     )
-    stack = Stack(prs=(pr_obj,), queued_at=datetime.datetime.now(datetime.timezone.utc))
+
+    # Build queue entry for the hotfix (same shape as do_enqueue)
+    hotfix_stack = [
+        {
+            "number": pr_number,
+            "head_sha": pr_data["head"]["sha"],
+            "head_ref": pr_data["head"]["ref"],
+            "base_ref": pr_data["base"]["ref"],
+            "title": pr_data.get("title", ""),
+        }
+    ]
+    hotfix_entry = {
+        "position": 1,
+        "queued_at": _now_iso(),
+        "stack": hotfix_stack,
+        "deployment_id": None,
+        "target_branch": target_branch,
+    }
+
+    # If there is an active batch for this branch, abort it and re-queue its PRs
+    requeued_entries: list[dict] = []
+    active = branch_state.get("active_batch")
+    if active is not None:
+        log.info("Aborting active batch %s for hotfix", active.get("batch_id"))
+        batch_mod.abort_batch(client)
+        # Re-queue the batch's PRs as a single entry (preserving the stack)
+        requeued_entries.append(
+            {
+                "position": 0,  # will be renumbered below
+                "queued_at": active.get("started_at", _now_iso()),
+                "stack": active.get("stack", []),
+                "deployment_id": active.get("deployment_id"),
+                "target_branch": target_branch,
+            }
+        )
+        branch_state["active_batch"] = None
+
+    # Build new queue: hotfix first, then re-queued batch PRs, then existing queue
+    existing_queue = branch_state.get("queue", [])
+    new_queue = [hotfix_entry] + requeued_entries + existing_queue
+
+    # Renumber positions (1-based)
+    for i, entry in enumerate(new_queue):
+        entry["position"] = i + 1
+
+    branch_state["queue"] = new_queue
+    state["updated_at"] = _now_iso()
+    store.write(state)
 
     _comment(
         client,
         pr_number,
-        f"🚨 **Hotfix** `[{target_branch}]` — skipping queue, running CI (by `{sender}`)",
+        f"\U0001f6a8 **Hotfix** `[{target_branch}]` — queued at front of merge queue (by `{sender}`)",
     )
 
-    # Create batch, run CI, then merge (skips queue but CI still runs)
-    try:
-        batch = batch_mod.create_batch(client, stack)
-        _comment(
-            client,
-            pr_number,
-            f"🚨 **Hotfix** `[{target_branch}]` — CI running on `{batch.branch}`",
-        )
-        ci_result = batch_mod.run_ci(client, batch)
-        if not ci_result.passed:
-            batch_mod.fail_batch(client, batch, "CI failed")
-            _comment(
-                client,
-                pr_number,
-                f"❌ **Hotfix CI failed** — use `break-glass` to bypass CI\n\n"
-                f"[View failed run]({ci_result.run_url})",
-            )
-            client.remove_label(pr_number, "hotfix")
-            return "ci_failed"
-        batch_mod.complete_batch(client, batch, target_branch=target_branch)
-        _comment(client, pr_number, f"✅ **Hotfix merged** to `{target_branch}`")
-        client.remove_label(pr_number, "hotfix")
-        log.info("Hotfix merged PR #%d to %s", pr_number, target_branch)
-        return "merged"
-    except Exception as e:
-        log.error("Hotfix failed: %s", e)
-        _comment(client, pr_number, f"❌ **Hotfix failed** — {e}")
-        try:
-            batch_mod.abort_batch(client)
-        except Exception:
-            pass
-        client.remove_label(pr_number, "hotfix")
-        return "failed"
+    log.info(
+        "Hotfix PR #%d queued at position 1 for branch %s", pr_number, target_branch
+    )
+
+    return do_process(client)
 
 
 def do_check_rules(client: GitHubClientProtocol) -> list[rules_mod.RuleResult]:
