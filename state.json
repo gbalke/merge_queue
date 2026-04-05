@@ -1,29 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T07:05:25.113020+00:00",
+  "updated_at": "2026-04-05T07:05:34.155138+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775372653",
-    "branch": "mq/1775372653",
-    "ruleset_id": 14705806,
-    "started_at": "2026-04-05T07:04:12.497880+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 65,
-        "head_sha": "db7bad9cae53d1149817eb5e7bd54a803946a0d2",
-        "head_ref": "greg/revup/main/queue-page",
-        "base_ref": "main",
-        "title": "Clean queue page: focused STATUS.md, fix Queue link"
-      }
-    ],
-    "deployment_id": 4273824047,
-    "comment_ids": {
-      "65": 4188429514
-    },
-    "queued_at": "2026-04-05T07:04:09.838277+00:00",
-    "ci_started_at": "2026-04-05T07:04:15.892924+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775367984",
@@ -96,6 +75,15 @@
         63
       ],
       "duration_seconds": 94.785586
+    },
+    {
+      "batch_id": "1775372653",
+      "status": "merged",
+      "completed_at": "2026-04-05T07:05:34.155114+00:00",
+      "prs": [
+        65
+      ],
+      "duration_seconds": 81.657234
     }
   ]
 }
