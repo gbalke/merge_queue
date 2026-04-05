@@ -2,7 +2,7 @@
 
 | # | PR | Title | Status | Queued |
 |:--|:---|:------|:-------|:------|
-| 1 | [#108](https://github.com/gbalke/merge_queue/pull/108) | Resume stuck batches in 'completing' state | ⏳ waiting | <relative-time datetime="2026-04-05T21:02:00Z">2026-04-05T21:02:00Z</relative-time> |
+| 1 | [#108](https://github.com/gbalke/merge_queue/pull/108) | Resume stuck batches in 'completing' state | 🔒 locking | <relative-time datetime="2026-04-05T21:02:00Z">2026-04-05T21:02:00Z</relative-time> |
 | 2 | [#101](https://github.com/gbalke/merge_queue/pull/101) | Protect all mq/* branches: only admin token can write | ⏳ waiting | <relative-time datetime="2026-04-05T21:07:28Z">2026-04-05T21:07:28Z</relative-time> |
 | 3 | [#109](https://github.com/gbalke/merge_queue/pull/109) | Fix _resume_completion passing prs= instead of stack= to Batch | ⏳ waiting | <relative-time datetime="2026-04-05T21:14:39Z">2026-04-05T21:14:39Z</relative-time> |
 | 4 | [#96](https://github.com/gbalke/merge_queue/pull/96) | Fix HIGH security issues: markdown injection, state protection, lazy admin token | ⏳ waiting | <relative-time datetime="2026-04-05T21:33:32Z">2026-04-05T21:33:32Z</relative-time> |
