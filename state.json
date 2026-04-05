@@ -1,29 +1,17 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T14:38:31.790347+00:00",
+  "updated_at": "2026-04-05T14:38:40.852008+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775399840",
-    "branch": "mq/1775399840",
-    "ruleset_id": 14710389,
-    "started_at": "2026-04-05T14:37:19.216515+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 76,
-        "head_sha": "2866ecc5e525c4c20c2163fe7cf291056d19bdd8",
-        "head_ref": "greg/revup/main/cleanup-root",
-        "base_ref": "main",
-        "title": "Remove test artifact files from repo root"
-      }
-    ],
-    "deployment_id": 4275681758,
-    "comment_ids": {
-      "76": 4188986075
-    },
-    "queued_at": "2026-04-05T14:37:16.380626+00:00",
-    "target_branch": "main",
-    "ci_started_at": "2026-04-05T14:37:22.707044+00:00"
-  },
-  "history": []
+  "active_batch": null,
+  "history": [
+    {
+      "batch_id": "1775399840",
+      "status": "merged",
+      "completed_at": "2026-04-05T14:38:40.851984+00:00",
+      "prs": [
+        76
+      ],
+      "duration_seconds": 81.635469
+    }
+  ]
 }
