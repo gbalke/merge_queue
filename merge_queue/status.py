@@ -8,8 +8,12 @@ from merge_queue.comments import _fmt_duration
 
 
 def render_status_md(state: dict, client: Any = None) -> str:
-    """Render state dict as a markdown STATUS.md file."""
-    lines = ["# Merge Queue Status", ""]
+    """Render state as a clean queue-focused STATUS.md.
+
+    Shows only what's currently happening — active batch and waiting stacks.
+    No history clutter. This is the persistent queue page.
+    """
+    lines = ["# Merge Queue", ""]
 
     owner_repo = ""
     if client and hasattr(client, "owner") and hasattr(client, "repo"):
@@ -18,67 +22,62 @@ def render_status_md(state: dict, client: Any = None) -> str:
     # Active batch
     batch = state.get("active_batch")
     if batch:
-        lines.append("## Active Batch")
-        lines.append(f"**Branch:** `{batch.get('branch', '?')}`")
-        lines.append(f"**Status:** {batch.get('progress', 'unknown')}")
-        lines.append(f"**Started:** {batch.get('started_at', '?')}")
+        progress = batch.get("progress", "processing")
+        progress_emoji = {
+            "locking": "🔒",
+            "running_ci": "🔄",
+            "completing": "🔄",
+        }.get(progress, "🔄")
+
+        lines.append(f"{progress_emoji} **Now processing**")
         lines.append("")
-        lines.append("| PR | Branch | Title |")
-        lines.append("|----|--------|-------|")
-        for pr in batch.get("stack", []):
+        lines.append("| # | PR | Title | Status |")
+        lines.append("|:--|:---|:------|:-------|")
+        for i, pr in enumerate(batch.get("stack", []), 1):
             pr_link = f"#{pr['number']}"
             if owner_repo:
                 pr_link = f"[#{pr['number']}](https://github.com/{owner_repo}/pull/{pr['number']})"
-            lines.append(f"| {pr_link} | `{pr['head_ref']}` | {pr.get('title', '')} |")
-        lines.append("")
-    else:
-        lines.append("## Active Batch")
-        lines.append("_None — queue is idle._")
+            lines.append(f"| {i} | {pr_link} | {pr.get('title', '')} | {progress} |")
         lines.append("")
 
     # Queue
     queue = state.get("queue", [])
     if queue:
-        lines.append(
-            f"## Queue ({len(queue)} stack{'s' if len(queue) != 1 else ''} waiting)"
-        )
+        lines.append(f"**Waiting** ({len(queue)})")
         lines.append("")
-        lines.append("| Position | PRs | Queued At |")
-        lines.append("|----------|-----|-----------|")
+        lines.append("| # | PR | Title |")
+        lines.append("|:--|:---|:------|")
+        pos = 1
         for entry in queue:
-            prs = ", ".join(f"#{pr['number']}" for pr in entry.get("stack", []))
-            queued = entry.get("queued_at", "?")
-            if len(queued) > 19:
-                queued = queued[:19]  # trim to YYYY-MM-DDTHH:MM:SS
-            lines.append(f"| {entry.get('position', '?')} | {prs} | {queued} |")
-        lines.append("")
-    else:
-        lines.append("## Queue")
-        lines.append("_Empty — nothing waiting._")
+            for pr in entry.get("stack", []):
+                pr_link = f"#{pr['number']}"
+                if owner_repo:
+                    pr_link = f"[#{pr['number']}](https://github.com/{owner_repo}/pull/{pr['number']})"
+                lines.append(f"| {pos} | {pr_link} | {pr.get('title', '')} |")
+            pos += 1
         lines.append("")
 
-    # History (last 10)
+    # Empty state
+    if not batch and not queue:
+        lines.append("_Queue is empty._")
+        lines.append("")
+
+    # Last completed (just one line, not a full history)
     history = state.get("history", [])
     if history:
-        recent = history[-10:]
-        lines.append(f"## Recent History (last {len(recent)})")
-        lines.append("")
-        lines.append("| Batch | PRs | Result | Duration |")
-        lines.append("|-------|-----|--------|----------|")
-        for entry in reversed(recent):
-            prs = ", ".join(f"#{n}" for n in entry.get("prs", []))
-            dur = entry.get("duration_seconds", 0)
-            dur_str = _fmt_duration(dur)
-            status = entry.get("status", "?")
-            emoji = {"merged": "✅", "failed": "❌", "aborted": "⏹️"}.get(status, "")
-            lines.append(
-                f"| `{entry.get('batch_id', '?')}` | {prs} | {emoji} {status} | {dur_str} |"
-            )
+        last = history[-1]
+        prs = ", ".join(f"#{n}" for n in last.get("prs", []))
+        status = last.get("status", "?")
+        dur = _fmt_duration(last.get("duration_seconds", 0))
+        emoji = {"merged": "✅", "failed": "❌", "aborted": "⏹️"}.get(status, "")
+        lines.append(f"Last: {emoji} {prs} {status} ({dur})")
         lines.append("")
 
     # Footer
     updated = state.get("updated_at", "")
-    lines.append(f"_Updated {updated or 'never'}_")
+    if updated and len(updated) > 19:
+        updated = updated[:19]
+    lines.append(f"<sub>Updated {updated or 'never'} UTC</sub>")
 
     return "\n".join(lines) + "\n"
 

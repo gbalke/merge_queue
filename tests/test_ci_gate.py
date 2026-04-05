@@ -213,7 +213,7 @@ class TestCICommentTemplates:
     def test_ci_not_ready_includes_mq_link_when_owner_repo_set(self) -> None:
         msg = comments.ci_not_ready(5, "octocat", "hello-world")
         assert "octocat/hello-world" in msg
-        assert "deployments/merge-queue" in msg
+        assert "blob/mq/state/STATUS.md" in msg
 
     def test_ci_not_ready_no_link_when_empty(self) -> None:
         msg = comments.ci_not_ready(5)
@@ -233,4 +233,4 @@ class TestCICommentTemplates:
     def test_ci_retriggered_includes_mq_link(self) -> None:
         msg = comments.ci_retriggered("octocat", "hello-world")
         assert "octocat/hello-world" in msg
-        assert "deployments/merge-queue" in msg
+        assert "blob/mq/state/STATUS.md" in msg
