@@ -594,13 +594,15 @@ class GitHubClient:
             },
         )
 
-        # Update ref — force=True because the concurrency group ensures only
-        # one MQ process runs at a time. Without force, GitHub's ref cache
-        # can cause spurious 422s even with no actual contention.
-        self._patch(
-            f"/git/refs/heads/{branch}",
+        # Update ref via admin token to bypass branch protection rulesets
+        # on mq/* branches. Force=True because the concurrency group ensures
+        # single-writer safety.
+        r = self._admin_session.patch(
+            f"{self._base_url}/git/refs/heads/{branch}",
             json={"sha": new_commit["sha"], "force": True},
         )
+        self._track(r)
+        r.raise_for_status()
         log.info("Committed %d files to %s in one commit", len(files), branch)
         return new_commit["sha"]
 
