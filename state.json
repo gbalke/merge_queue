@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T16:40:13.517070+00:00",
+  "updated_at": "2026-04-05T16:40:22.271463+00:00",
   "queue": [
     {
       "position": 1,
@@ -21,29 +21,7 @@
       "target_branch": "main"
     }
   ],
-  "active_batch": {
-    "batch_id": "1775407128",
-    "branch": "mq/1775407128",
-    "ruleset_id": 14711475,
-    "started_at": "2026-04-05T16:38:47.030532+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 89,
-        "head_sha": "a66ab3dec458d6cf280b84957d2759a6a602437b",
-        "head_ref": "greg/revup/main/per-branch-queues",
-        "base_ref": "main",
-        "title": "Per-branch queues: independent state, concurrency, and status pages"
-      }
-    ],
-    "deployment_id": 4276291248,
-    "comment_ids": {
-      "89": 4189163063
-    },
-    "queued_at": "2026-04-05T16:38:27Z",
-    "target_branch": "main",
-    "ci_started_at": "2026-04-05T16:38:50.041718+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775400996",
@@ -152,6 +130,15 @@
         87
       ],
       "duration_seconds": 95.665917
+    },
+    {
+      "batch_id": "1775407128",
+      "status": "merged",
+      "completed_at": "2026-04-05T16:40:22.271438+00:00",
+      "prs": [
+        89
+      ],
+      "duration_seconds": 95.240906
     }
   ]
 }
