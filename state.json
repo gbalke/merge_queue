@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T18:31:48.288323+00:00",
+  "updated_at": "2026-04-05T18:41:05.417474+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -39,6 +39,42 @@
           "comment_ids": {
             "94": 4189322124
           }
+        },
+        {
+          "position": 3,
+          "queued_at": "2026-04-05T18:41:03.733770+00:00",
+          "stack": [
+            {
+              "number": 95,
+              "head_sha": "69752d0808c26e8cd2692ee4be5641178c8a2742",
+              "head_ref": "greg/revup/main/docs-refresh",
+              "base_ref": "main",
+              "title": "Update docs: README, ARCHITECTURE, SECURITY_AUDIT to current state"
+            }
+          ],
+          "deployment_id": 4276895305,
+          "comment_ids": {
+            "95": 4189335226
+          },
+          "target_branch": "main"
+        },
+        {
+          "position": 4,
+          "queued_at": "2026-04-05T18:41:04.554653+00:00",
+          "stack": [
+            {
+              "number": 92,
+              "head_sha": "2746b94766746a094273b850140bc204995b6cc1",
+              "head_ref": "greg/revup/main/test-protection",
+              "base_ref": "main",
+              "title": "Test: trigger branch protection setup"
+            }
+          ],
+          "deployment_id": 4276895366,
+          "comment_ids": {
+            "92": 4189335249
+          },
+          "target_branch": "main"
         }
       ],
       "active_batch": null
