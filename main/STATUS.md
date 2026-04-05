@@ -2,7 +2,7 @@
 
 | # | PR | Title | Status | Queued |
 |:--|:---|:------|:-------|:------|
-| 1 | [#101](https://github.com/gbalke/merge_queue/pull/101) | Protect all mq/* branches: only admin token can write | 🔄 CI running | <relative-time datetime="2026-04-05T22:14:38Z">2026-04-05T22:14:38Z</relative-time> |
+| 1 | [#101](https://github.com/gbalke/merge_queue/pull/101) | Protect all mq/* branches: only admin token can write | 🔄 merging | <relative-time datetime="2026-04-05T22:14:38Z">2026-04-05T22:14:38Z</relative-time> |
 | 2 | [#112](https://github.com/gbalke/merge_queue/pull/112) | Add break-glass immediate merge: skip CI entirely | ⏳ waiting | <relative-time datetime="2026-04-05T22:15:04Z">2026-04-05T22:15:04Z</relative-time> |
 | 3 | [#109](https://github.com/gbalke/merge_queue/pull/109) | Fix _resume_completion passing prs= instead of stack= to Batch | ⏳ waiting | <relative-time datetime="2026-04-05T22:15:05Z">2026-04-05T22:15:05Z</relative-time> |
 | 4 | [#108](https://github.com/gbalke/merge_queue/pull/108) | Resume stuck batches in 'completing' state | ⏳ waiting | <relative-time datetime="2026-04-05T22:15:06Z">2026-04-05T22:15:06Z</relative-time> |
