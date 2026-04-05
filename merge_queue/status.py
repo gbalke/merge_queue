@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from merge_queue.comments import _fmt_duration
+
 
 def render_status_md(state: dict, client: Any = None) -> str:
     """Render state dict as a markdown STATUS.md file."""
@@ -66,10 +68,7 @@ def render_status_md(state: dict, client: Any = None) -> str:
         for entry in reversed(recent):
             prs = ", ".join(f"#{n}" for n in entry.get("prs", []))
             dur = entry.get("duration_seconds", 0)
-            if dur >= 60:
-                dur_str = f"{int(dur // 60)}m {int(dur % 60)}s"
-            else:
-                dur_str = f"{int(dur)}s"
+            dur_str = _fmt_duration(dur)
             status = entry.get("status", "?")
             emoji = {"merged": "✅", "failed": "❌", "aborted": "⏹️"}.get(status, "")
             lines.append(

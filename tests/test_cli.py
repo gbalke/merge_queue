@@ -17,7 +17,7 @@ from merge_queue.cli import (
     main,
 )
 from merge_queue.state import QueueState
-from merge_queue.types import PullRequest, Stack, empty_state
+from merge_queue.types import Stack, empty_state
 
 T0 = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
 T1 = datetime.datetime(2026, 1, 1, 0, 1, tzinfo=datetime.timezone.utc)
@@ -35,19 +35,6 @@ def _api_state(prs=None, mq_branches=None):
         prs=prs or [],
         all_pr_data=[],
     )
-
-
-def _queued_pr(number, head_ref, base_ref="main"):
-    return PullRequest(number, f"sha-{number}", head_ref, base_ref, ("queue",), T0)
-
-
-@pytest.fixture
-def mock_store():
-    with patch("merge_queue.cli.StateStore") as cls:
-        store = MagicMock()
-        store.read.return_value = empty_state()
-        cls.return_value = store
-        yield store
 
 
 # --- _make_client ---

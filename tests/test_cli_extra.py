@@ -32,15 +32,6 @@ def _api_state(prs: list | None = None) -> QueueState:
     )
 
 
-@pytest.fixture
-def mock_store() -> MagicMock:
-    with patch("merge_queue.cli.StateStore") as cls:
-        store = MagicMock()
-        store.read.return_value = empty_state()
-        cls.return_value = store
-        yield store
-
-
 # --- _comment helper ---
 
 
