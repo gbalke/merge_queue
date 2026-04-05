@@ -9,11 +9,8 @@ ALL changes go through revup + merge queue. **NEVER force push or push directly 
 - Use the `/revup-commit` skill (`.claude/skills/revup-commit/SKILL.md`) for creating commits with topic trailers
 - Each change = one focused revup topic
 - Stack related changes with `Relative:` trailer
-- Run checks before uploading:
-  ```
-  pytest tests/
-  ruff check merge_queue/ tests/ && ruff format --check merge_queue/ tests/
-  ```
+- Run checks before uploading: `ci/run` (runs lint, format, test in parallel)
+  - Or individually: `ci/lint`, `ci/format`, `ci/test`
 - Upload with `revup upload --skip-confirm`
 - Add `queue` label to PRs to enter the merge queue
 - **Agents must NEVER use `git push origin main` or bypass branch protection**
@@ -26,15 +23,16 @@ For non-trivial work, spawn worktree agents:
 - Each agent creates its own revup topic and uploads a PR
 - Multiple agents can run in parallel on independent topics
 - After agents complete, queue their PRs with the `queue` label
-- Agents should run lint + format + tests before uploading
+- Agents should run `ci/run` before uploading
 
 ## Key Commands
 
 ```
 pip install -e ".[dev]"          # install
-pytest tests/                     # run tests (90%+ coverage enforced)
-ruff check merge_queue/ tests/   # lint
-ruff format merge_queue/ tests/  # format
+ci/run                            # run all CI checks (lint + format + test) in parallel
+ci/lint                           # syntax check + ruff lint
+ci/format                         # ruff format --check
+ci/test                           # pytest with coverage
 revup upload --skip-confirm      # upload PRs
 python -m merge_queue status     # check merge queue
 ```

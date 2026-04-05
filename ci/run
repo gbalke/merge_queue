@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+# Run all CI jobs in parallel, report results.
+#
+# Usage:
+#   ci/run          # run all jobs
+#   ci/run lint     # run one job
+
+CI_DIR="$(cd "$(dirname "$0")" && pwd)"
+JOBS=(lint format test)
+
+if [ $# -gt 0 ]; then
+    JOBS=("$@")
+fi
+
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+
+run_job() {
+    local job=$1
+    local script="$CI_DIR/$job"
+    if [ ! -x "$script" ]; then
+        echo "unknown job: $job" >&2
+        return 1
+    fi
+    "$script" > "$TMPDIR/$job.out" 2>&1
+    echo $? > "$TMPDIR/$job.rc"
+}
+
+# Launch all jobs in parallel
+for job in "${JOBS[@]}"; do
+    run_job "$job" &
+done
+wait
+
+# Report results
+failed=0
+for job in "${JOBS[@]}"; do
+    rc=$(cat "$TMPDIR/$job.rc" 2>/dev/null || echo 1)
+    if [ "$rc" -eq 0 ]; then
+        echo "  PASS  $job"
+    else
+        echo "  FAIL  $job"
+        echo ""
+        cat "$TMPDIR/$job.out"
+        echo ""
+        failed=1
+    fi
+done
+
+if [ "$failed" -eq 0 ]; then
+    echo ""
+    echo "All checks passed."
+else
+    echo ""
+    echo "CI failed."
+    exit 1
+fi
