@@ -100,6 +100,7 @@ def progress(
     timings: dict[str, str] | None = None,
     ci_run_url: str = "",
     branch: str = "",
+    target_branch: str = "",
     owner: str = "",
     repo: str = "",
 ) -> str:
@@ -107,18 +108,22 @@ def progress(
 
     phase: "queued", "locking", "running_ci", "completing", "merged", "failed", "aborted"
     timings: dict of phase name -> duration string
-        e.g. {"Queued": "5s", "Lock": "3s"}
+    target_branch: which branch this batch targets (shown in header)
     """
     phase_headers = {
         "queued": "\U0001f6a6 **Queued**",
         "locking": "\U0001f512 **Locking branches**",
         "running_ci": "\U0001f504 **CI running**",
-        "completing": "\U0001f504 **Merging to main**",
+        "completing": "\U0001f504 **Merging**",
         "merged": "\u2705 **Merged**",
         "failed": "\u274c **Failed**",
         "aborted": "\u23f9\ufe0f **Aborted**",
     }
     header = phase_headers.get(phase, phase)
+
+    # Show target branch in brackets
+    if target_branch:
+        header += f" `[{target_branch}]`"
 
     if branch and phase in ("running_ci", "completing"):
         header += f" on `{branch}`"
