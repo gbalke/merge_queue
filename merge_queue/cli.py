@@ -14,7 +14,7 @@ from merge_queue import rules as rules_mod
 from merge_queue.github_client import GitHubClient, GitHubClientProtocol
 from merge_queue.queue import detect_stacks
 from merge_queue.state import QueueState
-from merge_queue.status import render_status_terminal
+from merge_queue.status import render_status_md, render_status_terminal
 from merge_queue.store import StateStore
 
 log = logging.getLogger("merge_queue")
@@ -690,6 +690,14 @@ def cmd_status(args: argparse.Namespace) -> None:
     _log_rate_limit(client)
 
 
+def cmd_summary(args: argparse.Namespace) -> None:
+    client = _make_client()
+    store = StateStore(client)
+    state = store.read()
+    print(render_status_md(state, client))
+    _log_rate_limit(client)
+
+
 def main() -> None:
     logging.basicConfig(
         level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
@@ -714,6 +722,7 @@ def main() -> None:
 
     sub.add_parser("check-rules").set_defaults(func=cmd_check_rules)
     sub.add_parser("status").set_defaults(func=cmd_status)
+    sub.add_parser("summary").set_defaults(func=cmd_summary)
 
     args = parser.parse_args()
     args.func(args)
