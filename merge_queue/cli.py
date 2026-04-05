@@ -151,6 +151,48 @@ def _is_break_glass_authorized(client: GitHubClientProtocol, sender: str) -> boo
         return False
 
 
+def _matches_protected(files: list[str], patterns: list[str]) -> list[str]:
+    """Return list of protected patterns that are touched by the PR's files."""
+    matched: list[str] = []
+    for pattern in patterns:
+        for f in files:
+            # Directory pattern (ends with /): any file under it matches
+            if pattern.endswith("/") and f.startswith(pattern):
+                if pattern not in matched:
+                    matched.append(pattern)
+                break
+            # Exact file match
+            elif f == pattern:
+                matched.append(pattern)
+                break
+    return matched
+
+
+def _has_authorized_approval(client: GitHubClientProtocol, pr_number: int) -> bool:
+    """Check if a break-glass authorized user has approved the PR."""
+    from merge_queue import config as config_mod
+
+    reviews = client.get_pr_reviews(pr_number)
+    allowed = config_mod.get_break_glass_users(client)
+
+    # Reduce to latest review state per user
+    latest: dict[str, str] = {}
+    for r in reviews:
+        latest[r["user"]] = r["state"]
+
+    for user, state in latest.items():
+        if state == "APPROVED":
+            if user in allowed:
+                return True
+            try:
+                perm = client.get_user_permission(user)
+                if perm in ("admin", "maintain"):
+                    return True
+            except Exception:
+                pass
+    return False
+
+
 # --- Core logic ---
 
 
@@ -457,6 +499,26 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
                 except Exception:
                     pass
                 return "ci_not_ready"
+
+    # Protected paths check
+    protected_paths = config_mod.get_protected_paths(client)
+    if protected_paths:
+        pr_files = client.get_pr_files(pr_number)
+        touched_protected = _matches_protected(pr_files, protected_paths)
+        if touched_protected:
+            if not _has_authorized_approval(client, pr_number):
+                _comment(
+                    client,
+                    pr_number,
+                    comments.protected_path_approval_required(
+                        touched_protected, owner, repo
+                    ),
+                )
+                try:
+                    client.remove_label(pr_number, "queue")
+                except Exception:
+                    pass
+                return "approval_required"
 
     resolved_target = target_branch or api_state.default_branch
     branch_state = state.setdefault("branches", {}).setdefault(

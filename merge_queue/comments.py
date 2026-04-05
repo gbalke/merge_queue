@@ -315,6 +315,19 @@ def auto_retrying(
     )
 
 
+def protected_path_approval_required(
+    paths: list[str], owner: str = "", repo: str = ""
+) -> str:
+    footer = _actions_or_mq_footer(owner=owner, repo=repo)
+    path_list = "\n".join(f"- `{p}`" for p in paths)
+    return (
+        f"\U0001f512 **Approval required** \u2014 this PR modifies protected paths:\n\n"
+        f"{path_list}\n\n"
+        f"A repo admin or authorized user must approve before this can enter the merge queue."
+        f"{footer}"
+    )
+
+
 def break_glass_denied(sender: str, owner: str = "", repo: str = "") -> str:
     link = _mq_link(owner, repo)
     footer = _footer(link) if link else ""

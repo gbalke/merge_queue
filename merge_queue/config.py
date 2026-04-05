@@ -65,6 +65,14 @@ def get_break_glass_users(client) -> list[str]:
     return _parse_yaml_list_section(content, "break_glass_users")
 
 
+def get_protected_paths(client) -> list[str]:
+    """Read protected_paths from merge-queue.yml. Returns empty list if not found."""
+    content = _get_config_content(client)
+    if content is None:
+        return []
+    return _parse_yaml_list_section(content, "protected_paths")
+
+
 def get_target_branches(client) -> list[str]:
     """Read target_branches from merge-queue.yml in the repo root.
 

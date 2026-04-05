@@ -178,9 +178,27 @@ target_branches:
 Supported keys:
 - `break_glass_users` — GitHub usernames allowed to apply the `break-glass` label
 - `target_branches` — branches the merge queue manages (each gets its own queue)
+- `protected_paths` — file/directory patterns that require admin approval before entering the queue
 
 The file is parsed without PyYAML (simple line-based parser in
 `merge_queue/config.py`), so stick to the exact format shown above.
+
+### Protected Paths
+
+PRs that modify files matching `protected_paths` patterns require an approving review
+from a repo admin or `break_glass_users` member before entering the merge queue.
+
+```yaml
+# merge-queue.yml
+protected_paths:
+  - merge-queue.yml           # exact file match
+  - .github/workflows/        # directory match (any file under it)
+  - merge_queue/              # directory match
+```
+
+When a PR touches a protected path without the required approval, the MQ removes
+the `queue` label and posts a comment listing the matched paths. Once an authorized
+user approves, re-add the `queue` label to proceed.
 
 ### Environment Variables
 

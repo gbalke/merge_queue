@@ -115,6 +115,8 @@ class GitHubClientProtocol(Protocol):
         context: str = "Final Results",
     ) -> None: ...
     def get_user_permission(self, username: str) -> str: ...
+    def get_pr_files(self, pr_number: int) -> list[str]: ...
+    def get_pr_reviews(self, pr_number: int) -> list[dict]: ...
     def create_deployment(self, description: str, ref: str = "main") -> int: ...
     def update_deployment_status(
         self, deployment_id: int, state: str, description: str = ""
@@ -639,6 +641,18 @@ class GitHubClient:
         """
         data = self._get(f"/collaborators/{username}/permission")
         return data.get("permission", "none")
+
+    # --- PR files and reviews ---
+
+    def get_pr_files(self, pr_number: int) -> list[str]:
+        """Get list of file paths changed by a PR."""
+        data = self._get(f"/pulls/{pr_number}/files", params={"per_page": 100})
+        return [f["filename"] for f in data]
+
+    def get_pr_reviews(self, pr_number: int) -> list[dict]:
+        """Get reviews on a PR. Returns list of {user, state} dicts."""
+        data = self._get(f"/pulls/{pr_number}/reviews")
+        return [{"user": r["user"]["login"], "state": r["state"]} for r in data]
 
     # --- Deployments API (for live UI) ---
 
