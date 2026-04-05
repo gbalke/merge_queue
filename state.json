@@ -1,7 +1,25 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T13:50:56.366741+00:00",
-  "queue": [],
+  "updated_at": "2026-04-05T13:55:45.551075+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-05T13:55:44.678382+00:00",
+      "stack": [
+        {
+          "number": 71,
+          "head_sha": "d479328d7a3660c46fb5180801380d2e145a6820",
+          "head_ref": "greg/revup/main/multi-branch",
+          "base_ref": "main",
+          "title": "Add multi-branch target support via merge-queue.yml config"
+        }
+      ],
+      "deployment_id": 4275484732,
+      "comment_ids": {
+        "71": 4188928376
+      }
+    }
+  ],
   "active_batch": null,
   "history": [
     {
