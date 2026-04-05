@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T18:24:58.524932+00:00",
+  "updated_at": "2026-04-05T18:30:56.777059+00:00",
   "branches": {
     "main": {
-      "queue": [],
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-05T18:30:38Z",
+          "stack": [
+            {
+              "number": 93,
+              "head_sha": "42f52f00c5d92540a7937aced5df4fa27eaa636c",
+              "head_ref": "greg/revup/main/fix-ruleset-format",
+              "base_ref": "main",
+              "title": "Fix protection ruleset API format (422 error)"
+            }
+          ],
+          "deployment_id": 4276846723,
+          "target_branch": "main",
+          "comment_ids": {
+            "93": 4189320898
+          }
+        }
+      ],
       "active_batch": {
         "batch_id": "1775413497",
         "branch": "mq/main/1775413497",
