@@ -664,7 +664,9 @@ def do_process(client: GitHubClientProtocol) -> str:
                 _comment(
                     client,
                     pr.number,
-                    comments.failed(str(e), ci_result.run_url, owner, repo),
+                    comments.failed(
+                        str(e), ci_run_url=ci_result.run_url, owner=owner, repo=repo
+                    ),
                     cids,
                 )
     else:
@@ -825,7 +827,7 @@ def do_hotfix(client: GitHubClientProtocol, pr_number: int) -> str:
     _comment(
         client,
         pr_number,
-        f"🚨 **Hotfix** `[{target_branch}]` — merging immediately (by `{sender}`)",
+        f"🚨 **Hotfix** `[{target_branch}]` — skipping queue, running CI (by `{sender}`)",
     )
 
     # Create batch, run CI, then merge (skips queue but CI still runs)
