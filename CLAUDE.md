@@ -69,7 +69,12 @@ This ensures every bug has a regression test and the fix is verified.
 
 - PRs must pass lint, format, and tests before the merge queue accepts them
 - Use `re-test` label to retrigger CI
-- Use `break-glass` label to bypass CI gate (only when MQ itself is broken)
+- Use `break-glass` label to skip CI entirely and merge immediately (only when MQ or CI is broken and you need to land a change NOW)
+
+## Emergency Merge Labels
+
+- **`hotfix`** — jumps to front of queue, aborts any active batch (re-queuing its PRs), then runs through the normal MQ pipeline (CI still runs). Use when you need priority but CI is functional.
+- **`break-glass`** — aborts any active batch, creates a batch branch, skips CI entirely, and fast-forwards main immediately. Use as a last resort when CI itself is broken. Only authorized users (admins/break_glass_users) can use either label.
 
 ## Architecture
 
