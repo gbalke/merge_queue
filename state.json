@@ -1,29 +1,17 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T14:58:01.662606+00:00",
+  "updated_at": "2026-04-05T14:58:10.680531+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775400996",
-    "branch": "mq/1775400996",
-    "ruleset_id": 14710546,
-    "started_at": "2026-04-05T14:56:34.745856+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 80,
-        "head_sha": "50d63e493d7a95c41590d0ca8f4da15f0cb0b376",
-        "head_ref": "greg/revup/main/hotfix-runs-ci",
-        "base_ref": "main",
-        "title": "Fix: hotfix runs CI (only break-glass skips CI)"
-      }
-    ],
-    "deployment_id": 4275772764,
-    "comment_ids": {
-      "80": 4189013756
-    },
-    "queued_at": "2026-04-05T14:56:12Z",
-    "target_branch": "main",
-    "ci_started_at": "2026-04-05T14:56:38.029871+00:00"
-  },
-  "history": []
+  "active_batch": null,
+  "history": [
+    {
+      "batch_id": "1775400996",
+      "status": "merged",
+      "completed_at": "2026-04-05T14:58:10.680506+00:00",
+      "prs": [
+        80
+      ],
+      "duration_seconds": 95.93465
+    }
+  ]
 }
