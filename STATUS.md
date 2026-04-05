@@ -1,7 +1,9 @@
 # Merge Queue
 
-_Queue is empty — all clear._
+| # | PR | Title | Status |
+|:--|:---|:------|:-------|
+| 1 | [#74](https://github.com/gbalke/merge_queue/pull/74) | Add release feature 3 | ⏳ waiting |
 
 Last: ✅ #72 merged (1m 34s)
 
-<sub>Updated 2026-04-05T14:07:33 UTC</sub>
+<sub>Updated 2026-04-05T14:07:52 UTC</sub>
