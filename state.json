@@ -1,29 +1,11 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:41:35.019519+00:00",
+  "updated_at": "2026-04-05T22:41:38.002512+00:00",
   "branches": {
     "main": {
       "queue": [
         {
           "position": 1,
-          "queued_at": "2026-04-05T22:40:07.767352+00:00",
-          "stack": [
-            {
-              "number": 115,
-              "head_sha": "2e30249bead021c0c04752b78d7077e7ffbec9d5",
-              "head_ref": "greg/revup/main/update-claude-md",
-              "base_ref": "main",
-              "title": "Update CLAUDE.md: clarify merge priority hierarchy and ruff version requirement"
-            }
-          ],
-          "deployment_id": 4278028894,
-          "comment_ids": {
-            "115": 4189650082
-          },
-          "target_branch": "main"
-        },
-        {
-          "position": 2,
           "queued_at": "2026-04-05T22:40:08.535655+00:00",
           "stack": [
             {
@@ -41,7 +23,28 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": null
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T22:41:37.886860+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 115,
+            "head_sha": "2e30249bead021c0c04752b78d7077e7ffbec9d5",
+            "head_ref": "greg/revup/main/update-claude-md",
+            "base_ref": "main",
+            "title": "Update CLAUDE.md: clarify merge priority hierarchy and ruff version requirement"
+          }
+        ],
+        "deployment_id": 4278028894,
+        "comment_ids": {
+          "115": 4189650082
+        },
+        "queued_at": "2026-04-05T22:40:07.767352+00:00",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
