@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T16:38:43.594508+00:00",
+  "updated_at": "2026-04-05T16:38:45.629143+00:00",
   "queue": [
     {
       "position": 1,
@@ -19,6 +19,24 @@
       "comment_ids": {
         "89": 4189163063
       }
+    },
+    {
+      "position": 2,
+      "queued_at": "2026-04-05T16:38:44.820444+00:00",
+      "stack": [
+        {
+          "number": 85,
+          "head_sha": "7a5383cd7f9ea629b060d8c6d3d200861563ae95",
+          "head_ref": "greg/revup/main/auto-rebase",
+          "base_ref": "main",
+          "title": "Add auto-rebase on conflict: rebase and retry instead of failing"
+        }
+      ],
+      "deployment_id": 4276291425,
+      "comment_ids": {
+        "85": 4189163120
+      },
+      "target_branch": "main"
     }
   ],
   "active_batch": null,
