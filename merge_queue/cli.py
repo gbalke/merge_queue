@@ -435,7 +435,32 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
     pr_target_ref = (pr_data_for_check.get("base") or {}).get(
         "ref", client.get_default_branch()
     )
-    if pr_target_ref not in target_branches:
+
+    # Walk the base_ref chain through open PRs to find the ultimate target branch.
+    # This handles stacked PRs where a PR targets another PR's head branch.
+    resolved_target = pr_target_ref
+    if resolved_target not in target_branches:
+        all_prs = client.list_open_prs()
+        head_to_base = {p["head"]["ref"]: p["base"]["ref"] for p in all_prs}
+        visited: set[str] = set()
+        cursor = resolved_target
+        while (
+            cursor not in target_branches
+            and cursor in head_to_base
+            and cursor not in visited
+        ):
+            visited.add(cursor)
+            cursor = head_to_base[cursor]
+        if cursor in target_branches:
+            resolved_target = cursor
+            log.info(
+                "PR #%d targets %s via stack chain through %s",
+                pr_number,
+                cursor,
+                pr_target_ref,
+            )
+
+    if resolved_target not in target_branches:
         _comment(
             client,
             pr_number,
@@ -477,13 +502,14 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
                 "title": pr_data.get("title", ""),
             }
         ]
-        # Use the PR's base_ref as target_branch if it's a configured target,
-        # otherwise fall back to the first configured target branch.
+        # Use resolved_target (which walks the stacked-PR chain) as the target branch,
+        # falling back to the first configured target branch only as a last resort.
         if target_branch is None:
-            if pr_base_ref in target_branches:
-                target_branch = pr_base_ref
-            else:
-                target_branch = target_branches[0]
+            target_branch = (
+                resolved_target
+                if resolved_target in target_branches
+                else target_branches[0]
+            )
 
     # CI gate: all PRs in stack must have passing CI (unless break-glass)
     pr_labels = [lbl["name"] for lbl in (cached_pr_data or {}).get("labels", [])]

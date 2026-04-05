@@ -222,6 +222,64 @@ class TestDoEnqueueTargetBranch:
         assert queue
         assert queue[-1]["target_branch"] == "main"
 
+    @pytest.mark.parametrize(
+        "chain, expected_target",
+        [
+            # Direct: PR targets main → resolved immediately
+            ([], "main"),
+            # One hop: PR targets greg/feature (head of PR #100 whose base is main)
+            ([("greg/feature", "main")], "main"),
+            # Deep chain: PR #102 → PR #101 → PR #100 → main
+            ([("greg/feat-b", "greg/feat-a"), ("greg/feat-a", "main")], "main"),
+        ],
+    )
+    def test_stacked_pr_chain_resolves_to_target(
+        self,
+        mock_store,
+        chain: list[tuple[str, str]],
+        expected_target: str,
+    ) -> None:
+        """PRs targeting another PR's branch resolve to the ultimate target."""
+        pr_base_ref = chain[0][0] if chain else "main"
+        client = _make_enqueue_client(base_ref=pr_base_ref)
+        client.list_open_prs.return_value = [
+            {
+                "head": {"ref": head_ref, "sha": f"sha-{head_ref}"},
+                "base": {"ref": base_ref},
+                "number": idx + 100,
+                "labels": [],
+            }
+            for idx, (head_ref, base_ref) in enumerate(chain)
+        ]
+
+        with patch("merge_queue.cli.QueueState") as qs:
+            qs.fetch.return_value = _api_state_with_active_batch()
+            result = do_enqueue(client, 42)
+
+        assert result == "queued_waiting"
+        written_state = mock_store.write.call_args[0][0]
+        queue = _get_branch_queue(written_state, expected_target)
+        assert queue, f"Expected entry in {expected_target} queue"
+        assert queue[-1]["target_branch"] == expected_target
+
+    def test_stacked_pr_unresolvable_chain_rejected(self, mock_store) -> None:
+        """PR whose chain never reaches a target branch is rejected."""
+        client = _make_enqueue_client(base_ref="greg/orphan-branch")
+        client.list_open_prs.return_value = [
+            {
+                "head": {"ref": "greg/orphan-branch", "sha": "sha-a"},
+                "base": {"ref": "greg/dead-end"},
+                "number": 55,
+                "labels": [],
+            }
+        ]
+
+        with patch("merge_queue.cli.QueueState") as qs:
+            qs.fetch.return_value = _api_state_with_active_batch()
+            result = do_enqueue(client, 42)
+
+        assert result == "invalid_target"
+
 
 # ---------------------------------------------------------------------------
 # do_process — uses target_branch from queue entry
