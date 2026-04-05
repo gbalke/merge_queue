@@ -1,25 +1,27 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T05:46:21.659130+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-05T05:46:20.877736+00:00",
-      "stack": [
-        {
-          "number": 57,
-          "head_sha": "48c8df6fe9b491be618efd5d52104c443385d141",
-          "head_ref": "greg/revup/main/timing-breakdown",
-          "base_ref": "main",
-          "title": "Detailed 5-phase timing breakdown in merge comments"
-        }
-      ],
-      "deployment_id": 4273539540,
-      "comment_ids": {
-        "57": 4188344027
+  "updated_at": "2026-04-05T05:46:23.042012+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-05T05:46:23.042001+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 57,
+        "head_sha": "48c8df6fe9b491be618efd5d52104c443385d141",
+        "head_ref": "greg/revup/main/timing-breakdown",
+        "base_ref": "main",
+        "title": "Detailed 5-phase timing breakdown in merge comments"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4273539540,
+    "comment_ids": {
+      "57": 4188344027
+    },
+    "queued_at": "2026-04-05T05:46:20.877736+00:00"
+  },
   "history": []
 }
