@@ -41,13 +41,18 @@ class UnlockError(BatchError):
 
 
 def run_git(*args: str) -> str:
-    """Run a git command and return stdout. Raises on non-zero exit."""
+    """Run a git command and return stdout. Raises BatchError with stderr on failure."""
     result = subprocess.run(
         ["git", *args],
         capture_output=True,
         text=True,
-        check=True,
     )
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        cmd = " ".join(args)
+        raise BatchError(
+            f"git {cmd} failed: {stderr or 'exit code ' + str(result.returncode)}"
+        )
     return result.stdout
 
 
