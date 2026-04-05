@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:23:42.767926+00:00",
+  "updated_at": "2026-04-05T22:38:23.664116+00:00",
   "branches": {
     "main": {
-      "queue": [],
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-05T22:38:05Z",
+          "stack": [
+            {
+              "number": 113,
+              "head_sha": "652e0682301781e43d754c07cf718c05ceb01798",
+              "head_ref": "greg/revup/main/update-architecture",
+              "base_ref": "main",
+              "title": "Update ARCHITECTURE.md to reflect current system design"
+            }
+          ],
+          "deployment_id": 4278021905,
+          "target_branch": "main",
+          "comment_ids": {
+            "113": 4189647840
+          }
+        }
+      ],
       "active_batch": null
     },
     "release/1.0": {
