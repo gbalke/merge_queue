@@ -43,6 +43,82 @@ def queued(
     )
 
 
+def progress(
+    phase: str,
+    stack: list[dict],
+    timings: dict[str, tuple[str, str]] | None = None,
+    ci_run_url: str = "",
+    branch: str = "",
+    owner: str = "",
+    repo: str = "",
+) -> str:
+    """Single updating comment showing current phase with timestamps and durations.
+
+    phase: "queued", "locking", "running_ci", "completing", "merged", "failed", "aborted"
+    timings: dict of phase name -> (time_str, duration_str)
+        e.g. {"Queue wait": ("14:05:30", "5s"), "CI": ("14:05:35", "1m 2s")}
+    """
+    link = _mq_link(owner, repo)
+    stack_list = _stack_list(stack)
+
+    phase_labels = {
+        "queued": "⏳ Queued",
+        "locking": "🔒 Locking branches",
+        "running_ci": "🔄 CI Running",
+        "completing": "🔄 Merging to main",
+        "merged": "✅ Merged",
+        "failed": "❌ Failed",
+        "aborted": "⏹️ Aborted",
+    }
+    label = phase_labels.get(phase, phase)
+
+    parts = [f"**Merge Queue — {label}**"]
+
+    if branch and phase in ("running_ci", "completing"):
+        parts.append(f"\nBranch: `{branch}`")
+
+    # Timing table with timestamps
+    if timings:
+        rows = [f"| {name} | {time} | {dur} |" for name, (time, dur) in timings.items()]
+        if phase not in ("merged", "failed", "aborted"):
+            rows.append(f"| *{label}* | | *in progress...* |")
+        table = (
+            "\n| Phase | Time (UTC) | Duration |\n|:------|:-----------|:---------|\n"
+            + "\n".join(rows)
+        )
+        parts.append(table)
+
+    parts.append(f"\n**Commits:**\n{stack_list}")
+
+    if ci_run_url:
+        parts.append(f"\n[View CI run →]({ci_run_url})")
+
+    return "\n".join(parts) + link
+
+
+def _iso_to_time(iso: str) -> str:
+    """Extract HH:MM:SS from an ISO 8601 timestamp."""
+    try:
+        from datetime import datetime
+
+        dt = datetime.fromisoformat(iso)
+        return dt.strftime("%H:%M:%S")
+    except Exception:
+        return ""
+
+
+def _duration_between(start_iso: str, end_iso: str) -> str:
+    """Calculate formatted duration between two ISO timestamps."""
+    try:
+        from datetime import datetime
+
+        t_start = datetime.fromisoformat(start_iso)
+        t_end = datetime.fromisoformat(end_iso)
+        return _fmt_duration((t_end - t_start).total_seconds())
+    except Exception:
+        return ""
+
+
 def already_queued(position: int, owner: str = "", repo: str = "") -> str:
     link = _mq_link(owner, repo)
     return f"**Merge Queue** — Already queued at position {position}.{link}"
