@@ -331,6 +331,7 @@ class GitHubClient:
                 "type": "required_status_checks",
                 "parameters": {
                     "required_status_checks": [{"context": "Final Results"}],
+                    "strict_required_status_checks_policy": True,
                 },
             },
         ]
