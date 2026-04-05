@@ -1,11 +1,7 @@
 # Merge Queue
 
-## main
+_Queue is empty — all clear._
 
-| # | PR | Title | Status | Queued |
-|:--|:---|:------|:-------|:------|
-| 1 | [#84](https://github.com/gbalke/merge_queue/pull/84) | Add auto-rebase on conflict: rebase and retry instead of failing | 🔄 merging | <relative-time datetime="2026-04-05T15:54:50Z">2026-04-05T15:54:50Z</relative-time> |
+Last: ✅ #84 merged (1m 20s)
 
-Last:  #74 complete_error (1m 33s)
-
-<sub>Updated 2026-04-05T15:56:24 UTC</sub>
+<sub>Updated 2026-04-05T15:56:32 UTC</sub>
