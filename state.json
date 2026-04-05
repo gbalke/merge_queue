@@ -1,28 +1,9 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T20:35:01.171796+00:00",
+  "updated_at": "2026-04-05T20:35:03.059505+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-05T20:31:09Z",
-          "stack": [
-            {
-              "number": 104,
-              "head_sha": "337909ac96868bc59605955637dfbc947946520b",
-              "head_ref": "greg/revup/main/enforce-no-direct-push",
-              "base_ref": "main",
-              "title": "Enforce never-push-to-main rule in CLAUDE.md"
-            }
-          ],
-          "deployment_id": 4277458663,
-          "target_branch": "main",
-          "comment_ids": {
-            "104": 4189488801
-          }
-        }
-      ],
+      "queue": [],
       "active_batch": null
     },
     "release/1.0": {
