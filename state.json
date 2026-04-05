@@ -1,29 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T06:04:19.322185+00:00",
+  "updated_at": "2026-04-05T06:04:27.835133+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775368989",
-    "branch": "mq/1775368989",
-    "ruleset_id": 14705361,
-    "started_at": "2026-04-05T06:03:07.900936+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 58,
-        "head_sha": "b834e8312e530dc20c422821521ef697016732cd",
-        "head_ref": "greg/revup/main/live-progress",
-        "base_ref": "main",
-        "title": "Add progress() comment function for live phase updates"
-      }
-    ],
-    "deployment_id": 4273597077,
-    "comment_ids": {
-      "58": 4188361273
-    },
-    "queued_at": "2026-04-05T06:03:05.665535+00:00",
-    "ci_started_at": "2026-04-05T06:03:10.759707+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775367984",
@@ -42,6 +21,15 @@
         58
       ],
       "duration_seconds": 87.715227
+    },
+    {
+      "batch_id": "1775368989",
+      "status": "merged",
+      "completed_at": "2026-04-05T06:04:27.835111+00:00",
+      "prs": [
+        58
+      ],
+      "duration_seconds": 79.934175
     }
   ]
 }
