@@ -705,7 +705,9 @@ def do_hotfix(client: GitHubClientProtocol, pr_number: int) -> str:
         client.remove_label(pr_number, "hotfix")
         return "denied"
 
-    log.warning("HOTFIX by %s on PR #%d — skipping queue and CI", sender, pr_number)
+    log.warning(
+        "HOTFIX by %s on PR #%d — skipping queue, CI still runs", sender, pr_number
+    )
 
     # Get PR info
     pr_data = client.get_pr(pr_number)
@@ -732,9 +734,25 @@ def do_hotfix(client: GitHubClientProtocol, pr_number: int) -> str:
         f"🚨 **Hotfix** `[{target_branch}]` — merging immediately (by `{sender}`)",
     )
 
-    # Create batch and merge (skip CI)
+    # Create batch, run CI, then merge (skips queue but CI still runs)
     try:
         batch = batch_mod.create_batch(client, stack)
+        _comment(
+            client,
+            pr_number,
+            f"🚨 **Hotfix** `[{target_branch}]` — CI running on `{batch.branch}`",
+        )
+        ci_result = batch_mod.run_ci(client, batch)
+        if not ci_result.passed:
+            batch_mod.fail_batch(client, batch, "CI failed")
+            _comment(
+                client,
+                pr_number,
+                f"❌ **Hotfix CI failed** — use `break-glass` to bypass CI\n\n"
+                f"[View failed run]({ci_result.run_url})",
+            )
+            client.remove_label(pr_number, "hotfix")
+            return "ci_failed"
         batch_mod.complete_batch(client, batch, target_branch=target_branch)
         _comment(client, pr_number, f"✅ **Hotfix merged** to `{target_branch}`")
         client.remove_label(pr_number, "hotfix")
