@@ -73,6 +73,25 @@ Reviewers: alice"
 - After committing, remind the user to run `revup upload` to create/update PRs
 - If the user wants to modify a previous commit in the stack, suggest `revup amend <topic-name>`
 
+## Rebasing Stale PRs
+
+When a PR falls behind main and needs rebasing:
+
+```bash
+git checkout main && git pull origin main
+git fetch origin greg/revup/main/<topic-name>
+git checkout -b <topic-name> FETCH_HEAD
+git rebase main
+# Resolve conflicts if any
+python -m ruff check merge_queue/ tests/ && python -m ruff format merge_queue/ tests/
+pytest tests/ --override-ini="addopts=" -q
+revup upload --skip-confirm --rebase
+```
+
+Use `revup upload --rebase` to update the existing PR in place (force-push). Do NOT create a new PR.
+
+If conflicts are complex, use an agent with `isolation: "worktree"` to handle the rebase.
+
 ## Best Practices
 
 - **Keep changes small and focused.** Each topic should represent one logical change.
@@ -80,3 +99,4 @@ Reviewers: alice"
 - **Separate concerns:** lint fixes, feature code, tests, and config changes should be different topics.
 - **Run tests before uploading:** Always verify `pytest tests/` passes before `revup upload`.
 - **Run lint before uploading:** Always verify `ruff check merge_queue/ tests/` passes.
+- **Rebase before queuing** if the PR is behind main — the MQ can't merge conflicting branches.
