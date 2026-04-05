@@ -1,29 +1,31 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:51:47.990872+00:00",
+  "updated_at": "2026-04-05T22:56:45.348184+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-05T22:51:26Z",
-          "stack": [
-            {
-              "number": 117,
-              "head_sha": "fc9c4b4cbc793f4e80709124b131848c54fee659",
-              "head_ref": "greg/revup/main/update-security-audit",
-              "base_ref": "main",
-              "title": "Rewrite SECURITY_AUDIT.md: remove resolved entries, add fresh findings"
-            }
-          ],
-          "deployment_id": 4278076593,
-          "target_branch": "main",
-          "comment_ids": {
-            "117": 4189664660
+      "queue": [],
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T22:56:45.200078+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 117,
+            "head_sha": "fc9c4b4cbc793f4e80709124b131848c54fee659",
+            "head_ref": "greg/revup/main/update-security-audit",
+            "base_ref": "main",
+            "title": "Rewrite SECURITY_AUDIT.md: remove resolved entries, add fresh findings"
           }
-        }
-      ],
-      "active_batch": null
+        ],
+        "deployment_id": 4278076593,
+        "comment_ids": {
+          "117": 4189664660
+        },
+        "queued_at": "2026-04-05T22:51:26Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
