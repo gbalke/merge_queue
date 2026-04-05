@@ -1,30 +1,84 @@
 """PR comment templates for the merge queue.
 
-Uses GitHub's native auto-linking (#123 → PR link) instead of explicit
+Uses GitHub's native auto-linking (#123 -> PR link) instead of explicit
 markdown links for a cleaner rendered appearance.
 """
 
 from __future__ import annotations
 
-
-def _mq_link(owner: str, repo: str) -> str:
-    if owner and repo:
-        return f"\n---\n[View merge queue →](https://github.com/{owner}/{repo}/deployments/merge-queue)"
-    return ""
+import os
 
 
-def _stack_list(stack: list[dict]) -> str:
-    """Render stack as a compact list with branch names and titles."""
-    lines = []
+def _actions_link() -> str:
+    """Return the Actions link from GITHUB_RUN_URL env var, or empty string."""
+    return os.environ.get("GITHUB_RUN_URL", "")
+
+
+def _footer(*links: str) -> str:
+    """Render a compact footer line from non-empty link fragments."""
+    parts = [link for link in links if link]
+    if not parts:
+        return ""
+    return "\n\n" + " \u00b7 ".join(parts)
+
+
+def _pr_table(stack: list[dict]) -> str:
+    """Render stack as a compact PR table."""
+    if not stack:
+        return ""
+    rows = []
     for pr in stack:
         num = pr.get("number", "?")
         title = pr.get("title", "")
-        head = pr.get("head_ref", "")
-        line = f"- #{num} `{head}`"
-        if title:
-            line += f" — {title}"
-        lines.append(line)
-    return "\n".join(lines)
+        rows.append(f"| #{num} | {title} |")
+    return "\n| PR | Title |\n|:---|:------|\n" + "\n".join(rows)
+
+
+def _timing_table(timings: dict[str, str] | None, active_label: str = "") -> str:
+    """Render a phase/duration timing table.
+
+    timings: dict of phase name -> duration string
+    active_label: if set, append an in-progress row with this label
+    """
+    if not timings and not active_label:
+        return ""
+    rows = []
+    if timings:
+        for name, dur in timings.items():
+            rows.append(f"| {name} | {dur} |")
+    if active_label:
+        rows.append(f"| *{active_label}* | *...* |")
+    return "\n| Phase | Duration |\n|:------|:---------|\n" + "\n".join(rows)
+
+
+def _mq_link(owner: str, repo: str) -> str:
+    if owner and repo:
+        return f"[Queue](https://github.com/{owner}/{repo}/deployments/merge-queue)"
+    return ""
+
+
+def _actions_or_mq_footer(
+    owner: str = "",
+    repo: str = "",
+    ci_run_url: str = "",
+    ci_link_text: str = "CI run",
+) -> str:
+    """Build a standard footer with optional CI link, Actions link, and Queue link."""
+    links: list[str] = []
+    if ci_run_url:
+        links.append(f"[{ci_link_text}]({ci_run_url})")
+    actions = _actions_link()
+    if actions:
+        links.append(f"[Actions]({actions})")
+    mq = _mq_link(owner, repo)
+    if mq:
+        links.append(mq)
+    return _footer(*links)
+
+
+# ---------------------------------------------------------------------------
+# Comment templates
+# ---------------------------------------------------------------------------
 
 
 def queued(
@@ -34,94 +88,59 @@ def queued(
     owner: str = "",
     repo: str = "",
 ) -> str:
-    link = _mq_link(owner, repo)
-    stack_list = _stack_list(stack)
-    return (
-        f"**Merge Queue — Queued (position {position}/{total})**\n\n"
-        f"Commits in this batch:\n{stack_list}"
-        f"{link}"
-    )
+    table = _pr_table(stack)
+    return f"\U0001f6a6 **Queued** \u00b7 position {position}{table}{_actions_or_mq_footer(owner, repo)}"
 
 
 def progress(
     phase: str,
     stack: list[dict],
-    timings: dict[str, tuple[str, str]] | None = None,
+    timings: dict[str, str] | None = None,
     ci_run_url: str = "",
     branch: str = "",
     owner: str = "",
     repo: str = "",
 ) -> str:
-    """Single updating comment showing current phase with timestamps and durations.
+    """Single updating comment showing current phase with timing.
 
     phase: "queued", "locking", "running_ci", "completing", "merged", "failed", "aborted"
-    timings: dict of phase name -> (time_str, duration_str)
-        e.g. {"Queue wait": ("14:05:30", "5s"), "CI": ("14:05:35", "1m 2s")}
+    timings: dict of phase name -> duration string
+        e.g. {"Queued": "5s", "Lock + merge": "3s"}
     """
-    link = _mq_link(owner, repo)
-    stack_list = _stack_list(stack)
-
-    phase_labels = {
-        "queued": "⏳ Queued",
-        "locking": "🔒 Locking branches",
-        "running_ci": "🔄 CI Running",
-        "completing": "🔄 Merging to main",
-        "merged": "✅ Merged",
-        "failed": "❌ Failed",
-        "aborted": "⏹️ Aborted",
+    phase_headers = {
+        "queued": "\U0001f6a6 **Queued**",
+        "locking": "\U0001f512 **Locking branches**",
+        "running_ci": "\U0001f504 **CI running**",
+        "completing": "\U0001f504 **Merging to main**",
+        "merged": "\u2705 **Merged**",
+        "failed": "\u274c **Failed**",
+        "aborted": "\u23f9\ufe0f **Aborted**",
     }
-    label = phase_labels.get(phase, phase)
-
-    parts = [f"**Merge Queue — {label}**"]
+    header = phase_headers.get(phase, phase)
 
     if branch and phase in ("running_ci", "completing"):
-        parts.append(f"\nBranch: `{branch}`")
+        header += f" on `{branch}`"
 
-    # Timing table with timestamps
-    if timings:
-        rows = [f"| {name} | {time} | {dur} |" for name, (time, dur) in timings.items()]
-        if phase not in ("merged", "failed", "aborted"):
-            rows.append(f"| *{label}* | | *in progress...* |")
-        table = (
-            "\n| Phase | Time (UTC) | Duration |\n|:------|:-----------|:---------|\n"
-            + "\n".join(rows)
-        )
-        parts.append(table)
+    active_label = ""
+    if phase not in ("merged", "failed", "aborted"):
+        active_phases = {
+            "queued": "Queued",
+            "locking": "Locking",
+            "running_ci": "CI",
+            "completing": "Merge",
+        }
+        active_label = active_phases.get(phase, "")
 
-    parts.append(f"\n**Commits:**\n{stack_list}")
+    timing = _timing_table(timings, active_label)
+    table = _pr_table(stack)
+    ci_text = "View CI run" if phase == "running_ci" else "CI run"
+    footer = _actions_or_mq_footer(owner, repo, ci_run_url, ci_text)
 
-    if ci_run_url:
-        parts.append(f"\n[View CI run →]({ci_run_url})")
-
-    return "\n".join(parts) + link
-
-
-def _iso_to_time(iso: str) -> str:
-    """Extract HH:MM:SS from an ISO 8601 timestamp."""
-    try:
-        from datetime import datetime
-
-        dt = datetime.fromisoformat(iso)
-        return dt.strftime("%H:%M:%S")
-    except Exception:
-        return ""
-
-
-def _duration_between(start_iso: str, end_iso: str) -> str:
-    """Calculate formatted duration between two ISO timestamps."""
-    try:
-        from datetime import datetime
-
-        t_start = datetime.fromisoformat(start_iso)
-        t_end = datetime.fromisoformat(end_iso)
-        return _fmt_duration((t_end - t_start).total_seconds())
-    except Exception:
-        return ""
+    return f"{header}{timing}{table}{footer}"
 
 
 def already_queued(position: int, owner: str = "", repo: str = "") -> str:
-    link = _mq_link(owner, repo)
-    return f"**Merge Queue** — Already queued at position {position}.{link}"
+    return f"\U0001f6a6 **Already queued** \u00b7 position {position}{_actions_or_mq_footer(owner, repo)}"
 
 
 def batch_started(
@@ -131,17 +150,9 @@ def batch_started(
     owner: str = "",
     repo: str = "",
 ) -> str:
-    link = _mq_link(owner, repo)
-    stack_list = _stack_list(stack)
-    ci_link = ""
-    if ci_run_url:
-        ci_link = f"\n\n[View CI run →]({ci_run_url})"
-    return (
-        f"**Merge Queue — CI Running**\n\n"
-        f"Branch: `{branch}`\n\n"
-        f"**Commits in this batch:**\n{stack_list}"
-        f"{ci_link}{link}"
-    )
+    table = _pr_table(stack)
+    footer = _actions_or_mq_footer(owner, repo, ci_run_url, "View CI run")
+    return f"\U0001f504 **CI running** on `{branch}`{table}{footer}"
 
 
 def merged(
@@ -156,7 +167,8 @@ def merged(
     owner: str = "",
     repo: str = "",
 ) -> str:
-    link = _mq_link(owner, repo)
+    header = f"\u2705 **Merged** to `{default_branch}`"
+
     stats = ""
     if queued_at and completed_at:
         try:
@@ -170,7 +182,7 @@ def merged(
             if started_at:
                 t_started = datetime.fromisoformat(started_at)
                 rows.append(
-                    f"| Queue wait | {_fmt_duration((t_started - t_queued).total_seconds())} |"
+                    f"| Queued | {_fmt_duration((t_started - t_queued).total_seconds())} |"
                 )
 
                 if ci_started_at:
@@ -185,7 +197,7 @@ def merged(
                             f"| CI | {_fmt_duration((t_ci_end - t_ci_start).total_seconds())} |"
                         )
                         rows.append(
-                            f"| Merge to {default_branch} | {_fmt_duration((t_completed - t_ci_end).total_seconds())} |"
+                            f"| Merge | {_fmt_duration((t_completed - t_ci_end).total_seconds())} |"
                         )
                     else:
                         rows.append(
@@ -196,15 +208,10 @@ def merged(
         except Exception:
             pass
 
-    stack_list = ""
-    if stack:
-        stack_list = "\n\n**Commits:**\n" + _stack_list(stack)
+    table = _pr_table(stack) if stack else ""
+    footer = _actions_or_mq_footer(owner, repo, ci_run_url, "CI run")
 
-    ci_link = ""
-    if ci_run_url:
-        ci_link = f"\n\n[View CI run →]({ci_run_url})"
-
-    return f"**Merge Queue — Merged** to `{default_branch}`.{stats}{stack_list}{ci_link}{link}"
+    return f"{header}{stats}{table}{footer}"
 
 
 def _fmt_duration(seconds: float) -> str:
@@ -221,53 +228,40 @@ def failed(
     owner: str = "",
     repo: str = "",
 ) -> str:
-    link = _mq_link(owner, repo)
+    header = f"\u274c **Failed** \u2014 {reason}"
     details = ""
-    if failed_job:
-        details += f"\n**Job:** {failed_job}"
-    if failed_step:
-        details += f"\n**Step:** {failed_step}"
-    ci_link = ""
-    if ci_run_url:
-        ci_link = f"\n\n[View failed CI run →]({ci_run_url})"
-    return (
-        f"**Merge Queue — Failed**\n\n"
-        f"{reason}{details}{ci_link}\n\n"
-        f"Fix the issue and re-add the `queue` label to retry."
-        f"{link}"
-    )
+    if failed_job or failed_step:
+        parts = []
+        if failed_job:
+            parts.append(f"**Job:** {failed_job}")
+        if failed_step:
+            parts.append(f"**Step:** {failed_step}")
+        details = "\n\n> " + " \u00b7 ".join(parts)
+
+    footer = _actions_or_mq_footer(owner, repo, ci_run_url, "View failed run")
+    return f"{header}{details}{footer}"
 
 
 def batch_error(error: str, owner: str = "", repo: str = "") -> str:
-    link = _mq_link(owner, repo)
-    return (
-        f"**Merge Queue — Batch Creation Failed**\n\n"
-        f"{error}\n\n"
-        f"Fix the issue and re-add the `queue` label to retry."
-        f"{link}"
-    )
+    return f"\u274c **Failed** \u2014 {error}{_actions_or_mq_footer(owner, repo)}"
 
 
 def aborted(owner: str = "", repo: str = "") -> str:
-    link = _mq_link(owner, repo)
-    return f"**Merge Queue — Aborted.** `queue` label was removed, branches unlocked.{link}"
+    return f"\u23f9\ufe0f **Aborted** \u2014 `queue` label removed{_actions_or_mq_footer(owner, repo)}"
 
 
 def removed_from_queue(owner: str = "", repo: str = "") -> str:
-    link = _mq_link(owner, repo)
-    return f"**Merge Queue — Removed** from queue.{link}"
+    return f"\u23f9\ufe0f **Removed** from queue{_actions_or_mq_footer(owner, repo)}"
 
 
 def ci_not_ready(pr_number: int, owner: str = "", repo: str = "") -> str:
-    link = _mq_link(owner, repo)
+    footer = _actions_or_mq_footer(owner, repo)
     return (
-        f"**Merge Queue — CI Required**\n\n"
-        f"PR #{pr_number} does not have passing CI. "
-        f"Fix the issue and re-add `queue`, or add the `re-test` label to retrigger CI."
-        f"{link}"
+        f"\u26a0\ufe0f **CI required** \u2014 #{pr_number} does not have passing CI\n\n"
+        f"Add `re-test` to retrigger, or fix and re-add `queue`."
+        f"{footer}"
     )
 
 
 def ci_retriggered(owner: str = "", repo: str = "") -> str:
-    link = _mq_link(owner, repo)
-    return f"**Merge Queue** — CI retriggered by `re-test` label.{link}"
+    return f"\U0001f504 **CI retriggered** via `re-test` label{_actions_or_mq_footer(owner, repo)}"

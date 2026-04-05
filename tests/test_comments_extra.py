@@ -11,7 +11,7 @@ _STACK = [
 ]
 
 
-# --- _mq_link ---
+# --- footer / _mq_link ---
 
 
 def test_mq_link_with_owner_repo() -> None:
@@ -30,7 +30,6 @@ def test_mq_link_without_owner_repo() -> None:
 def test_already_queued_contains_position() -> None:
     result = comments.already_queued(3)
     assert "position 3" in result
-    assert "Merge Queue" in result
 
 
 def test_already_queued_with_owner_repo() -> None:
@@ -44,7 +43,7 @@ def test_already_queued_with_owner_repo() -> None:
 def test_batch_started_without_ci_url() -> None:
     result = comments.batch_started("mq/123", _STACK)
     assert "mq/123" in result
-    assert "CI Running" in result
+    assert "CI running" in result
     assert "View CI run" not in result
 
 
@@ -52,7 +51,7 @@ def test_batch_started_with_ci_url() -> None:
     result = comments.batch_started(
         "mq/123", _STACK, ci_run_url="https://actions.example.com/run/1"
     )
-    assert "[View CI run →](https://actions.example.com/run/1)" in result
+    assert "[View CI run](https://actions.example.com/run/1)" in result
 
 
 # --- merged ---
@@ -63,7 +62,7 @@ def test_merged_minimal() -> None:
     result = comments.merged("main")
     assert "Merged" in result
     assert "main" in result
-    assert "Queue wait" not in result
+    assert "Queued" not in result
 
 
 def test_merged_with_timestamps_no_ci_started() -> None:
@@ -75,11 +74,11 @@ def test_merged_with_timestamps_no_ci_started() -> None:
     )
     assert "**Total**" in result
     assert "2m 0s" in result
-    assert "Queue wait" not in result
+    assert "Queued" not in result
 
 
 def test_merged_with_all_timestamps_shows_full_stats_table() -> None:
-    """merged() with all timestamps renders the five-phase stats table."""
+    """merged() with all timestamps renders the full stats table."""
     result = comments.merged(
         "main",
         queued_at="2026-01-01T00:00:00+00:00",
@@ -88,32 +87,32 @@ def test_merged_with_all_timestamps_shows_full_stats_table() -> None:
         ci_completed_at="2026-01-01T00:02:30+00:00",
         completed_at="2026-01-01T00:03:00+00:00",
     )
-    assert "Queue wait" in result
+    assert "Queued" in result
     assert "Lock + merge" in result
     assert "CI" in result
-    assert "Merge to main" in result
+    assert "Merge" in result
     assert "**Total**" in result
     assert "30s" in result  # queue wait
     assert "1m 30s" in result  # CI duration
 
 
 def test_merged_with_stack() -> None:
-    """merged() with a stack renders the commits section."""
+    """merged() with a stack renders the PR table."""
     result = comments.merged("main", stack=_STACK)
-    assert "**Commits:**" in result
-    assert "feat-a" in result
+    assert "| PR | Title |" in result
+    assert "#1" in result
 
 
 def test_merged_without_stack() -> None:
-    """merged() with no stack omits the commits section."""
+    """merged() with no stack omits the PR table."""
     result = comments.merged("main", stack=None)
-    assert "**Commits:**" not in result
+    assert "| PR | Title |" not in result
 
 
 def test_merged_with_ci_run_url() -> None:
     """merged() with ci_run_url renders a link."""
     result = comments.merged("main", ci_run_url="https://ci.example.com/42")
-    assert "[View CI run →](https://ci.example.com/42)" in result
+    assert "[CI run](https://ci.example.com/42)" in result
 
 
 def test_merged_with_bad_timestamps_omits_stats() -> None:
@@ -130,7 +129,7 @@ def test_failed_minimal() -> None:
     result = comments.failed("CI failed")
     assert "Failed" in result
     assert "CI failed" in result
-    assert "View failed CI run" not in result
+    assert "View failed run" not in result
     assert "**Job:**" not in result
 
 
@@ -142,7 +141,7 @@ def test_failed_with_job_and_step() -> None:
 
 def test_failed_with_ci_run_url() -> None:
     result = comments.failed("CI failed", ci_run_url="https://ci.example.com/fail")
-    assert "[View failed CI run →](https://ci.example.com/fail)" in result
+    assert "[View failed run](https://ci.example.com/fail)" in result
 
 
 def test_failed_with_job_only() -> None:
@@ -155,7 +154,6 @@ def test_failed_with_job_only() -> None:
 
 
 def test_fmt_duration_under_60s() -> None:
-    # Indirectly tested via merged() with short duration
     result = comments.merged(
         "main",
         queued_at="2026-01-01T00:00:00+00:00",
@@ -178,7 +176,7 @@ def test_fmt_duration_over_60s() -> None:
 
 def test_batch_error() -> None:
     result = comments.batch_error("merge conflict on branch feat-a")
-    assert "Batch Creation Failed" in result
+    assert "Failed" in result
     assert "merge conflict on branch feat-a" in result
 
 
@@ -190,3 +188,50 @@ def test_aborted() -> None:
 def test_removed_from_queue() -> None:
     result = comments.removed_from_queue()
     assert "Removed" in result
+
+
+# --- progress ---
+
+
+def test_progress_queued() -> None:
+    result = comments.progress("queued", _STACK)
+    assert "Queued" in result
+    assert "#1" in result
+
+
+def test_progress_running_ci_with_branch() -> None:
+    result = comments.progress(
+        "running_ci",
+        _STACK,
+        timings={"Queued": "5s", "Lock + merge": "3s"},
+        branch="mq/abc123",
+    )
+    assert "CI running" in result
+    assert "mq/abc123" in result
+    assert "| Queued | 5s |" in result
+    assert "*CI*" in result  # active phase
+
+
+def test_progress_merged_no_active_row() -> None:
+    result = comments.progress(
+        "merged",
+        _STACK,
+        timings={"Queued": "5s", "CI": "1m 2s"},
+    )
+    assert "Merged" in result
+    assert "*...*" not in result
+
+
+# --- actions link ---
+
+
+def test_actions_link_from_env(monkeypatch: object) -> None:
+    monkeypatch.setenv("GITHUB_RUN_URL", "https://github.com/o/r/actions/runs/1")  # type: ignore[attr-defined]
+    result = comments.aborted()
+    assert "[Actions](https://github.com/o/r/actions/runs/1)" in result
+
+
+def test_no_actions_link_without_env(monkeypatch: object) -> None:
+    monkeypatch.delenv("GITHUB_RUN_URL", raising=False)  # type: ignore[attr-defined]
+    result = comments.aborted()
+    assert "[Actions]" not in result
