@@ -216,21 +216,116 @@ def get_target_branches(client) -> list[str]:
     return [default]
 
 
-def ensure_branch_protection(client, target_branches: list[str]) -> None:
-    """Ensure all target branches and the mq/state branch have protection rulesets.
+def _ensure_mq_branches_protected(client) -> None:
+    """Ensure mq/* batch branches are protected — only admin can write.
 
-    Creates rulesets for any unprotected branches using MQ_ADMIN_TOKEN.
+    Creates a single ``mq-branches-protect`` ruleset covering ``refs/heads/mq/*``
+    that blocks both updates (pushes) and deletions for everyone except the admin
+    role (actor_id=5, RepositoryRole).  The MQ admin token is the only identity
+    that bypasses this ruleset so it can create/delete batch branches.
+
+    ``mq/state`` is explicitly excluded because protecting it blocks the atomic
+    ``commit_files`` writes via Git Data API.  The MQ concurrency group ensures
+    single-writer access to mq/state instead.
+
+    Migrates legacy ``mq-state-protect-*`` rulesets by deleting them once the new
+    unified ruleset is in place.
+
+    If creation or deletion fails (e.g. no admin token), logs a warning and
+    returns without raising.
+    """
+    existing = client.list_rulesets()
+
+    # IDs of legacy mq-state-protect-* rulesets to clean up after migration.
+    legacy_ids: list[int] = []
+    for rs in existing:
+        name = rs.get("name", "")
+        if name == "mq-branches-protect":
+            # Already present — nothing to do. Clean up legacy ones anyway.
+            for rs2 in existing:
+                if rs2.get("name", "").startswith("mq-state-protect"):
+                    _try_delete_ruleset(client, rs2)
+            return
+        if name.startswith("mq-state-protect"):
+            if "id" in rs:
+                legacy_ids.append(rs["id"])
+
+    try:
+        r = client._admin_session.post(
+            f"{client._base_url}/rulesets",
+            json={
+                "name": "mq-branches-protect",
+                "target": "branch",
+                "enforcement": "active",
+                "conditions": {
+                    "ref_name": {
+                        "include": ["refs/heads/mq/*"],
+                        "exclude": ["refs/heads/mq/state"],
+                    }
+                },
+                "rules": [
+                    {"type": "update"},
+                    {"type": "deletion"},
+                ],
+                "bypass_actors": [
+                    {
+                        "actor_id": 5,
+                        "actor_type": "RepositoryRole",
+                        "bypass_mode": "always",
+                    }
+                ],
+            },
+        )
+        r.raise_for_status()
+        log.info("Created mq-branches-protect ruleset (id=%s)", r.json().get("id"))
+    except Exception as e:
+        log.warning("Could not protect mq/* branches: %s", e)
+        return
+
+    # New ruleset is live — delete the now-superseded legacy rulesets.
+    for ruleset_id in legacy_ids:
+        try:
+            client.delete_ruleset(ruleset_id)
+            log.info("Deleted legacy mq-state-protect ruleset id=%s", ruleset_id)
+        except Exception as e:
+            log.warning("Could not delete legacy ruleset id=%s: %s", ruleset_id, e)
+
+
+def _try_delete_ruleset(client, rs: dict) -> None:
+    """Best-effort deletion of a ruleset; logs but does not raise on failure."""
+    ruleset_id = rs.get("id")
+    if ruleset_id is None:
+        return
+    try:
+        client.delete_ruleset(ruleset_id)
+        log.info("Deleted legacy ruleset '%s' id=%s", rs.get("name"), ruleset_id)
+    except Exception as e:
+        log.warning(
+            "Could not delete legacy ruleset '%s' id=%s: %s",
+            rs.get("name"),
+            ruleset_id,
+            e,
+        )
+
+
+def ensure_branch_protection(client, target_branches: list[str]) -> None:
+    """Ensure all target branches and mq/* branches have protection rulesets.
+
+    Creates rulesets for any unprotected target branches using MQ_ADMIN_TOKEN.
     Deletes rulesets for branches that are no longer in ``target_branches``.
     Ruleset name format: ``mq-protect-{branch_name}`` (``/`` replaced with ``-``).
-    The ``mq/state`` branch gets a simpler ruleset (no CI required, just blocks
-    non-admin pushes) via the existing ``create_ruleset`` update-block mechanism.
+
+    A single ``mq-branches-protect`` ruleset covers all ``mq/*`` branches
+    (excluding ``mq/state``) so that only the admin token can push to
+    lock/batch branches.  ``mq/state`` is excluded because protecting it
+    blocks atomic writes.  Any legacy ``mq-state-protect-*`` rulesets are
+    cleaned up automatically.
 
     If creation or deletion fails (e.g. no admin token, private repo without Pro),
     logs a warning but does not block the caller.
     """
     existing = client.list_rulesets()
     protected: set[str] = set()
-    state_protected: set[str] = set()
     # Map branch -> ruleset dict for existing mq-protect-* rulesets
     protected_rulesets: dict[str, dict] = {}
     for rs in existing:
@@ -242,10 +337,6 @@ def ensure_branch_protection(client, target_branches: list[str]) -> None:
                 branch = pattern.removeprefix("refs/heads/")
                 protected.add(branch)
                 protected_rulesets[branch] = rs
-        if name.startswith("mq-state-protect"):
-            for pattern in conditions.get("include", []):
-                branch = pattern.removeprefix("refs/heads/")
-                state_protected.add(branch)
 
     target_set = set(target_branches)
 
@@ -264,16 +355,7 @@ def ensure_branch_protection(client, target_branches: list[str]) -> None:
             log.info("Creating protection ruleset for %s", branch)
             _create_branch_protection(client, branch)
 
-    # Clean up legacy mq-state-protect rulesets — they block the atomic
-    # commit_files writes via Git Data API.  The mq/state branch does not
-    # need protection because the MQ concurrency group ensures single-writer.
-    for rs in existing:
-        if rs.get("name", "").startswith("mq-state-protect"):
-            try:
-                client.delete_ruleset(rs["id"])
-                log.info("Removed legacy state protection ruleset %s", rs["name"])
-            except Exception:
-                pass
+    _ensure_mq_branches_protected(client)
 
 
 def _create_branch_protection(client, branch: str) -> None:
