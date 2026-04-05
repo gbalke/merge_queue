@@ -40,6 +40,23 @@ def _now_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
+def _event_time_or_now() -> str:
+    """Return the GitHub event timestamp if available, otherwise now.
+
+    GITHUB_EVENT_TIME is set from github.event.pull_request.updated_at in the
+    workflow, which reflects when the label was added — a more accurate
+    queued_at for PRs that waited in the concurrency queue before do_enqueue ran.
+    """
+    event_time = os.environ.get("GITHUB_EVENT_TIME", "")
+    return event_time if event_time else _now_iso()
+
+
+def _fmt_duration(seconds: float) -> str:
+    if seconds >= 60:
+        return f"{int(seconds // 60)}m {int(seconds % 60)}s"
+    return f"{int(seconds)}s"
+
+
 def _comment(
     client, pr_number: int, body: str, comment_ids: dict | None = None
 ) -> int | None:
@@ -264,7 +281,7 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
     position = len(state.get("queue", [])) + 1
     entry = {
         "position": position,
-        "queued_at": _now_iso(),
+        "queued_at": _event_time_or_now(),
         "stack": stack_dicts,
         "deployment_id": None,
         "target_branch": target_branch or api_state.default_branch,
