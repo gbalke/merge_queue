@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:39:56.660792+00:00",
+  "updated_at": "2026-04-05T22:40:05.974269+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -23,29 +23,7 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": {
-        "batch_id": "1775428711",
-        "branch": "mq/main/1775428711",
-        "ruleset_id": 14716589,
-        "started_at": "2026-04-05T22:38:29.255840+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 113,
-            "head_sha": "652e0682301781e43d754c07cf718c05ceb01798",
-            "head_ref": "greg/revup/main/update-architecture",
-            "base_ref": "main",
-            "title": "Update ARCHITECTURE.md to reflect current system design"
-          }
-        ],
-        "deployment_id": 4278021905,
-        "comment_ids": {
-          "113": 4189647840
-        },
-        "queued_at": "2026-04-05T22:38:05Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T22:38:32.645253+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -408,6 +386,16 @@
         96
       ],
       "duration_seconds": 81.603133,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775428711",
+      "status": "merged",
+      "completed_at": "2026-04-05T22:40:05.840729+00:00",
+      "prs": [
+        113
+      ],
+      "duration_seconds": 96.584889,
       "target_branch": "main"
     }
   ]
