@@ -175,11 +175,12 @@ def create_batch(
     client: GitHubClientProtocol,
     stack: Stack,
     *,
+    target_branch: str = "",
     git: GitRunner = run_git,
 ) -> Batch:
     """Create an mq/ branch, merge PR branches, lock branches, add locked label."""
     batch_id = str(int(time.time()))
-    branch = f"mq/{batch_id}"
+    branch = f"mq/{target_branch}/{batch_id}" if target_branch else f"mq/{batch_id}"
     default_branch = client.get_default_branch()
     client.get_branch_sha(default_branch)  # validate branch exists
 

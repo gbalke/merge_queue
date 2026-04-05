@@ -31,7 +31,7 @@ class Stack:
 @dataclasses.dataclass
 class Batch:
     batch_id: str
-    branch: str  # "mq/<batch_id>"
+    branch: str  # "mq/<target_branch>/<batch_id>" or legacy "mq/<batch_id>"
     stack: Stack
     status: BatchStatus = BatchStatus.PENDING
     ruleset_id: int | None = None
@@ -82,11 +82,15 @@ class HistoryEntry:
 
 
 def empty_state() -> dict:
-    """Return a fresh empty state dict."""
+    """Return a fresh empty v2 state dict."""
     return {
-        "version": 1,
+        "version": 2,
         "updated_at": "",
-        "queue": [],
-        "active_batch": None,
+        "branches": {},
         "history": [],
     }
+
+
+def empty_branch_state() -> dict:
+    """Return a fresh per-branch state dict."""
+    return {"queue": [], "active_batch": None}

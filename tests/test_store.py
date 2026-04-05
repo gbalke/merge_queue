@@ -19,6 +19,7 @@ def store(mock_client):
 
 class TestRead:
     def test_returns_state_from_branch(self, store, mock_client):
+        # v1 state is auto-migrated to v2 on read
         state = {
             "version": 1,
             "queue": [{"position": 1}],
@@ -27,10 +28,13 @@ class TestRead:
         }
         encoded = base64.b64encode(json.dumps(state).encode()).decode()
         mock_client.get_file_content.return_value = {"sha": "abc", "content": encoded}
+        mock_client.get_default_branch.return_value = "main"
 
         result = store.read()
 
-        assert result["queue"][0]["position"] == 1
+        # Migrated to v2 per-branch schema
+        assert result["version"] == 2
+        assert result["branches"]["main"]["queue"][0]["position"] == 1
         mock_client.get_file_content.assert_called_once_with("state.json", "mq/state")
 
     def test_returns_empty_state_on_404(self, store, mock_client):
@@ -60,16 +64,20 @@ class TestWrite:
         state = empty_state()
         state["updated_at"] = "2026-04-04T00:00:00Z"
 
-        with patch("merge_queue.store.render_status_md", return_value="# Status\n"):
+        with (
+            patch(
+                "merge_queue.store.render_branch_status_md", return_value="# Branch\n"
+            ),
+            patch("merge_queue.store.render_root_status_md", return_value="# Root\n"),
+        ):
             store.write(state)
 
+        # v2 empty state has no branches, so only state.json + root STATUS.md
         assert mock_client.put_file_content.call_count == 2
-        # First call: state.json
         call1 = mock_client.put_file_content.call_args_list[0]
         assert call1[0][0] == "state.json"
         assert call1[0][1] == "mq/state"
         assert call1[1]["sha"] == "old-sha"
-        # Second call: STATUS.md
         call2 = mock_client.put_file_content.call_args_list[1]
         assert call2[0][0] == "STATUS.md"
 
@@ -81,13 +89,17 @@ class TestWrite:
             store.write(empty_state())
 
     def test_ensures_branch_first(self, store, mock_client):
-        # Branch doesn't exist
         mock_client.get_file_content.side_effect = [
             RuntimeError("404"),  # _ensure_branch check
         ]
         mock_client.put_file_content.return_value = {"content": {"sha": "new"}}
 
-        with patch("merge_queue.store.render_status_md", return_value="# Status\n"):
+        with (
+            patch(
+                "merge_queue.store.render_branch_status_md", return_value="# Branch\n"
+            ),
+            patch("merge_queue.store.render_root_status_md", return_value="# Root\n"),
+        ):
             store.write(empty_state())
 
         mock_client.create_orphan_branch.assert_called_once()
@@ -96,10 +108,15 @@ class TestWrite:
         store._state_sha = "old-sha"
         mock_client.put_file_content.side_effect = [
             {"content": {"sha": "new"}},  # state.json succeeds
-            RuntimeError("500 Server Error"),  # STATUS.md fails
+            RuntimeError("500 Server Error"),  # root STATUS.md fails
         ]
 
-        with patch("merge_queue.store.render_status_md", return_value="# Status\n"):
+        with (
+            patch(
+                "merge_queue.store.render_branch_status_md", return_value="# Branch\n"
+            ),
+            patch("merge_queue.store.render_root_status_md", return_value="# Root\n"),
+        ):
             store.write(empty_state())  # Should not raise
 
 

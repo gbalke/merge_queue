@@ -18,6 +18,7 @@ from merge_queue.cli import (
 )
 from merge_queue.state import QueueState
 from merge_queue.types import PullRequest, Stack, empty_state
+from tests.conftest import make_v2_state
 
 T0 = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
 
@@ -121,12 +122,9 @@ def test_enqueue_already_in_active_batch(
     mock_client: MagicMock, mock_store: MagicMock
 ) -> None:
     mock_client.get_pr.return_value = {"state": "open"}
-    mock_store.read.return_value = {
-        **empty_state(),
-        "active_batch": {
-            "stack": [{"number": 42}],
-        },
-    }
+    mock_store.read.return_value = make_v2_state(
+        active_batch={"stack": [{"number": 42}]}
+    )
     result = do_enqueue(mock_client, 42)
     assert result == "already_active"
     mock_store.write.assert_not_called()
@@ -209,24 +207,17 @@ def test_enqueue_pr_get_raises_does_not_skip(
 def test_process_stale_batch_is_recovered(
     mock_client: MagicMock, mock_store: MagicMock
 ) -> None:
-    """A batch older than 30 minutes is aborted and the queue is processed.
-
-    The PR must be "open" so the code does NOT take the all_merged fast-path
-    and instead checks the 30-minute stale threshold.
-    """
+    """A batch older than 30 minutes is aborted and the queue is processed."""
     stale_time = (
         datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=35)
     ).isoformat()
-    mock_store.read.return_value = {
-        **empty_state(),
-        "active_batch": {
+    mock_store.read.return_value = make_v2_state(
+        active_batch={
             "batch_id": "stale",
             "started_at": stale_time,
             "stack": [{"number": 1}],
-        },
-        # No queue items → after recovering stale batch, returns "no_stacks"
-    }
-    # PR is still open → goes to stale-time check, not the all_merged fast-path
+        }
+    )
     mock_client.get_pr.return_value = {"state": "open"}
 
     with patch("merge_queue.cli.batch_mod") as bm:
@@ -351,7 +342,7 @@ def test_enqueue_uses_github_event_time_for_queued_at(
         do_enqueue(mock_client, 1)
 
     written = mock_store.write.call_args_list[0][0][0]
-    assert written["queue"][0]["queued_at"] == event_time
+    assert written["branches"]["main"]["queue"][0]["queued_at"] == event_time
 
 
 def test_enqueue_falls_back_to_now_when_no_event_time(
@@ -379,11 +370,30 @@ def test_enqueue_falls_back_to_now_when_no_event_time(
     after = datetime.datetime.now(datetime.timezone.utc)
 
     written = mock_store.write.call_args_list[0][0][0]
-    queued_at = datetime.datetime.fromisoformat(written["queue"][0]["queued_at"])
+    queued_at = datetime.datetime.fromisoformat(
+        written["branches"]["main"]["queue"][0]["queued_at"]
+    )
     assert before <= queued_at <= after
 
 
 # --- Issue 3: Live comment updates at each phase ---
+
+
+def _queue_entry_with_cids(queued_at: datetime.datetime = T0) -> dict:
+    return {
+        "position": 1,
+        "queued_at": queued_at.isoformat(),
+        "stack": [
+            {
+                "number": 1,
+                "head_sha": "sha-1",
+                "head_ref": "feat-a",
+                "base_ref": "main",
+            }
+        ],
+        "deployment_id": None,
+        "comment_ids": {1: 999},
+    }
 
 
 def test_do_process_comments_updated_at_locking_phase(
@@ -392,32 +402,14 @@ def test_do_process_comments_updated_at_locking_phase(
     """After locking, comments should show 'locking' phase with queue-wait timing."""
     from merge_queue.types import Batch
 
-    mock_store.read.return_value = {
-        **empty_state(),
-        "queue": [
-            {
-                "position": 1,
-                "queued_at": T0.isoformat(),
-                "stack": [
-                    {
-                        "number": 1,
-                        "head_sha": "sha-1",
-                        "head_ref": "feat-a",
-                        "base_ref": "main",
-                    }
-                ],
-                "deployment_id": None,
-                "comment_ids": {1: 999},
-            }
-        ],
-    }
+    mock_store.read.return_value = make_v2_state(queue=[_queue_entry_with_cids()])
 
     with (
         patch("merge_queue.cli.QueueState") as QS,
         patch("merge_queue.cli.batch_mod") as bm,
     ):
         QS.fetch.return_value = _api_state()
-        batch = Batch("123", "mq/123", Stack(prs=(), queued_at=T0))
+        batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
         bm.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = False
@@ -444,32 +436,14 @@ def test_do_process_comments_updated_at_ci_phase(
     """When CI starts, comments should show queue-wait and lock timing."""
     from merge_queue.types import Batch
 
-    mock_store.read.return_value = {
-        **empty_state(),
-        "queue": [
-            {
-                "position": 1,
-                "queued_at": T0.isoformat(),
-                "stack": [
-                    {
-                        "number": 1,
-                        "head_sha": "sha-1",
-                        "head_ref": "feat-a",
-                        "base_ref": "main",
-                    }
-                ],
-                "deployment_id": None,
-                "comment_ids": {1: 999},
-            }
-        ],
-    }
+    mock_store.read.return_value = make_v2_state(queue=[_queue_entry_with_cids()])
 
     with (
         patch("merge_queue.cli.QueueState") as QS,
         patch("merge_queue.cli.batch_mod") as bm,
     ):
         QS.fetch.return_value = _api_state()
-        batch = Batch("123", "mq/123", Stack(prs=(), queued_at=T0))
+        batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
         bm.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = True

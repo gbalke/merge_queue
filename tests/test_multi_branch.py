@@ -160,6 +160,11 @@ def _api_state_with_active_batch():
     return make_api_state(mq_branches=["mq/active"])
 
 
+def _get_branch_queue(written_state: dict, branch: str) -> list:
+    """Extract the queue list for a branch from a v2 state dict."""
+    return written_state.get("branches", {}).get(branch, {}).get("queue", [])
+
+
 class TestDoEnqueueTargetBranch:
     def test_enqueue_pr_targeting_main_no_config(self, mock_store):
         """PR targeting main works without any config (backward compat)."""
@@ -171,7 +176,7 @@ class TestDoEnqueueTargetBranch:
 
         assert result == "queued_waiting"
         written_state = mock_store.write.call_args[0][0]
-        queue = written_state.get("queue", [])
+        queue = _get_branch_queue(written_state, "main")
         assert queue, "Expected at least one queue entry"
         assert queue[-1]["target_branch"] == "main"
 
@@ -186,8 +191,8 @@ class TestDoEnqueueTargetBranch:
 
         assert result == "queued_waiting"
         written_state = mock_store.write.call_args[0][0]
-        queue = written_state.get("queue", [])
-        assert queue, "Expected at least one queue entry"
+        queue = _get_branch_queue(written_state, "release/1.0")
+        assert queue, "Expected at least one queue entry for release/1.0"
         assert queue[-1]["target_branch"] == "release/1.0"
 
     def test_enqueue_stores_target_branch_in_entry(self, mock_store):
@@ -200,20 +205,20 @@ class TestDoEnqueueTargetBranch:
             do_enqueue(client, 42)
 
         written_state = mock_store.write.call_args[0][0]
-        queue = written_state.get("queue", [])
+        queue = _get_branch_queue(written_state, "main")
         assert queue
         assert "target_branch" in queue[-1]
 
     def test_backward_compat_no_config_uses_default_branch(self, mock_store):
         """Without merge-queue.yml, enqueue defaults to the repo default branch."""
-        client = _make_enqueue_client(base_ref="main")  # no config_content
+        client = _make_enqueue_client(base_ref="main")
 
         with patch("merge_queue.cli.QueueState") as qs:
             qs.fetch.return_value = _api_state_with_active_batch()
             do_enqueue(client, 42)
 
         written_state = mock_store.write.call_args[0][0]
-        queue = written_state.get("queue", [])
+        queue = _get_branch_queue(written_state, "main")
         assert queue
         assert queue[-1]["target_branch"] == "main"
 
@@ -281,10 +286,10 @@ class TestDoProcessTargetBranch:
             patch("merge_queue.cli.QueueState") as qs,
             patch("merge_queue.batch.complete_batch") as mock_complete,
         ):
-            from tests.conftest import make_api_state
+            from tests.conftest import make_api_state, make_v2_state
 
             store = MagicMock()
-            store.read.return_value = {**empty_state(), "queue": [entry]}
+            store.read.return_value = make_v2_state(branch="release/1.0", queue=[entry])
             store_cls.return_value = store
             qs.fetch.return_value = make_api_state()
             mock_complete.return_value = None
@@ -292,7 +297,7 @@ class TestDoProcessTargetBranch:
             with patch("merge_queue.cli.batch_mod") as mock_batch_mod:
                 mock_batch = MagicMock()
                 mock_batch.batch_id = "ts123"
-                mock_batch.branch = "mq/ts123"
+                mock_batch.branch = "mq/release/1.0/ts123"
                 mock_batch.ruleset_id = 42
                 mock_batch.stack.prs = []
                 mock_batch_mod.create_batch.return_value = mock_batch
@@ -301,7 +306,6 @@ class TestDoProcessTargetBranch:
 
                 do_process(client)
 
-                # complete_batch must be called with target_branch="release/1.0"
                 mock_batch_mod.complete_batch.assert_called_once()
                 call_kwargs = mock_batch_mod.complete_batch.call_args
                 assert call_kwargs.kwargs.get("target_branch") == "release/1.0"
@@ -317,18 +321,20 @@ class TestDoProcessTargetBranch:
             patch("merge_queue.cli.StateStore") as store_cls,
             patch("merge_queue.cli.QueueState") as qs,
         ):
-            from tests.conftest import make_api_state
+            from tests.conftest import make_api_state, make_v2_state
 
             store = MagicMock()
-            store.read.return_value = {**empty_state(), "queue": [entry]}
-            store.write.side_effect = lambda s: captured_states.append(dict(s))
+            store.read.return_value = make_v2_state(branch="release/1.0", queue=[entry])
+            store.write.side_effect = lambda s: captured_states.append(
+                {"branches": {k: dict(v) for k, v in s.get("branches", {}).items()}}
+            )
             store_cls.return_value = store
             qs.fetch.return_value = make_api_state()
 
             with patch("merge_queue.cli.batch_mod") as mock_batch_mod:
                 mock_batch = MagicMock()
                 mock_batch.batch_id = "ts456"
-                mock_batch.branch = "mq/ts456"
+                mock_batch.branch = "mq/release/1.0/ts456"
                 mock_batch.ruleset_id = 42
                 mock_batch.stack.prs = []
                 mock_batch_mod.create_batch.return_value = mock_batch
@@ -338,19 +344,18 @@ class TestDoProcessTargetBranch:
 
                 do_process(client)
 
-            # Find the first write that sets active_batch
             active_batch_writes = [
-                s["active_batch"]
+                s["branches"].get("release/1.0", {}).get("active_batch")
                 for s in captured_states
-                if s.get("active_batch") is not None
+                if s.get("branches", {}).get("release/1.0", {}).get("active_batch")
+                is not None
             ]
             assert active_batch_writes, "active_batch was never written to state"
             assert active_batch_writes[0]["target_branch"] == "release/1.0"
 
     def test_backward_compat_entry_without_target_branch(self):
-        """Entries lacking target_branch (old state) fall back to default_branch."""
+        """Entries lacking target_branch (old state) fall back to target_branch_to_process."""
         client = _make_process_client(default_branch="main")
-        # Old-style entry without 'target_branch'
         entry = _queue_entry()
         del entry["target_branch"]
 
@@ -358,17 +363,17 @@ class TestDoProcessTargetBranch:
             patch("merge_queue.cli.StateStore") as store_cls,
             patch("merge_queue.cli.QueueState") as qs,
         ):
-            from tests.conftest import make_api_state
+            from tests.conftest import make_api_state, make_v2_state
 
             store = MagicMock()
-            store.read.return_value = {**empty_state(), "queue": [entry]}
+            store.read.return_value = make_v2_state(branch="main", queue=[entry])
             store_cls.return_value = store
             qs.fetch.return_value = make_api_state()
 
             with patch("merge_queue.cli.batch_mod") as mock_batch_mod:
                 mock_batch = MagicMock()
                 mock_batch.batch_id = "ts789"
-                mock_batch.branch = "mq/ts789"
+                mock_batch.branch = "mq/main/ts789"
                 mock_batch.ruleset_id = 42
                 mock_batch.stack.prs = []
                 mock_batch_mod.create_batch.return_value = mock_batch
@@ -377,7 +382,6 @@ class TestDoProcessTargetBranch:
 
                 do_process(client)
 
-                # Must call complete_batch with default_branch as target
                 mock_batch_mod.complete_batch.assert_called_once()
                 call_kwargs = mock_batch_mod.complete_batch.call_args
                 assert call_kwargs.kwargs.get("target_branch") == "main"

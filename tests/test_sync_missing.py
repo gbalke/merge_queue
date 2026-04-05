@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 from merge_queue.cli import _sync_missing_prs
 from merge_queue.types import empty_state
 
-from .conftest import make_pr_data, make_queue_entry, make_state
+from .conftest import make_pr_data, make_queue_entry, make_v2_state
 
 
 def _make_client(open_prs: list[dict] | None = None) -> MagicMock:
@@ -27,11 +27,6 @@ def _make_store(state: dict) -> MagicMock:
     return store
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
 def _pr_with_queue_label(number: int, base_ref: str = "main") -> dict:
     return make_pr_data(number, f"feat-{number}", base_ref=base_ref, labels=["queue"])
 
@@ -40,9 +35,9 @@ def _pr_without_queue_label(number: int) -> dict:
     return make_pr_data(number, f"feat-{number}", labels=[])
 
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
+def _branch_queue(result: dict, branch: str = "main") -> list:
+    """Extract branch queue from v2 state."""
+    return result.get("branches", {}).get(branch, {}).get("queue", [])
 
 
 class TestSyncMissingPrs:
@@ -55,8 +50,9 @@ class TestSyncMissingPrs:
         with patch("merge_queue.config.get_target_branches", return_value=["main"]):
             result = _sync_missing_prs(client, state, store)
 
-        assert len(result["queue"]) == 1
-        entry = result["queue"][0]
+        queue = _branch_queue(result)
+        assert len(queue) == 1
+        entry = queue[0]
         assert entry["stack"][0]["number"] == 10
         assert entry["position"] == 1
         assert entry["target_branch"] == "main"
@@ -65,14 +61,14 @@ class TestSyncMissingPrs:
     def test_pr_already_in_queue_not_duplicated(self):
         """A PR already present in the queue is not added again."""
         existing_entry = make_queue_entry(10)
-        state = make_state(queue=[existing_entry])
+        state = make_v2_state(queue=[existing_entry])
         client = _make_client(open_prs=[_pr_with_queue_label(10)])
         store = _make_store(state)
 
         with patch("merge_queue.config.get_target_branches", return_value=["main"]):
             result = _sync_missing_prs(client, state, store)
 
-        assert len(result["queue"]) == 1
+        assert len(_branch_queue(result)) == 1
         store.write.assert_not_called()
 
     def test_pr_in_active_batch_not_duplicated(self):
@@ -88,14 +84,14 @@ class TestSyncMissingPrs:
             ],
             "started_at": "2026-01-01T00:00:00+00:00",
         }
-        state = make_state(active_batch=active_batch)
+        state = make_v2_state(active_batch=active_batch)
         client = _make_client(open_prs=[_pr_with_queue_label(10)])
         store = _make_store(state)
 
         with patch("merge_queue.config.get_target_branches", return_value=["main"]):
             result = _sync_missing_prs(client, state, store)
 
-        assert result["queue"] == []
+        assert _branch_queue(result) == []
         store.write.assert_not_called()
 
     def test_pr_without_queue_label_ignored(self):
@@ -107,7 +103,7 @@ class TestSyncMissingPrs:
         with patch("merge_queue.config.get_target_branches", return_value=["main"]):
             result = _sync_missing_prs(client, state, store)
 
-        assert result["queue"] == []
+        assert _branch_queue(result) == []
         store.write.assert_not_called()
 
     def test_multiple_missing_prs_all_enqueued(self):
@@ -124,11 +120,11 @@ class TestSyncMissingPrs:
         with patch("merge_queue.config.get_target_branches", return_value=["main"]):
             result = _sync_missing_prs(client, state, store)
 
-        assert len(result["queue"]) == 3
-        numbers = {e["stack"][0]["number"] for e in result["queue"]}
+        queue = _branch_queue(result)
+        assert len(queue) == 3
+        numbers = {e["stack"][0]["number"] for e in queue}
         assert numbers == {1, 2, 3}
-        # Positions are assigned sequentially
-        positions = [e["position"] for e in result["queue"]]
+        positions = [e["position"] for e in queue]
         assert positions == [1, 2, 3]
         store.write.assert_called_once()
 
@@ -145,7 +141,7 @@ class TestSyncMissingPrs:
         client.update_deployment_status.assert_called_once_with(
             42, "queued", "Position 1"
         )
-        assert result["queue"][0]["deployment_id"] == 42
+        assert _branch_queue(result)[0]["deployment_id"] == 42
 
     def test_deployment_failure_does_not_abort_enqueue(self):
         """If deployment creation raises, the PR is still enqueued with deployment_id=None."""
@@ -157,8 +153,9 @@ class TestSyncMissingPrs:
         with patch("merge_queue.config.get_target_branches", return_value=["main"]):
             result = _sync_missing_prs(client, state, store)
 
-        assert len(result["queue"]) == 1
-        assert result["queue"][0]["deployment_id"] is None
+        queue = _branch_queue(result)
+        assert len(queue) == 1
+        assert queue[0]["deployment_id"] is None
 
     def test_comment_id_stored_on_success(self):
         """The comment ID returned by create_comment is persisted in comment_ids."""
@@ -170,7 +167,7 @@ class TestSyncMissingPrs:
         with patch("merge_queue.config.get_target_branches", return_value=["main"]):
             result = _sync_missing_prs(client, state, store)
 
-        cids = result["queue"][0]["comment_ids"]
+        cids = _branch_queue(result)[0]["comment_ids"]
         assert cids.get(8) == 1234
 
     def test_non_default_base_ref_uses_matching_target_branch(self):
@@ -186,7 +183,8 @@ class TestSyncMissingPrs:
         ):
             result = _sync_missing_prs(client, state, store)
 
-        assert result["queue"][0]["target_branch"] == "release/1.0"
+        queue = _branch_queue(result, "release/1.0")
+        assert queue[0]["target_branch"] == "release/1.0"
 
     def test_unknown_base_ref_falls_back_to_default_branch(self):
         """When the PR's base ref is not a configured target, we fall back to default."""
@@ -201,7 +199,7 @@ class TestSyncMissingPrs:
             result = _sync_missing_prs(client, state, store)
 
         client.get_default_branch.assert_called()
-        assert result["queue"][0]["target_branch"] == "main"
+        assert _branch_queue(result)[0]["target_branch"] == "main"
 
     def test_no_open_prs_returns_state_unchanged(self):
         """When there are no open PRs at all, state is returned unchanged."""
@@ -212,13 +210,13 @@ class TestSyncMissingPrs:
         with patch("merge_queue.config.get_target_branches", return_value=["main"]):
             result = _sync_missing_prs(client, state, store)
 
-        assert result["queue"] == []
+        assert _branch_queue(result) == []
         store.write.assert_not_called()
 
     def test_mixed_prs_only_missing_ones_enqueued(self):
         """PRs already in the queue are skipped; only genuinely missing ones are added."""
         existing_entry = make_queue_entry(1)
-        state = make_state(queue=[existing_entry])
+        state = make_v2_state(queue=[existing_entry])
         open_prs = [
             _pr_with_queue_label(1),  # already queued
             _pr_with_queue_label(2),  # missing
@@ -230,7 +228,8 @@ class TestSyncMissingPrs:
         with patch("merge_queue.config.get_target_branches", return_value=["main"]):
             result = _sync_missing_prs(client, state, store)
 
-        assert len(result["queue"]) == 2
-        numbers = {e["stack"][0]["number"] for e in result["queue"]}
+        queue = _branch_queue(result)
+        assert len(queue) == 2
+        numbers = {e["stack"][0]["number"] for e in queue}
         assert numbers == {1, 2}
         store.write.assert_called_once()
