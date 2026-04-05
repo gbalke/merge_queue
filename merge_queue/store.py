@@ -83,7 +83,7 @@ class StateStore:
     def write_with_retry(
         self,
         mutate_fn: Callable[[dict], None],
-        max_retries: int = 5,
+        max_retries: int = 7,
     ) -> dict:
         """Read state, apply mutation, write -- retrying on 409 by re-reading first.
 
@@ -135,7 +135,9 @@ class StateStore:
                         attempt,
                         max_retries,
                     )
-                    time.sleep(random.uniform(0.5, 2.0))
+                    time.sleep(random.uniform(0.5, 1.5) * attempt)
+                    if hasattr(self.client, "invalidate_cache"):
+                        self.client.invalidate_cache()
                     continue
                 if "409" in str(e) or "conflict" in str(e).lower():
                     raise ConflictError(
@@ -145,7 +147,7 @@ class StateStore:
 
         raise ConflictError("Unreachable")  # pragma: no cover
 
-    def write(self, state: dict, max_retries: int = 5) -> None:
+    def write(self, state: dict, max_retries: int = 7) -> None:
         """Write state.json and per-branch STATUS.md files to the mq/state branch.
 
         Delegates to write_with_retry with a mutation that replaces the remote
