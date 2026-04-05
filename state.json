@@ -1,23 +1,23 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T14:37:13.277972+00:00",
+  "updated_at": "2026-04-05T14:37:17.321095+00:00",
   "queue": [
     {
       "position": 1,
-      "queued_at": "2026-04-05T14:36:47Z",
+      "queued_at": "2026-04-05T14:37:16.380626+00:00",
       "stack": [
         {
-          "number": 78,
-          "head_sha": "3db650811f0871c1fdc41704682e641f0b233c95",
-          "head_ref": "greg/revup/main/parallel-enqueue",
+          "number": 76,
+          "head_sha": "2866ecc5e525c4c20c2163fe7cf291056d19bdd8",
+          "head_ref": "greg/revup/main/cleanup-root",
           "base_ref": "main",
-          "title": "Parallel enqueue, branch in header, split concurrency groups"
+          "title": "Remove test artifact files from repo root"
         }
       ],
-      "deployment_id": 4275681025,
+      "deployment_id": 4275681758,
       "target_branch": "main",
       "comment_ids": {
-        "78": 4188985841
+        "76": 4188986075
       }
     }
   ],
