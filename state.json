@@ -1,29 +1,11 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T18:44:31.457513+00:00",
+  "updated_at": "2026-04-05T18:44:34.462151+00:00",
   "branches": {
     "main": {
       "queue": [
         {
           "position": 1,
-          "queued_at": "2026-04-05T18:41:03.733770+00:00",
-          "stack": [
-            {
-              "number": 95,
-              "head_sha": "69752d0808c26e8cd2692ee4be5641178c8a2742",
-              "head_ref": "greg/revup/main/docs-refresh",
-              "base_ref": "main",
-              "title": "Update docs: README, ARCHITECTURE, SECURITY_AUDIT to current state"
-            }
-          ],
-          "deployment_id": 4276895305,
-          "comment_ids": {
-            "95": 4189335226
-          },
-          "target_branch": "main"
-        },
-        {
-          "position": 2,
           "queued_at": "2026-04-05T18:41:04.554653+00:00",
           "stack": [
             {
@@ -41,7 +23,28 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": null
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T18:44:34.462138+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 95,
+            "head_sha": "69752d0808c26e8cd2692ee4be5641178c8a2742",
+            "head_ref": "greg/revup/main/docs-refresh",
+            "base_ref": "main",
+            "title": "Update docs: README, ARCHITECTURE, SECURITY_AUDIT to current state"
+          }
+        ],
+        "deployment_id": 4276895305,
+        "comment_ids": {
+          "95": 4189335226
+        },
+        "queued_at": "2026-04-05T18:41:03.733770+00:00",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
