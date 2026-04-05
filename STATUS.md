@@ -1,12 +1,15 @@
 # Merge Queue Status
 
 ## Active Batch
-_None — queue is idle._
+**Branch:** ``
+**Status:** locking
+**Started:** 2026-04-05T05:46:23.042001+00:00
 
-## Queue (1 stack waiting)
+| PR | Branch | Title |
+|----|--------|-------|
+| [#57](https://github.com/gbalke/merge_queue/pull/57) | `greg/revup/main/timing-breakdown` | Detailed 5-phase timing breakdown in merge comments |
 
-| Position | PRs | Queued At |
-|----------|-----|-----------|
-| 1 | #57 | 2026-04-05T05:46:20 |
+## Queue
+_Empty — nothing waiting._
 
-_Updated 2026-04-05T05:46:21.659130+00:00_
+_Updated 2026-04-05T05:46:23.042012+00:00_
