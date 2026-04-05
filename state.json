@@ -1,7 +1,25 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T05:47:57.469938+00:00",
-  "queue": [],
+  "updated_at": "2026-04-05T05:50:12.148985+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-05T05:50:11.422616+00:00",
+      "stack": [
+        {
+          "number": 58,
+          "head_sha": "3b477a8e4f38503cfc65c52c0d1237eedb86d986",
+          "head_ref": "greg/revup/main/live-progress",
+          "base_ref": "main",
+          "title": "Add progress() comment function for live phase updates"
+        }
+      ],
+      "deployment_id": 4273553112,
+      "comment_ids": {
+        "58": 4188348005
+      }
+    }
+  ],
   "active_batch": null,
   "history": [
     {
