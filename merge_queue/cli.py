@@ -11,6 +11,8 @@ import sys
 from merge_queue import batch as batch_mod
 from merge_queue import comments
 from merge_queue import rules as rules_mod
+from merge_queue.config import get_metrics_config
+from merge_queue.metrics import get_backend as get_metrics_backend
 from merge_queue.github_client import GitHubClient, GitHubClientProtocol
 from merge_queue.queue import detect_stacks
 from merge_queue.state import QueueState
@@ -1139,6 +1141,35 @@ def do_process(client: GitHubClientProtocol) -> str:
         }
     )
     _clear_active_batch(state, store, entry_target_branch)
+
+    # Push metrics (no-op when not configured)
+    try:
+        ci_dur = 0.0
+        try:
+            ci_dur = (
+                datetime.datetime.fromisoformat(ci_completed_at)
+                - datetime.datetime.fromisoformat(ci_started_at)
+            ).total_seconds()
+        except Exception:
+            pass
+        remaining_queue = (
+            state.get("branches", {}).get(entry_target_branch, {}).get("queue", [])
+        )
+        metrics_backend = get_metrics_backend(get_metrics_config(client))
+        metrics_backend.push_batch_metrics(
+            batch.batch_id,
+            {
+                "duration_seconds": dur,
+                "ci_duration_seconds": ci_dur,
+                "status": status,
+                "pr_count": len(prs),
+                "retry_count": entry.get("retry_count", 0),
+                "queue_depth": len(remaining_queue),
+                "target_branch": entry_target_branch,
+            },
+        )
+    except Exception:
+        log.warning("Failed to push batch metrics", exc_info=True)
 
     # Process next if any branch still has items queued
     has_more = any(bs.get("queue") for bs in state.get("branches", {}).values())
