@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T18:54:49.914909+00:00",
+  "updated_at": "2026-04-05T18:55:01.803740+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775415201",
-        "branch": "mq/main/1775415201",
-        "ruleset_id": 14712727,
-        "started_at": "2026-04-05T18:53:17.557970+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 97,
-            "head_sha": "9c522b1b4e8da478cfc07b90bf41cac908a4d26c",
-            "head_ref": "greg/revup/main/cleanup-stale-entries",
-            "base_ref": "main",
-            "title": "Fix: remove stale queue entries when queue label is gone"
-          }
-        ],
-        "deployment_id": 4276955044,
-        "comment_ids": {
-          "97": 4189351959
-        },
-        "queued_at": "2026-04-05T18:51:49Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T18:53:23.939186+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -229,6 +207,16 @@
         96
       ],
       "duration_seconds": 79.452389,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775415201",
+      "status": "merged",
+      "completed_at": "2026-04-05T18:55:01.803705+00:00",
+      "prs": [
+        97
+      ],
+      "duration_seconds": 104.245735,
       "target_branch": "main"
     }
   ]
