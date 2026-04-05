@@ -630,34 +630,31 @@ def do_process(client: GitHubClientProtocol) -> str:
     except Exception as e:
         log.error("Failed to create batch: %s", e)
         error_str = str(e)
-        # Attempt auto-rebase on merge conflicts, but only once per entry
-        if (
-            "conflict" in error_str.lower() or "diverged" in error_str.lower()
-        ) and not entry.get("rebase_attempted"):
-            log.info("Attempting auto-rebase for PR stack...")
-            rebase_success = _try_auto_rebase(client, prs, entry_target_branch)
-            if rebase_success:
-                log.info("Auto-rebased successfully, re-queuing")
-                for pr in prs:
-                    _comment(
-                        client,
-                        pr.number,
-                        comments.auto_rebased(entry_target_branch, owner, repo),
-                        cids,
-                    )
-                entry["rebase_attempted"] = True
-                branch_state.setdefault("queue", []).insert(0, entry)
-                _clear_active_batch(state, store, entry_target_branch)
-                return do_process(client)
-            log.info("Auto-rebase failed, falling through to normal failure")
-        for pr in prs:
-            _comment(
-                client, pr.number, comments.batch_error(error_str, owner, repo), cids
-            )
-            try:
-                client.remove_label(pr.number, "queue")
-            except Exception:
-                pass
+        if "conflict" in error_str.lower():
+            log.info("Merge conflict detected, notifying author")
+            for pr in prs:
+                _comment(
+                    client,
+                    pr.number,
+                    comments.merge_conflict(entry_target_branch, owner, repo),
+                    cids,
+                )
+                try:
+                    client.remove_label(pr.number, "queue")
+                except Exception:
+                    pass
+        else:
+            for pr in prs:
+                _comment(
+                    client,
+                    pr.number,
+                    comments.batch_error(error_str, owner, repo),
+                    cids,
+                )
+                try:
+                    client.remove_label(pr.number, "queue")
+                except Exception:
+                    pass
         _update_deployment(client, dep_id, "failure", error_str[:140])
         _clear_active_batch(state, store, entry_target_branch)
         return "batch_error"
@@ -738,24 +735,25 @@ def do_process(client: GitHubClientProtocol) -> str:
             log.error("Complete failed: %s", e)
             error_str = str(e)
             batch_mod.fail_batch(client, batch, error_str)
-            # Attempt auto-rebase on diverged errors, but only once per entry
-            if "diverged" in error_str.lower() and not entry.get("rebase_attempted"):
-                log.info("Attempting auto-rebase after diverged error...")
-                rebase_success = _try_auto_rebase(client, prs, entry_target_branch)
-                if rebase_success:
-                    log.info("Auto-rebased successfully, re-queuing")
+            if "diverged" in error_str.lower():
+                retry_count = entry.get("retry_count", 0)
+                if retry_count < 2:
+                    log.info(
+                        "Target branch diverged, auto-retrying (retry_count=%d)",
+                        retry_count,
+                    )
                     for pr in prs:
                         _comment(
                             client,
                             pr.number,
-                            comments.auto_rebased(entry_target_branch, owner, repo),
+                            comments.auto_retrying(entry_target_branch, owner, repo),
                             cids,
                         )
-                    entry["rebase_attempted"] = True
+                    entry["retry_count"] = retry_count + 1
                     branch_state.setdefault("queue", []).insert(0, entry)
                     _clear_active_batch(state, store, entry_target_branch)
                     return do_process(client)
-                log.info("Auto-rebase failed, falling through to normal failure")
+                log.info("retry_count >= 2, failing permanently")
             status = "complete_error"
             _update_deployment(client, dep_id, "failure", error_str[:140])
             for pr in prs:
@@ -982,22 +980,6 @@ def do_status(client: GitHubClientProtocol) -> str:
 
 
 # --- CLI wrappers ---
-
-
-def _try_auto_rebase(
-    client: GitHubClientProtocol,
-    prs: tuple,
-    target_branch: str,
-) -> bool:
-    """Attempt auto-rebase for all PRs in a stack, bottom to top.
-
-    Returns True only if every PR in the stack rebased successfully.
-    """
-    for pr in prs:
-        pr_data = client.get_pr(pr.number)
-        if not batch_mod.auto_rebase(client, pr_data, target_branch):
-            return False
-    return True
 
 
 def _log_rate_limit(client: GitHubClientProtocol) -> None:

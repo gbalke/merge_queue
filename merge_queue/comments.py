@@ -291,20 +291,20 @@ def ci_retriggered(owner: str = "", repo: str = "") -> str:
     return f"\U0001f504 **CI retriggered** via `re-test` label{_actions_or_mq_footer(owner, repo)}"
 
 
-def auto_rebased(target_branch: str, owner: str = "", repo: str = "") -> str:
+def merge_conflict(target_branch: str, owner: str = "", repo: str = "") -> str:
     footer = _actions_or_mq_footer(owner=owner, repo=repo)
     return (
-        f"\U0001f504 **Auto-rebased** onto `{target_branch}` \u2014 retrying merge queue.\n"
+        f"\u274c **Merge conflict** \u2014 Your PR has merge conflicts with `{target_branch}`. "
+        f"Resolve conflicts locally and re-add the `queue` label."
         f"{footer}"
     )
 
 
-def rebase_failed(conflict_details: str, owner: str = "", repo: str = "") -> str:
+def auto_retrying(target_branch: str, owner: str = "", repo: str = "") -> str:
     footer = _actions_or_mq_footer(owner=owner, repo=repo)
     return (
-        f"\u274c **Auto-rebase failed** \u2014 manual rebase required.\n\n"
-        f"```\n{conflict_details}\n```\n\n"
-        f"Rebase locally and re-add the `queue` label.\n"
+        f"\U0001f504 **Retrying** \u2014 Target branch moved during CI \u2014 "
+        f"retrying with latest `{target_branch}`."
         f"{footer}"
     )
 
