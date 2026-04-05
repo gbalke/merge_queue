@@ -11,6 +11,8 @@ import subprocess
 import time
 from typing import Callable
 
+import requests
+
 from merge_queue.github_client import GitHubClientProtocol
 from merge_queue.types import Batch, BatchStatus, Stack
 
@@ -304,7 +306,16 @@ def complete_batch(
             log.warning("Could not retarget PR #%d: %s", pr.number, e)
 
     # Fast-forward target branch
-    client.update_ref(target_branch, batch_sha)
+    try:
+        client.update_ref(target_branch, batch_sha)
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 422:
+            raise BatchError(
+                f"{target_branch} has diverged — fast-forward failed (HTTP 422). "
+                f"Another commit was pushed to {target_branch} after the divergence "
+                f"check. Re-add the `queue` label to retry."
+            ) from e
+        raise
     log.info("Fast-forwarded %s to %s", target_branch, batch_sha)
 
     # Set commit status on new HEAD so CI badge reflects the merge
