@@ -1,7 +1,26 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T16:06:44.309089+00:00",
-  "queue": [],
+  "updated_at": "2026-04-05T16:38:43.594508+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-05T16:38:27Z",
+      "stack": [
+        {
+          "number": 89,
+          "head_sha": "a66ab3dec458d6cf280b84957d2759a6a602437b",
+          "head_ref": "greg/revup/main/per-branch-queues",
+          "base_ref": "main",
+          "title": "Per-branch queues: independent state, concurrency, and status pages"
+        }
+      ],
+      "deployment_id": 4276291248,
+      "target_branch": "main",
+      "comment_ids": {
+        "89": 4189163063
+      }
+    }
+  ],
   "active_batch": null,
   "history": [
     {
