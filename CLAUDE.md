@@ -4,9 +4,7 @@ Merge queue for stacked PRs. Python package invoked by GitHub Actions.
 
 ## Development Workflow
 
-ALL changes go through revup + merge queue. **NEVER force push or push directly to main under ANY circumstances.** This includes hotfixes, urgent fixes, and "just this once" situations. No exceptions.
-
-**Hotfixes** go through the merge queue with the `hotfix` label. They are NOT pushed directly to main. A hotfix PR jumps to position 0 (front) of the queue, aborts any active batch (re-queuing its PRs behind the hotfix), and processes immediately. Only authorized users (admins/break_glass_users) can use this label.
+ALL changes go through revup + merge queue. **NEVER force push or push directly to main under ANY circumstances.** This includes hotfixes, urgent fixes, break-glass emergencies, and "just this once" situations. No exceptions. Hotfixes and break-glass PRs both go through the merge queue — they just get different priority and CI treatment.
 
 - Use the `/revup-commit` skill (`.claude/skills/revup-commit/SKILL.md`) for creating commits with topic trailers
 - Each change = one focused revup topic
@@ -16,6 +14,18 @@ ALL changes go through revup + merge queue. **NEVER force push or push directly 
 - Upload with `revup upload --skip-confirm`
 - Add `queue` label to PRs to enter the merge queue
 - **Agents must NEVER use `git push origin main` or bypass branch protection**
+
+### Merge Priority Labels
+
+Three ways to land a PR, from normal to emergency:
+
+| Label | Queue position | CI | When to use |
+|-------|---------------|-----|-------------|
+| `queue` | Back of queue | Runs normally | Default — all normal changes |
+| `hotfix` | Front of queue (aborts active batch, re-queues its PRs behind) | Runs normally | Urgent fix, but CI is functional |
+| `break-glass` | Immediate (aborts active batch) | Skipped entirely | Last resort — CI itself is broken |
+
+Only authorized users (admins or `break_glass_users` in merge-queue.yml config) can use `hotfix` or `break-glass`. All three labels go through the merge queue — nothing is ever pushed directly to main.
 
 ## Rebasing PRs onto Main
 
@@ -44,7 +54,7 @@ For non-trivial work, spawn worktree agents:
 ## Key Commands
 
 ```
-pip install -e ".[dev]"          # install
+pip install -e ".[dev]"          # install (requires ruff >=0.15.9)
 ci/run                            # run all CI checks (lint + format + test) in parallel
 ci/lint                           # syntax check + ruff lint
 ci/format                         # ruff format --check
@@ -52,6 +62,8 @@ ci/test                           # pytest with coverage
 revup upload --skip-confirm      # upload PRs
 python -m merge_queue status     # check merge queue
 ```
+
+**Note on ruff:** CI uses ruff 0.15.9+. Your local version must match. Use `python -m ruff version` to check the venv version — bare `ruff` may resolve to an older system/bazel version.
 
 ## Bug Fixes: TDD Required
 
@@ -64,17 +76,6 @@ All bug fixes MUST follow Test-Driven Development:
 5. Run the full test suite
 
 This ensures every bug has a regression test and the fix is verified.
-
-## CI Requirements
-
-- PRs must pass lint, format, and tests before the merge queue accepts them
-- Use `re-test` label to retrigger CI
-- Use `break-glass` label to skip CI entirely and merge immediately (only when MQ or CI is broken and you need to land a change NOW)
-
-## Emergency Merge Labels
-
-- **`hotfix`** — jumps to front of queue, aborts any active batch (re-queuing its PRs), then runs through the normal MQ pipeline (CI still runs). Use when you need priority but CI is functional.
-- **`break-glass`** — aborts any active batch, creates a batch branch, skips CI entirely, and fast-forwards main immediately. Use as a last resort when CI itself is broken. Only authorized users (admins/break_glass_users) can use either label.
 
 ## Architecture
 
