@@ -1,27 +1,29 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T14:05:57.548371+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-05T14:05:56.717567+00:00",
-      "stack": [
-        {
-          "number": 72,
-          "head_sha": "874864c94deed31f273a7a0ca506185567862eca",
-          "head_ref": "greg/revup/release/1.0/rel-test-1",
-          "base_ref": "release/1.0",
-          "title": "Add release feature 1"
-        }
-      ],
-      "deployment_id": 4275531910,
-      "target_branch": "release/1.0",
-      "comment_ids": {
-        "72": 4188942088
+  "updated_at": "2026-04-05T14:05:58.895039+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-05T14:05:58.894991+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 72,
+        "head_sha": "874864c94deed31f273a7a0ca506185567862eca",
+        "head_ref": "greg/revup/release/1.0/rel-test-1",
+        "base_ref": "release/1.0",
+        "title": "Add release feature 1"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4275531910,
+    "comment_ids": {
+      "72": 4188942088
+    },
+    "queued_at": "2026-04-05T14:05:56.717567+00:00",
+    "target_branch": "release/1.0"
+  },
   "history": [
     {
       "batch_id": "1775367984",
