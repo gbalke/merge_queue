@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T18:59:27.816773+00:00",
+  "updated_at": "2026-04-05T18:59:47.401862+00:00",
   "branches": {
     "main": {
-      "queue": [],
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-05T18:59:15Z",
+          "stack": [
+            {
+              "number": 98,
+              "head_sha": "10033ef4487f2712bc918848bd9ec6accc852ee0",
+              "head_ref": "greg/revup/main/fix-auto-rulesets",
+              "base_ref": "main",
+              "title": "Fix auto-ruleset creation + delete on config change"
+            }
+          ],
+          "deployment_id": 4276985237,
+          "target_branch": "main",
+          "comment_ids": {
+            "98": 4189360544
+          }
+        }
+      ],
       "active_batch": null
     },
     "release/1.0": {
