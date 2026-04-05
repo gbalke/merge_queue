@@ -404,6 +404,14 @@ class TestDoProcessEnsureProtection:
             )
             store_cls.return_value = store
             qs.fetch.return_value = make_api_state()
+            client.list_open_prs.return_value = [
+                {
+                    "number": 1,
+                    "head": {"ref": "feat-x", "sha": "sha-1"},
+                    "base": {"ref": "main"},
+                    "labels": [{"name": "queue"}],
+                }
+            ]
 
             with patch("merge_queue.cli.batch_mod") as mock_batch_mod:
                 mock_batch = MagicMock()
@@ -468,6 +476,14 @@ class TestDoProcessEnsureProtection:
             )
             store_cls.return_value = store
             qs.fetch.return_value = make_api_state()
+            client.list_open_prs.return_value = [
+                {
+                    "number": 1,
+                    "head": {"ref": "feat-x", "sha": "sha-1"},
+                    "base": {"ref": "main"},
+                    "labels": [{"name": "queue"}],
+                }
+            ]
 
             with patch("merge_queue.cli.batch_mod") as mock_batch_mod:
                 mock_batch = MagicMock()

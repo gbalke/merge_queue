@@ -487,7 +487,17 @@ class TestDoProcessApiCalls:
     def test_single_pr_ci_passes_call_budget(self, batch_mod):
         """1-PR stack, CI passes: total do_process API calls <= 25."""
         state = _make_state(queue=[_queue_entry(1, deployment_id=99)])
-        client = _counting_client(state_dict=state)
+        client = _counting_client(
+            state_dict=state,
+            open_prs=[
+                {
+                    "number": 1,
+                    "head": {"ref": "feat-a", "sha": "sha-1"},
+                    "base": {"ref": "main"},
+                    "labels": [{"name": "queue"}],
+                }
+            ],
+        )
 
         batch = _make_batch()
         batch_mod.create_batch.return_value = batch
@@ -545,7 +555,18 @@ class TestDoProcessApiCalls:
                 }
             ]
         )
-        client = _counting_client(state_dict=state)
+        client = _counting_client(
+            state_dict=state,
+            open_prs=[
+                {
+                    "number": i,
+                    "head": {"ref": f"feat-{i}", "sha": f"sha-{i}"},
+                    "base": {"ref": "main"},
+                    "labels": [{"name": "queue"}],
+                }
+                for i in range(1, 4)
+            ],
+        )
 
         prs = tuple(
             PullRequest(
@@ -601,7 +622,18 @@ class TestDoProcessApiCalls:
     def test_ci_fails_call_budget(self, batch_mod):
         """1-PR stack, CI fails: total <= 25 API calls."""
         state = _make_state(queue=[_queue_entry(1, deployment_id=99)])
-        client = _counting_client(state_dict=state, ci_passes=False)
+        client = _counting_client(
+            state_dict=state,
+            ci_passes=False,
+            open_prs=[
+                {
+                    "number": 1,
+                    "head": {"ref": "feat-a", "sha": "sha-1"},
+                    "base": {"ref": "main"},
+                    "labels": [{"name": "queue"}],
+                }
+            ],
+        )
 
         batch = _make_batch()
         batch_mod.create_batch.return_value = batch
@@ -694,7 +726,17 @@ class TestNoDuplicateFetch:
     def test_do_process_fetches_state_once(self, batch_mod):
         """QueueState.fetch must be called exactly once in do_process."""
         state = _make_state(queue=[_queue_entry(1)])
-        client = _counting_client(state_dict=state)
+        client = _counting_client(
+            state_dict=state,
+            open_prs=[
+                {
+                    "number": 1,
+                    "head": {"ref": "feat-a", "sha": "sha-1"},
+                    "base": {"ref": "main"},
+                    "labels": [{"name": "queue"}],
+                }
+            ],
+        )
 
         batch = _make_batch()
         batch_mod.create_batch.return_value = batch

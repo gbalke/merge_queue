@@ -154,8 +154,16 @@ def _is_break_glass_authorized(client: GitHubClientProtocol, sender: str) -> boo
 # --- Core logic ---
 
 
-def _sync_missing_prs(client, state, store):
-    """Scan for PRs with 'queue' label not in state.json, auto-enqueue them."""
+def _sync_missing_prs(client, state, store, open_prs: list[dict] | None = None):
+    """Scan for PRs with 'queue' label not in state.json, auto-enqueue them.
+
+    Args:
+        client: GitHub client (used to fetch open PRs when open_prs is not supplied).
+        state: current queue state dict.
+        store: state store used to persist changes.
+        open_prs: optional pre-fetched list of open PR dicts; avoids an API call
+            when the caller has already fetched this list (e.g. do_process).
+    """
     from merge_queue import config
 
     owner, repo = _owner_repo(client)
@@ -171,7 +179,7 @@ def _sync_missing_prs(client, state, store):
             for pr in active.get("stack", []):
                 known.add(pr["number"])
 
-    all_prs = client.list_open_prs()
+    all_prs = open_prs if open_prs is not None else client.list_open_prs()
     missing = [
         pr
         for pr in all_prs
@@ -245,6 +253,49 @@ def _sync_missing_prs(client, state, store):
 
     state["updated_at"] = _now_iso()
     store.write(state)
+    return state
+
+
+def _cleanup_stale_entries(client, state, store, open_prs: list[dict] | None = None):
+    """Remove queue entries for PRs that no longer have the queue label.
+
+    Args:
+        client: GitHub client (used to fetch open PRs when open_prs is not supplied).
+        state: current queue state dict.
+        store: state store used to persist changes.
+        open_prs: optional pre-fetched list of open PR dicts; avoids a second API
+            call when the caller has already fetched this list (e.g. do_process).
+    """
+    all_prs = open_prs if open_prs is not None else client.list_open_prs()
+    # Build set of PR numbers that have queue label
+    queued_pr_numbers: set[int] = set()
+    for pr_data in all_prs:
+        labels = [lbl["name"] for lbl in pr_data.get("labels", [])]
+        if "queue" in labels:
+            queued_pr_numbers.add(pr_data["number"])
+
+    changed = False
+    for branch_name, branch_state in state.get("branches", {}).items():
+        queue = branch_state.get("queue", [])
+        original_len = len(queue)
+        branch_state["queue"] = [
+            entry
+            for entry in queue
+            if any(pr["number"] in queued_pr_numbers for pr in entry.get("stack", []))
+        ]
+        removed = original_len - len(branch_state["queue"])
+        if removed:
+            log.info("Removed %d stale entries from %s queue", removed, branch_name)
+            changed = True
+
+    if changed:
+        # Re-number positions
+        for branch_state in state.get("branches", {}).values():
+            for i, entry in enumerate(branch_state.get("queue", [])):
+                entry["position"] = i + 1
+        state["updated_at"] = _now_iso()
+        store.write(state)
+
     return state
 
 
@@ -537,7 +588,10 @@ def do_process(client: GitHubClientProtocol) -> str:
 
     # Skip the sync scan when all branches are already busy — avoids an extra API call.
     if not has_active_batch:
-        state = _sync_missing_prs(client, state, store)
+        # Fetch open PRs once and share with both helpers to avoid redundant API calls.
+        all_open_prs = client.list_open_prs()
+        state = _sync_missing_prs(client, state, store, open_prs=all_open_prs)
+        state = _cleanup_stale_entries(client, state, store, open_prs=all_open_prs)
 
     # Find first branch with a non-empty queue and no active_batch
     target_branch_to_process: str | None = None
