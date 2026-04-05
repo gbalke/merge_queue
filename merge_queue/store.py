@@ -52,31 +52,48 @@ class StateStore:
                 return empty_state()
             raise
 
-    def write(self, state: dict) -> None:
+    def write(self, state: dict, max_retries: int = 3) -> None:
         """Write state.json and STATUS.md to the mq/state branch.
 
-        Uses file SHA for optimistic concurrency. Raises ConflictError if
-        the file was modified since our last read.
+        Auto-retries on conflict (409) by re-reading the current SHA.
         """
 
         self._ensure_branch()
 
-        # Write state.json
         content_b64 = base64.b64encode(json.dumps(state, indent=2).encode()).decode()
 
-        try:
-            result = self.client.put_file_content(
-                STATE_PATH,
-                STATE_BRANCH,
-                content_b64,
-                message="Update merge queue state",
-                sha=self._state_sha,
-            )
-            self._state_sha = result["content"]["sha"]
-        except Exception as e:
-            if "409" in str(e) or "conflict" in str(e).lower():
-                raise ConflictError(f"State file was modified concurrently: {e}") from e
-            raise
+        for attempt in range(1, max_retries + 1):
+            try:
+                result = self.client.put_file_content(
+                    STATE_PATH,
+                    STATE_BRANCH,
+                    content_b64,
+                    message="Update merge queue state",
+                    sha=self._state_sha,
+                )
+                self._state_sha = result["content"]["sha"]
+                break
+            except Exception as e:
+                if (
+                    "409" in str(e) or "conflict" in str(e).lower()
+                ) and attempt < max_retries:
+                    log.warning(
+                        "State write conflict (attempt %d), retrying...", attempt
+                    )
+                    try:
+                        data = self.client.get_file_content(STATE_PATH, STATE_BRANCH)
+                        self._state_sha = data["sha"]
+                    except Exception:
+                        pass
+                    content_b64 = base64.b64encode(
+                        json.dumps(state, indent=2).encode()
+                    ).decode()
+                    continue
+                if "409" in str(e) or "conflict" in str(e).lower():
+                    raise ConflictError(
+                        f"State write failed after {max_retries} attempts: {e}"
+                    ) from e
+                raise
 
         # Write STATUS.md (best-effort, don't fail if this fails)
         try:
