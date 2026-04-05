@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:15:01.853770+00:00",
+  "updated_at": "2026-04-05T22:15:10.805418+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -21,6 +21,96 @@
           "comment_ids": {
             "101": 4189618120
           }
+        },
+        {
+          "position": 2,
+          "queued_at": "2026-04-05T22:15:04.555777+00:00",
+          "stack": [
+            {
+              "number": 112,
+              "head_sha": "1456a1f5abd1b82953179f310bb2a477d7f5df1e",
+              "head_ref": "greg/revup/main/break-glass-immediate-merge",
+              "base_ref": "main",
+              "title": "Add break-glass immediate merge: skip CI entirely"
+            }
+          ],
+          "deployment_id": 4277924112,
+          "comment_ids": {
+            "112": 4189618231
+          },
+          "target_branch": "main"
+        },
+        {
+          "position": 3,
+          "queued_at": "2026-04-05T22:15:05.768465+00:00",
+          "stack": [
+            {
+              "number": 109,
+              "head_sha": "cbb429c72a9cdf0009efbcbc39c2044662c8c677",
+              "head_ref": "greg/revup/main/fix-stuck-completing",
+              "base_ref": "main",
+              "title": "Fix _resume_completion passing prs= instead of stack= to Batch"
+            }
+          ],
+          "deployment_id": 4277924197,
+          "comment_ids": {
+            "109": 4189618266
+          },
+          "target_branch": "main"
+        },
+        {
+          "position": 4,
+          "queued_at": "2026-04-05T22:15:06.849516+00:00",
+          "stack": [
+            {
+              "number": 108,
+              "head_sha": "b65ab92d17b9cf3667acd45dbdb4a87a5fe99610",
+              "head_ref": "greg/revup/main/resume-completing",
+              "base_ref": "main",
+              "title": "Resume stuck batches in 'completing' state"
+            }
+          ],
+          "deployment_id": 4277924269,
+          "comment_ids": {
+            "108": 4189618288
+          },
+          "target_branch": "main"
+        },
+        {
+          "position": 5,
+          "queued_at": "2026-04-05T22:15:08.008079+00:00",
+          "stack": [
+            {
+              "number": 107,
+              "head_sha": "600599dc14a7e96d0dfb93746f99dcad003d6e59",
+              "head_ref": "greg/revup/main/ci-scripts",
+              "base_ref": "main",
+              "title": "Add ci/ scripts: single source of truth for CI checks"
+            }
+          ],
+          "deployment_id": 4277924343,
+          "comment_ids": {
+            "107": 4189618311
+          },
+          "target_branch": "main"
+        },
+        {
+          "position": 6,
+          "queued_at": "2026-04-05T22:15:09.268158+00:00",
+          "stack": [
+            {
+              "number": 96,
+              "head_sha": "e3c5a79465a76ffe50ee5b9507e69678c620a07f",
+              "head_ref": "greg/revup/main/fix-high-security",
+              "base_ref": "main",
+              "title": "Fix HIGH security issues: markdown injection, state protection, lazy admin token"
+            }
+          ],
+          "deployment_id": 4277924415,
+          "comment_ids": {
+            "96": 4189618343
+          },
+          "target_branch": "main"
         }
       ],
       "active_batch": null
