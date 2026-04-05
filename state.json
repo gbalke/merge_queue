@@ -1,29 +1,31 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:43:16.228895+00:00",
+  "updated_at": "2026-04-05T22:43:19.072243+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-05T22:40:08.535655+00:00",
-          "stack": [
-            {
-              "number": 116,
-              "head_sha": "8508bf0ff72a5552214bf07634d82158e6249921",
-              "head_ref": "greg/revup/main/update-security-audit",
-              "base_ref": "main",
-              "title": "Update SECURITY_AUDIT.md: mark HIGH-1/2/3 as resolved, add new considerations"
-            }
-          ],
-          "deployment_id": 4278028960,
-          "comment_ids": {
-            "116": 4189650102
-          },
-          "target_branch": "main"
-        }
-      ],
-      "active_batch": null
+      "queue": [],
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T22:43:18.959950+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 116,
+            "head_sha": "8508bf0ff72a5552214bf07634d82158e6249921",
+            "head_ref": "greg/revup/main/update-security-audit",
+            "base_ref": "main",
+            "title": "Update SECURITY_AUDIT.md: mark HIGH-1/2/3 as resolved, add new considerations"
+          }
+        ],
+        "deployment_id": 4278028960,
+        "comment_ids": {
+          "116": 4189650102
+        },
+        "queued_at": "2026-04-05T22:40:08.535655+00:00",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
