@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:43:05.482751+00:00",
+  "updated_at": "2026-04-05T22:43:16.228895+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -23,29 +23,7 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": {
-        "batch_id": "1775428900",
-        "branch": "mq/main/1775428900",
-        "ruleset_id": 14716608,
-        "started_at": "2026-04-05T22:41:37.886860+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 115,
-            "head_sha": "2e30249bead021c0c04752b78d7077e7ffbec9d5",
-            "head_ref": "greg/revup/main/update-claude-md",
-            "base_ref": "main",
-            "title": "Update CLAUDE.md: clarify merge priority hierarchy and ruff version requirement"
-          }
-        ],
-        "deployment_id": 4278028894,
-        "comment_ids": {
-          "115": 4189650082
-        },
-        "queued_at": "2026-04-05T22:40:07.767352+00:00",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T22:41:41.457878+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -428,6 +406,16 @@
         114
       ],
       "duration_seconds": 81.85305,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775428900",
+      "status": "merged",
+      "completed_at": "2026-04-05T22:43:16.092377+00:00",
+      "prs": [
+        115
+      ],
+      "duration_seconds": 98.205517,
       "target_branch": "main"
     }
   ]
