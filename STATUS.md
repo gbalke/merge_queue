@@ -1,9 +1,7 @@
 # Merge Queue
 
-| # | PR | Title | Status |
-|:--|:---|:------|:-------|
-| 1 | [#77](https://github.com/gbalke/merge_queue/pull/77) | Fix queue timing, live progress updates, default branch always included | 🔄 merging |
+_Queue is empty — all clear._
 
-Last: ✅ #76 merged (1m 21s)
+Last:  #77 complete_error (1m 30s)
 
-<sub>Updated 2026-04-05T14:50:00 UTC</sub>
+<sub>Updated 2026-04-05T14:50:04 UTC</sub>
