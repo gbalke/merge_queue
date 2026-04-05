@@ -1,26 +1,28 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T07:04:10.764584+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-05T07:04:09.838277+00:00",
-      "stack": [
-        {
-          "number": 65,
-          "head_sha": "db7bad9cae53d1149817eb5e7bd54a803946a0d2",
-          "head_ref": "greg/revup/main/queue-page",
-          "base_ref": "main",
-          "title": "Clean queue page: focused STATUS.md, fix Queue link"
-        }
-      ],
-      "deployment_id": 4273824047,
-      "comment_ids": {
-        "65": 4188429514
+  "updated_at": "2026-04-05T07:04:12.497891+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-05T07:04:12.497880+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 65,
+        "head_sha": "db7bad9cae53d1149817eb5e7bd54a803946a0d2",
+        "head_ref": "greg/revup/main/queue-page",
+        "base_ref": "main",
+        "title": "Clean queue page: focused STATUS.md, fix Queue link"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4273824047,
+    "comment_ids": {
+      "65": 4188429514
+    },
+    "queued_at": "2026-04-05T07:04:09.838277+00:00"
+  },
   "history": [
     {
       "batch_id": "1775367984",
