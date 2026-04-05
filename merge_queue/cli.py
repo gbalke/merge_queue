@@ -1294,6 +1294,201 @@ def do_hotfix(client: GitHubClientProtocol, pr_number: int) -> str:
         return "failed"
 
 
+def do_break_glass(client: GitHubClientProtocol, pr_number: int) -> str:
+    """Break-glass merge — skip CI entirely, merge immediately.
+
+    Only authorized users (admins or break_glass_users) can use this.
+    Use as a last resort when the MQ or CI is broken and you need to land
+    a change NOW.
+
+    Flow:
+    1. Auth check
+    2. Abort any active batch for the target branch, re-queue its PRs
+    3. Create batch branch (merge PR into target)
+    4. Skip CI entirely — do NOT dispatch or poll CI
+    5. Complete batch (fast-forward main)
+    6. Clean up (write history, clear state, comment)
+    """
+    owner, repo = _owner_repo(client)
+    sender = os.environ.get("MQ_SENDER", "")
+
+    # Auth check (same as hotfix)
+    if not _is_break_glass_authorized(client, sender):
+        log.warning("break-glass rejected: %s is not authorized", sender)
+        _comment(
+            client,
+            pr_number,
+            comments.break_glass_denied(sender, owner, repo),
+        )
+        try:
+            client.remove_label(pr_number, "break-glass")
+        except Exception:
+            pass
+        return "denied"
+
+    log.warning(
+        "BREAK-GLASS by %s on PR #%d — skipping CI, merging immediately",
+        sender,
+        pr_number,
+    )
+
+    # Get PR info
+    pr_data = client.get_pr(pr_number)
+    from merge_queue import config
+    from merge_queue.types import PullRequest, Stack
+
+    target_branch = pr_data["base"]["ref"]
+    target_branches = config.get_target_branches(client)
+    if target_branch not in target_branches:
+        target_branch = client.get_default_branch()
+
+    store = StateStore(client)
+    state = store.read()
+
+    branch_state = state.setdefault("branches", {}).setdefault(
+        target_branch, empty_branch_state()
+    )
+
+    # Abort any active batch for this branch, re-queue its PRs
+    active = branch_state.get("active_batch")
+    if active is not None:
+        log.info("Aborting active batch %s for break-glass", active.get("batch_id"))
+        batch_mod.abort_batch(client)
+        # Re-queue the batch's PRs
+        requeued_entry = {
+            "position": 0,  # renumbered below
+            "queued_at": active.get("started_at", _now_iso()),
+            "stack": active.get("stack", []),
+            "deployment_id": active.get("deployment_id"),
+            "target_branch": target_branch,
+        }
+        existing_queue = branch_state.get("queue", [])
+        branch_state["queue"] = [requeued_entry] + existing_queue
+        branch_state["active_batch"] = None
+
+    # Renumber queue positions
+    for i, entry in enumerate(branch_state.get("queue", [])):
+        entry["position"] = i + 1
+
+    # Save state before creating batch (abort is recorded)
+    state["updated_at"] = _now_iso()
+    store.write(state)
+
+    _comment(
+        client,
+        pr_number,
+        f"\U0001f6a8 **Break-glass** `[{target_branch}]` — "
+        f"skipping CI, merging immediately (by `{sender}`)",
+    )
+
+    # Create batch, skip CI, complete immediately
+    pr_obj = PullRequest(
+        number=pr_number,
+        head_sha=pr_data["head"]["sha"],
+        head_ref=pr_data["head"]["ref"],
+        base_ref=pr_data["base"]["ref"],
+        labels=("break-glass",),
+    )
+    stack = Stack(prs=(pr_obj,), queued_at=datetime.datetime.now(datetime.timezone.utc))
+
+    try:
+        batch = batch_mod.create_batch(client, stack)
+
+        # Record active batch in state
+        state = store.read()
+        branch_state = state.setdefault("branches", {}).setdefault(
+            target_branch, empty_branch_state()
+        )
+        started_at = _now_iso()
+        branch_state["active_batch"] = {
+            "batch_id": batch.batch_id,
+            "branch": batch.branch,
+            "ruleset_id": batch.ruleset_id,
+            "started_at": started_at,
+            "progress": "completing",
+            "stack": [
+                {
+                    "number": pr_obj.number,
+                    "head_sha": pr_obj.head_sha,
+                    "head_ref": pr_obj.head_ref,
+                    "base_ref": pr_obj.base_ref,
+                    "title": pr_data.get("title", ""),
+                }
+            ],
+            "target_branch": target_branch,
+        }
+        state["updated_at"] = _now_iso()
+        store.write(state)
+
+        # Skip CI — go directly to complete
+        batch_mod.complete_batch(client, batch, target_branch=target_branch)
+
+        # Record success in history and clear active_batch
+        state = store.read()
+        branch_state = state.setdefault("branches", {}).setdefault(
+            target_branch, empty_branch_state()
+        )
+        completed_at = _now_iso()
+        state.setdefault("history", []).append(
+            {
+                "batch_id": batch.batch_id,
+                "status": "merged",
+                "completed_at": completed_at,
+                "prs": [pr_number],
+                "target_branch": target_branch,
+            }
+        )
+        branch_state["active_batch"] = None
+        state["updated_at"] = _now_iso()
+        store.write(state)
+
+        _comment(
+            client,
+            pr_number,
+            f"\u2705 **Break-glass merged** to `{target_branch}` (CI skipped)",
+        )
+        try:
+            client.remove_label(pr_number, "break-glass")
+        except Exception:
+            pass
+
+        log.info("Break-glass merged PR #%d to %s", pr_number, target_branch)
+        return "merged"
+
+    except Exception as e:
+        log.error("Break-glass failed: %s", e)
+        _comment(client, pr_number, f"\u274c **Break-glass failed** \u2014 {e}")
+        try:
+            batch_mod.abort_batch(client)
+        except Exception:
+            pass
+        # Clear active_batch on failure
+        try:
+            state = store.read()
+            branch_state = state.setdefault("branches", {}).setdefault(
+                target_branch, empty_branch_state()
+            )
+            branch_state["active_batch"] = None
+            state.setdefault("history", []).append(
+                {
+                    "batch_id": "break-glass-failed",
+                    "status": "failed",
+                    "completed_at": _now_iso(),
+                    "prs": [pr_number],
+                    "target_branch": target_branch,
+                }
+            )
+            state["updated_at"] = _now_iso()
+            store.write(state)
+        except Exception:
+            pass
+        try:
+            client.remove_label(pr_number, "break-glass")
+        except Exception:
+            pass
+        return "failed"
+
+
 def do_check_rules(client: GitHubClientProtocol) -> list[rules_mod.RuleResult]:
     state = QueueState.fetch(client)
     return rules_mod.check_all(state)
@@ -1342,6 +1537,14 @@ def cmd_retest(args: argparse.Namespace) -> None:
 def cmd_hotfix(args: argparse.Namespace) -> None:
     client = _make_client()
     result = do_hotfix(client, args.pr_number)
+    _log_rate_limit(client)
+    if result == "failed":
+        sys.exit(1)
+
+
+def cmd_break_glass(args: argparse.Namespace) -> None:
+    client = _make_client()
+    result = do_break_glass(client, args.pr_number)
     _log_rate_limit(client)
     if result == "failed":
         sys.exit(1)
@@ -1400,6 +1603,10 @@ def main() -> None:
     p = sub.add_parser("hotfix")
     p.add_argument("pr_number", type=int)
     p.set_defaults(func=cmd_hotfix)
+
+    p = sub.add_parser("break-glass")
+    p.add_argument("pr_number", type=int)
+    p.set_defaults(func=cmd_break_glass)
 
     sub.add_parser("check-rules").set_defaults(func=cmd_check_rules)
     sub.add_parser("status").set_defaults(func=cmd_status)
