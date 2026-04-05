@@ -594,10 +594,12 @@ class GitHubClient:
             },
         )
 
-        # Update ref (non-force — will fail on concurrent update)
+        # Update ref — force=True because the concurrency group ensures only
+        # one MQ process runs at a time. Without force, GitHub's ref cache
+        # can cause spurious 422s even with no actual contention.
         self._patch(
             f"/git/refs/heads/{branch}",
-            json={"sha": new_commit["sha"], "force": False},
+            json={"sha": new_commit["sha"], "force": True},
         )
         log.info("Committed %d files to %s in one commit", len(files), branch)
         return new_commit["sha"]
