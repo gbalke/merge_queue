@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T20:44:40.177536+00:00",
+  "updated_at": "2026-04-05T20:44:46.036796+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -21,6 +21,42 @@
           "comment_ids": {
             "104": 4189500786
           }
+        },
+        {
+          "position": 2,
+          "queued_at": "2026-04-05T20:44:43.701683+00:00",
+          "stack": [
+            {
+              "number": 101,
+              "head_sha": "fb5b5ea39afd3e3becc3582475aa7bad63aad728",
+              "head_ref": "greg/revup/main/protect-mq-branches",
+              "base_ref": "main",
+              "title": "Protect all mq/* branches: only admin token can write"
+            }
+          ],
+          "deployment_id": 4277504056,
+          "comment_ids": {
+            "101": 4189500896
+          },
+          "target_branch": "main"
+        },
+        {
+          "position": 3,
+          "queued_at": "2026-04-05T20:44:44.719244+00:00",
+          "stack": [
+            {
+              "number": 96,
+              "head_sha": "e3c5a79465a76ffe50ee5b9507e69678c620a07f",
+              "head_ref": "greg/revup/main/fix-high-security",
+              "base_ref": "main",
+              "title": "Fix HIGH security issues: markdown injection, state protection, lazy admin token"
+            }
+          ],
+          "deployment_id": 4277504122,
+          "comment_ids": {
+            "96": 4189500919
+          },
+          "target_branch": "main"
         }
       ],
       "active_batch": null
