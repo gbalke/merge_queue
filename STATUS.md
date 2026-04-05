@@ -1,21 +1,16 @@
 # Merge Queue Status
 
 ## Active Batch
-**Branch:** `mq/1775372653`
-**Status:** completing
-**Started:** 2026-04-05T07:04:12.497880+00:00
-
-| PR | Branch | Title |
-|----|--------|-------|
-| [#65](https://github.com/gbalke/merge_queue/pull/65) | `greg/revup/main/queue-page` | Clean queue page: focused STATUS.md, fix Queue link |
+_None — queue is idle._
 
 ## Queue
 _Empty — nothing waiting._
 
-## Recent History (last 8)
+## Recent History (last 9)
 
 | Batch | PRs | Result | Duration |
 |-------|-----|--------|----------|
+| `1775372653` | #65 | ✅ merged | 1m 21s |
 | `1775372208` | #63 | ✅ merged | 1m 34s |
 | `1775371430` | #62 | ✅ merged | 1m 36s |
 | `1775371049` | #61 | ✅ merged | 1m 36s |
@@ -25,4 +20,4 @@ _Empty — nothing waiting._
 | `1775368214` | #58 |  ci_failed | 1m 27s |
 | `1775367984` | #57 | ✅ merged | 1m 34s |
 
-_Updated 2026-04-05T07:05:25.113020+00:00_
+_Updated 2026-04-05T07:05:34.155138+00:00_
