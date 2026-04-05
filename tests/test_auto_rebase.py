@@ -1,90 +1,33 @@
-"""Tests for auto-rebase functionality."""
+"""Tests for diverged/conflict handling in the merge queue."""
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from merge_queue import comments
-from merge_queue.batch import BatchError, auto_rebase
+from merge_queue.batch import BatchError
 
 from tests.conftest import make_queue_entry, make_v2_state
 
 
-# ---------------------------------------------------------------------------
-# auto_rebase unit tests
-# ---------------------------------------------------------------------------
-
-
-def _make_pr_data(head_ref: str = "feat-a") -> dict[str, Any]:
-    return {"head": {"ref": head_ref, "sha": "abc123"}}
-
-
-def test_auto_rebase_success(mock_client: MagicMock) -> None:
-    git = MagicMock(return_value="")
-    result = auto_rebase(mock_client, _make_pr_data(), "main", git=git)
-
-    assert result is True
-    assert git.call_count == 6
-    git.assert_any_call("push", "origin", "HEAD:refs/heads/feat-a", "--force")
-
-
-def test_auto_rebase_conflict_returns_false(mock_client: MagicMock) -> None:
-    def _git(*args: str) -> str:
-        if args[0] == "rebase":
-            raise BatchError("CONFLICT in foo.py")
-        return ""
-
-    result = auto_rebase(mock_client, _make_pr_data(), "main", git=_git)
-
-    assert result is False
-
-
-def test_auto_rebase_non_conflict_error_returns_false(mock_client: MagicMock) -> None:
-    abort_calls: list[tuple] = []
-
-    def _git(*args: str) -> str:
-        if args[0] == "rebase" and args != ("rebase", "--abort"):
-            raise BatchError("fatal: not a git repository")
-        if args == ("rebase", "--abort"):
-            abort_calls.append(args)
-        return ""
-
-    result = auto_rebase(mock_client, _make_pr_data(), "main", git=_git)
-
-    assert result is False
-    assert len(abort_calls) == 1
-
-
-# ---------------------------------------------------------------------------
-# do_process auto-rebase integration tests
-# ---------------------------------------------------------------------------
-
-
-def _make_entry(rebase_attempted: bool = False) -> dict[str, Any]:
+def _make_entry(retry_count: int = 0) -> dict[str, Any]:
     entry = make_queue_entry(1, head_ref="feat-a")
     entry["target_branch"] = "main"
-    if rebase_attempted:
-        entry["rebase_attempted"] = True
+    if retry_count:
+        entry["retry_count"] = retry_count
     return entry
 
 
-def _setup_process(mock_client: MagicMock, mock_store: MagicMock, entry: dict) -> None:
-    """Configure mocks so do_process picks up entry from the queue."""
+def _setup_do_process(
+    mock_client: MagicMock, mock_store: MagicMock, entry: dict
+) -> None:
     from merge_queue.state import QueueState
 
-    state = make_v2_state(queue=[entry])
-    mock_store.read.return_value = state
-
-    api_state = QueueState(
-        default_branch="main",
-        mq_branches=[],
-        rulesets=[],
-        prs=[],
-        all_pr_data=[],
-    )
+    mock_store.read.return_value = make_v2_state(queue=[entry])
     mock_client.get_pr.return_value = {
         "number": 1,
         "state": "open",
@@ -94,41 +37,7 @@ def _setup_process(mock_client: MagicMock, mock_store: MagicMock, entry: dict) -
         "title": "PR title",
     }
     mock_client.get_pr_ci_status.return_value = (True, "")
-
-    with patch("merge_queue.cli.QueueState") as mock_qs_cls:
-        mock_qs_cls.fetch.return_value = api_state
-        yield
-
-
-@pytest.fixture
-def _patched_rules():
-    with patch("merge_queue.cli.rules_mod.check_all", return_value=[]):
-        yield
-
-
-def test_do_process_auto_rebase_on_conflict(
-    mock_client: MagicMock,
-    mock_store: MagicMock,
-    _patched_rules: None,
-) -> None:
-    """When create_batch raises a conflict error, MQ should rebase and re-queue."""
-    from merge_queue import cli
-    from merge_queue.state import QueueState
-
-    entry = _make_entry()
-    state = make_v2_state(queue=[entry])
-    mock_store.read.return_value = state
-
-    mock_client.get_pr.return_value = {
-        "number": 1,
-        "state": "open",
-        "head": {"ref": "feat-a", "sha": "sha-1"},
-        "base": {"ref": "main"},
-        "labels": [{"name": "queue"}],
-        "title": "PR title",
-    }
-
-    api_state = QueueState(
+    return QueueState(
         default_branch="main",
         mq_branches=[],
         rulesets=[],
@@ -136,97 +45,143 @@ def test_do_process_auto_rebase_on_conflict(
         all_pr_data=[],
     )
 
-    call_count = 0
 
-    def _fake_create_batch(*args, **kwargs):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
-            raise Exception("merge conflict detected")
-        # Second call succeeds
-        b = MagicMock()
-        b.batch_id = "999"
-        b.branch = "mq/999"
-        b.ruleset_id = 42
-        return b
+@pytest.mark.parametrize("retry_count", [0, 1])
+def test_diverged_requeues_with_incremented_retry_count(
+    mock_client: MagicMock,
+    mock_store: MagicMock,
+    retry_count: int,
+) -> None:
+    """When complete_batch raises 'diverged', entry is re-queued with retry_count+1."""
+    from merge_queue import cli
+
+    entry = _make_entry(retry_count=retry_count)
+    api_state = _setup_do_process(mock_client, mock_store, entry)
+
+    batch = MagicMock()
+    batch.batch_id = "999"
+    batch.branch = "mq/999"
+    batch.ruleset_id = 42
 
     with (
         patch("merge_queue.cli.QueueState") as mock_qs_cls,
-        patch("merge_queue.cli.batch_mod.create_batch", side_effect=_fake_create_batch),
-        patch("merge_queue.cli.batch_mod.auto_rebase", return_value=True),
-        patch("merge_queue.cli.batch_mod.run_ci") as mock_run_ci,
-        patch("merge_queue.cli.batch_mod.complete_batch"),
+        patch("merge_queue.cli.batch_mod.create_batch", return_value=batch),
+        patch(
+            "merge_queue.cli.batch_mod.run_ci",
+            return_value=MagicMock(passed=True, run_url=""),
+        ),
+        patch(
+            "merge_queue.cli.batch_mod.complete_batch",
+            side_effect=BatchError("diverged — another commit landed"),
+        ),
         patch("merge_queue.cli.batch_mod.fail_batch"),
     ):
         mock_qs_cls.fetch.return_value = api_state
-        mock_run_ci.return_value = MagicMock(passed=True, run_url="")
+
+        written_states: list[dict] = []
+        mock_store.write.side_effect = lambda s: written_states.append(copy.deepcopy(s))
+
+        cli.do_process(mock_client)
+
+    # Find the re-queued entry in the branch state
+    requeued = None
+    for s in written_states:
+        branch_q = s.get("branches", {}).get("main", {}).get("queue", [])
+        if branch_q:
+            requeued = branch_q[0]
+            break
+    assert requeued is not None, "entry should have been re-queued"
+    assert requeued["retry_count"] == retry_count + 1
+
+
+def test_diverged_fails_permanently_when_retry_count_exhausted(
+    mock_client: MagicMock,
+    mock_store: MagicMock,
+) -> None:
+    """When retry_count >= 2 and diverged, fail permanently without re-queuing."""
+    from merge_queue import cli
+
+    entry = _make_entry(retry_count=2)
+    api_state = _setup_do_process(mock_client, mock_store, entry)
+
+    batch = MagicMock()
+    batch.batch_id = "999"
+    batch.branch = "mq/999"
+    batch.ruleset_id = 42
+
+    with (
+        patch("merge_queue.cli.QueueState") as mock_qs_cls,
+        patch("merge_queue.cli.batch_mod.create_batch", return_value=batch),
+        patch(
+            "merge_queue.cli.batch_mod.run_ci",
+            return_value=MagicMock(passed=True, run_url=""),
+        ),
+        patch(
+            "merge_queue.cli.batch_mod.complete_batch",
+            side_effect=BatchError("diverged — another commit landed"),
+        ),
+        patch("merge_queue.cli.batch_mod.fail_batch"),
+    ):
+        mock_qs_cls.fetch.return_value = api_state
+
+        written_states: list[dict] = []
+        mock_store.write.side_effect = lambda s: written_states.append(copy.deepcopy(s))
 
         result = cli.do_process(mock_client)
 
-    assert result in ("merged", "batch_active", "no_stacks", "batch_error", "merged")
-    assert call_count >= 1
+    assert result == "complete_error"
+    # Ensure no re-queued entry in branch state
+    requeued = None
+    for s in written_states:
+        branch_q = s.get("branches", {}).get("main", {}).get("queue", [])
+        if branch_q:
+            requeued = branch_q[0]
+            break
+    assert requeued is None, "entry must NOT be re-queued after retry_count exhausted"
 
 
-def test_do_process_no_rebase_loop(
+def test_merge_conflict_comments_and_removes_queue_label(
     mock_client: MagicMock,
     mock_store: MagicMock,
-    _patched_rules: None,
 ) -> None:
-    """When rebase_attempted is already set, do not attempt another rebase."""
+    """When create_batch raises a conflict, post merge_conflict comment and remove label."""
     from merge_queue import cli
-    from merge_queue.state import QueueState
 
-    entry = _make_entry(rebase_attempted=True)
-    state = make_v2_state(queue=[entry])
-    mock_store.read.return_value = state
-
-    mock_client.get_pr.return_value = {
-        "number": 1,
-        "state": "open",
-        "head": {"ref": "feat-a", "sha": "sha-1"},
-        "base": {"ref": "main"},
-        "labels": [{"name": "queue"}],
-        "title": "PR title",
-    }
-
-    api_state = QueueState(
-        default_branch="main",
-        mq_branches=[],
-        rulesets=[],
-        prs=[],
-        all_pr_data=[],
-    )
+    entry = _make_entry()
+    api_state = _setup_do_process(mock_client, mock_store, entry)
 
     with (
         patch("merge_queue.cli.QueueState") as mock_qs_cls,
         patch(
             "merge_queue.cli.batch_mod.create_batch",
-            side_effect=Exception("merge conflict detected"),
+            side_effect=Exception("merge conflict detected in foo.py"),
         ),
-        patch("merge_queue.cli.batch_mod.auto_rebase") as mock_rebase,
+        patch("merge_queue.cli.batch_mod.fail_batch"),
     ):
         mock_qs_cls.fetch.return_value = api_state
-
         result = cli.do_process(mock_client)
 
-    # auto_rebase should NOT be called when rebase_attempted is already True
-    mock_rebase.assert_not_called()
     assert result == "batch_error"
+    # _comment() calls update_comment when comment_ids already has an entry for this PR
+    all_comment_calls = (
+        mock_client.update_comment.call_args_list
+        + mock_client.create_comment.call_args_list
+    )
+    comment_bodies = [call.args[1] for call in all_comment_calls]
+    assert any(
+        "Merge conflict" in body or "merge conflict" in body.lower()
+        for body in comment_bodies
+    )
+    mock_client.remove_label.assert_any_call(1, "queue")
 
 
-# ---------------------------------------------------------------------------
-# Comment template tests
-# ---------------------------------------------------------------------------
+def test_comment_templates() -> None:
+    """Verify merge_conflict and auto_retrying templates contain expected text."""
+    conflict_msg = comments.merge_conflict("main", owner="acme", repo="app")
+    assert "merge conflicts" in conflict_msg
+    assert "`main`" in conflict_msg
+    assert "queue" in conflict_msg
 
-
-def test_auto_rebased_comment() -> None:
-    body = comments.auto_rebased("main", owner="acme", repo="app")
-    assert "Auto-rebased" in body
-    assert "`main`" in body
-
-
-def test_rebase_failed_comment() -> None:
-    body = comments.rebase_failed("CONFLICT in foo.py", owner="acme", repo="app")
-    assert "Auto-rebase failed" in body
-    assert "CONFLICT in foo.py" in body
-    assert "queue" in body
+    retry_msg = comments.auto_retrying("main", owner="acme", repo="app")
+    assert "etrying" in retry_msg
+    assert "`main`" in retry_msg
