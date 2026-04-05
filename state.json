@@ -1,7 +1,26 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T14:09:22.599961+00:00",
-  "queue": [],
+  "updated_at": "2026-04-05T14:14:03.642327+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-05T14:14:02.832587+00:00",
+      "stack": [
+        {
+          "number": 75,
+          "head_sha": "f2d260f8b39bda2a8e90478bafa1c2598825efd7",
+          "head_ref": "greg/revup/main/sync-missing-prs",
+          "base_ref": "main",
+          "title": "Fix: auto-enqueue missed PRs from cancelled workflow runs"
+        }
+      ],
+      "deployment_id": 4275571402,
+      "target_branch": "main",
+      "comment_ids": {
+        "75": 4188953203
+      }
+    }
+  ],
   "active_batch": null,
   "history": [
     {
