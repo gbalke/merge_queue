@@ -1,26 +1,28 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T13:47:26.435149+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-05T13:47:25.594697+00:00",
-      "stack": [
-        {
-          "number": 68,
-          "head_sha": "49f52275cd0c0ee781b5f216c86f65a2d765ca6f",
-          "head_ref": "greg/revup/main/main-solo",
-          "base_ref": "main",
-          "title": "Add solo test module"
-        }
-      ],
-      "deployment_id": 4275446651,
-      "comment_ids": {
-        "68": 4188917484
+  "updated_at": "2026-04-05T13:47:27.801019+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-05T13:47:27.801002+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 68,
+        "head_sha": "49f52275cd0c0ee781b5f216c86f65a2d765ca6f",
+        "head_ref": "greg/revup/main/main-solo",
+        "base_ref": "main",
+        "title": "Add solo test module"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4275446651,
+    "comment_ids": {
+      "68": 4188917484
+    },
+    "queued_at": "2026-04-05T13:47:25.594697+00:00"
+  },
   "history": [
     {
       "batch_id": "1775367984",
