@@ -307,6 +307,27 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
 
     api_state = QueueState.fetch(client)
     target_branches = config_mod.get_target_branches(client)
+
+    # Verify PR targets a configured MQ branch; reject early if not.
+    pr_data_for_check = cached_pr_data or client.get_pr(pr_number)
+    cached_pr_data = pr_data_for_check  # avoid duplicate fetch below
+    pr_target_ref = (pr_data_for_check.get("base") or {}).get(
+        "ref", client.get_default_branch()
+    )
+    if pr_target_ref not in target_branches:
+        _comment(
+            client,
+            pr_number,
+            f"\u26a0\ufe0f **Not a merge queue target** \u2014 `{pr_target_ref}` is not "
+            f"configured. Configured branches: "
+            f"{', '.join(f'`{b}`' for b in target_branches)}",
+        )
+        try:
+            client.remove_label(pr_number, "queue")
+        except Exception:
+            pass
+        return "invalid_target"
+
     stack_dicts = None
     target_branch: str | None = None
     for pr in api_state.prs:
@@ -531,6 +552,13 @@ def do_process(client: GitHubClientProtocol) -> str:
             return "batch_active"
         log.info("All branch queues are empty or busy, nothing to do")
         return "no_stacks"
+
+    # Ensure all target branches have protection rulesets now that we know there is
+    # work to process.  Runs after early-exit paths to avoid unnecessary API calls.
+    from merge_queue import config as config_mod
+
+    target_branches = config_mod.get_target_branches(client)
+    config_mod.ensure_branch_protection(client, target_branches)
 
     branch_state = state["branches"][target_branch_to_process]
     queue = branch_state["queue"]

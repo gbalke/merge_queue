@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import base64
+import logging
+
+log = logging.getLogger(__name__)
 
 
 def _parse_yaml_list_section(content: str, section: str) -> list[str]:
@@ -84,3 +87,39 @@ def get_target_branches(client) -> list[str]:
                 branches.insert(0, default)
             return branches
     return [default]
+
+
+def ensure_branch_protection(client, target_branches: list[str]) -> None:
+    """Ensure all target branches have protection rulesets.
+
+    Creates rulesets for any unprotected branches using MQ_ADMIN_TOKEN.
+    Ruleset name format: ``mq-protect-{branch_name}`` (``/`` replaced with ``-``).
+
+    If creation fails (e.g. no admin token, private repo without Pro), logs a
+    warning but does not block the caller.
+    """
+    existing = client.list_rulesets()
+    protected: set[str] = set()
+    for rs in existing:
+        if rs.get("name", "").startswith("mq-protect-"):
+            conditions = rs.get("conditions", {}).get("ref_name", {})
+            for pattern in conditions.get("include", []):
+                # pattern is like "refs/heads/main"
+                branch = pattern.removeprefix("refs/heads/")
+                protected.add(branch)
+
+    for branch in target_branches:
+        if branch not in protected:
+            log.info("Creating protection ruleset for %s", branch)
+            _create_branch_protection(client, branch)
+
+
+def _create_branch_protection(client, branch: str) -> None:
+    """Create a protection ruleset for a target branch."""
+    try:
+        client.create_protection_ruleset(
+            name=f"mq-protect-{branch.replace('/', '-')}",
+            branch=branch,
+        )
+    except Exception as e:
+        log.warning("Could not create protection for %s: %s", branch, e)
