@@ -1,26 +1,28 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T13:49:15.879292+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-05T13:49:14.850886+00:00",
-      "stack": [
-        {
-          "number": 69,
-          "head_sha": "d7acc638ede2209e027c55a7c325473d2f1d691e",
-          "head_ref": "greg/revup/main/config-docs",
-          "base_ref": "main",
-          "title": "Document YAML config files and environment variables"
-        }
-      ],
-      "deployment_id": 4275455200,
-      "comment_ids": {
-        "69": 4188919863
+  "updated_at": "2026-04-05T13:49:17.671730+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-05T13:49:17.671721+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 69,
+        "head_sha": "d7acc638ede2209e027c55a7c325473d2f1d691e",
+        "head_ref": "greg/revup/main/config-docs",
+        "base_ref": "main",
+        "title": "Document YAML config files and environment variables"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4275455200,
+    "comment_ids": {
+      "69": 4188919863
+    },
+    "queued_at": "2026-04-05T13:49:14.850886+00:00"
+  },
   "history": [
     {
       "batch_id": "1775367984",
