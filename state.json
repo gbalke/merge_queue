@@ -1,1 +1,26 @@
-{"version":1,"updated_at":"","queue":[],"active_batch":null,"history":[]}
+{
+  "version": 1,
+  "updated_at": "2026-04-05T14:56:33.198569+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-05T14:56:12Z",
+      "stack": [
+        {
+          "number": 80,
+          "head_sha": "50d63e493d7a95c41590d0ca8f4da15f0cb0b376",
+          "head_ref": "greg/revup/main/hotfix-runs-ci",
+          "base_ref": "main",
+          "title": "Fix: hotfix runs CI (only break-glass skips CI)"
+        }
+      ],
+      "deployment_id": 4275772764,
+      "target_branch": "main",
+      "comment_ids": {
+        "80": 4189013756
+      }
+    }
+  ],
+  "active_batch": null,
+  "history": []
+}
