@@ -1,27 +1,9 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T16:02:01.078813+00:00",
+  "updated_at": "2026-04-05T16:02:02.467086+00:00",
   "queue": [
     {
       "position": 1,
-      "queued_at": "2026-04-05T16:01:56.467989+00:00",
-      "stack": [
-        {
-          "number": 86,
-          "head_sha": "666a54c745d037b45dc017419d1f81ff9cd89593",
-          "head_ref": "greg/revup/release/1.0/rel-batch-a",
-          "base_ref": "release/1.0",
-          "title": "Add batch test A"
-        }
-      ],
-      "deployment_id": 4276105547,
-      "target_branch": "release/1.0",
-      "comment_ids": {
-        "86": 4189110152
-      }
-    },
-    {
-      "position": 2,
       "queued_at": "2026-04-05T16:01:58.587703+00:00",
       "stack": [
         {
@@ -39,7 +21,7 @@
       "target_branch": "release/1.0"
     },
     {
-      "position": 3,
+      "position": 2,
       "queued_at": "2026-04-05T16:01:59.413098+00:00",
       "stack": [
         {
@@ -57,7 +39,7 @@
       "target_branch": "release/1.0"
     },
     {
-      "position": 4,
+      "position": 3,
       "queued_at": "2026-04-05T16:02:00.274776+00:00",
       "stack": [
         {
@@ -75,7 +57,28 @@
       "target_branch": "main"
     }
   ],
-  "active_batch": null,
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-05T16:02:02.467070+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 86,
+        "head_sha": "666a54c745d037b45dc017419d1f81ff9cd89593",
+        "head_ref": "greg/revup/release/1.0/rel-batch-a",
+        "base_ref": "release/1.0",
+        "title": "Add batch test A"
+      }
+    ],
+    "deployment_id": 4276105547,
+    "comment_ids": {
+      "86": 4189110152
+    },
+    "queued_at": "2026-04-05T16:01:56.467989+00:00",
+    "target_branch": "release/1.0"
+  },
   "history": [
     {
       "batch_id": "1775400996",
