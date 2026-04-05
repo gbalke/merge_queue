@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:22:09.255915+00:00",
+  "updated_at": "2026-04-05T22:22:18.176926+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -23,29 +23,7 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": {
-        "batch_id": "1775427643",
-        "branch": "mq/main/1775427643",
-        "ruleset_id": 14716457,
-        "started_at": "2026-04-05T22:20:41.556957+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 107,
-            "head_sha": "600599dc14a7e96d0dfb93746f99dcad003d6e59",
-            "head_ref": "greg/revup/main/ci-scripts",
-            "base_ref": "main",
-            "title": "Add ci/ scripts: single source of truth for CI checks"
-          }
-        ],
-        "deployment_id": 4277924343,
-        "comment_ids": {
-          "107": 4189618311
-        },
-        "queued_at": "2026-04-05T22:15:08.008079+00:00",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T22:20:45.050766+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -388,6 +366,16 @@
         109
       ],
       "duration_seconds": 94.680013,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775427643",
+      "status": "merged",
+      "completed_at": "2026-04-05T22:22:18.032286+00:00",
+      "prs": [
+        107
+      ],
+      "duration_seconds": 96.475329,
       "target_branch": "main"
     }
   ]
