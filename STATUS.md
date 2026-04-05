@@ -2,7 +2,7 @@
 
 ## Active Batch
 **Branch:** `mq/1775367984`
-**Status:** running_ci
+**Status:** completing
 **Started:** 2026-04-05T05:46:23.042001+00:00
 
 | PR | Branch | Title |
@@ -12,4 +12,4 @@
 ## Queue
 _Empty — nothing waiting._
 
-_Updated 2026-04-05T05:46:25.498509+00:00_
+_Updated 2026-04-05T05:47:49.070795+00:00_
