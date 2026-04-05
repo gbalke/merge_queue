@@ -1,29 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T13:50:46.002666+00:00",
+  "updated_at": "2026-04-05T13:50:56.366741+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775396959",
-    "branch": "mq/1775396959",
-    "ruleset_id": 14709917,
-    "started_at": "2026-04-05T13:49:17.671721+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 69,
-        "head_sha": "d7acc638ede2209e027c55a7c325473d2f1d691e",
-        "head_ref": "greg/revup/main/config-docs",
-        "base_ref": "main",
-        "title": "Document YAML config files and environment variables"
-      }
-    ],
-    "deployment_id": 4275455200,
-    "comment_ids": {
-      "69": 4188919863
-    },
-    "queued_at": "2026-04-05T13:49:14.850886+00:00",
-    "ci_started_at": "2026-04-05T13:49:21.160972+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775367984",
@@ -133,6 +112,15 @@
         68
       ],
       "duration_seconds": 79.686961
+    },
+    {
+      "batch_id": "1775396959",
+      "status": "merged",
+      "completed_at": "2026-04-05T13:50:56.366724+00:00",
+      "prs": [
+        69
+      ],
+      "duration_seconds": 98.695003
     }
   ]
 }
