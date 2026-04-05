@@ -1,7 +1,33 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T07:07:14.472990+00:00",
-  "queue": [],
+  "updated_at": "2026-04-05T13:45:42.275294+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-05T13:45:41.055439+00:00",
+      "stack": [
+        {
+          "number": 66,
+          "head_sha": "bbae83ec028d8d22ae314d50adc1cf0da6a138ad",
+          "head_ref": "greg/revup/main/main-stack-a",
+          "base_ref": "main",
+          "title": "Add test_main_a module"
+        },
+        {
+          "number": 67,
+          "head_sha": "72c97fc7d6b20029fa4a35d21b4dcafb474d2212",
+          "head_ref": "greg/revup/main/main-stack-b",
+          "base_ref": "greg/revup/main/main-stack-a",
+          "title": "Add test_main_b module (stacked)"
+        }
+      ],
+      "deployment_id": 4275438378,
+      "comment_ids": {
+        "66": 4188915190,
+        "67": 4188915199
+      }
+    }
+  ],
   "active_batch": null,
   "history": [
     {
