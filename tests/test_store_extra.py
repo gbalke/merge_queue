@@ -168,10 +168,10 @@ def test_write_conflict_retries_with_backoff(
     assert store._state_sha == "final-sha"
 
 
-def test_write_exhausts_five_retries_then_raises(
+def test_write_exhausts_seven_retries_then_raises(
     store: StateStore, mock_client: MagicMock
 ) -> None:
-    """After 5 failed attempts, ConflictError is raised."""
+    """After 7 failed attempts (new default), ConflictError is raised."""
     store._state_sha = "old-sha"
     mock_client.put_file_content.side_effect = RuntimeError("409 Conflict")
     mock_client.get_file_content.return_value = {
@@ -185,7 +185,7 @@ def test_write_exhausts_five_retries_then_raises(
     ):
         store.write(empty_state())
 
-    assert mock_client.put_file_content.call_count == 5
+    assert mock_client.put_file_content.call_count == 7
 
 
 # --- _ensure_branch() 422 race condition ---

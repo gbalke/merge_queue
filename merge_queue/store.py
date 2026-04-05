@@ -78,7 +78,7 @@ class StateStore:
                 return empty_state()
             raise
 
-    def write(self, state: dict, max_retries: int = 5) -> None:
+    def write(self, state: dict, max_retries: int = 7) -> None:
         """Write state.json and per-branch STATUS.md files to the mq/state branch.
 
         Auto-retries on conflict (409) by re-reading the current SHA.
@@ -105,7 +105,9 @@ class StateStore:
                     log.warning(
                         "State write conflict (attempt %d), retrying...", attempt
                     )
-                    time.sleep(random.uniform(0.5, 2.0))
+                    time.sleep(random.uniform(0.5, 1.5) * attempt)
+                    if hasattr(self.client, "invalidate_cache"):
+                        self.client.invalidate_cache()
                     try:
                         data = self.client.get_file_content(STATE_PATH, STATE_BRANCH)
                         self._state_sha = data["sha"]
