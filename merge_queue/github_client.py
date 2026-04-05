@@ -104,6 +104,7 @@ class GitHubClientProtocol(Protocol):
         message: str,
         sha: str | None = None,
     ) -> dict[str, Any]: ...
+    def commit_files(self, branch: str, files: dict[str, str], message: str) -> str: ...
     def create_orphan_branch(self, branch: str, files: dict[str, str]) -> None: ...
     def get_pr_ci_status(self, pr_number: int) -> tuple[bool | None, str]: ...
     def dispatch_ci_on_ref(self, ref: str) -> None: ...
@@ -531,6 +532,75 @@ class GitHubClient:
         if sha is not None:
             body["sha"] = sha
         return self._put(f"/contents/{path}", json=body)
+
+    def commit_files(self, branch: str, files: dict[str, str], message: str) -> str:
+        """Commit multiple files to a branch in a single commit.
+
+        Uses the Git Data API (blobs + tree + commit + ref update) so that
+        all file changes land in one commit instead of N sequential ones.
+
+        Args:
+            branch: Target branch name.
+            files: Mapping of file path -> content string.
+            message: Commit message.
+
+        Returns:
+            The SHA of the new commit.
+
+        Raises:
+            requests.HTTPError: on 409/422 if the ref was updated concurrently.
+        """
+        # Get current branch tip
+        ref_data = self._session.get(f"{self._base_url}/git/ref/heads/{branch}")
+        self._track(ref_data)
+        ref_data.raise_for_status()
+        current_sha = ref_data.json()["object"]["sha"]
+
+        # Get current commit to find its tree
+        commit_data = self._session.get(f"{self._base_url}/git/commits/{current_sha}")
+        self._track(commit_data)
+        commit_data.raise_for_status()
+        base_tree_sha = commit_data.json()["tree"]["sha"]
+
+        # Create blobs and build tree entries
+        tree_items = []
+        for path, content in files.items():
+            blob = self._post(
+                "/git/blobs",
+                json={"content": content, "encoding": "utf-8"},
+            )
+            tree_items.append(
+                {
+                    "path": path,
+                    "mode": "100644",
+                    "type": "blob",
+                    "sha": blob["sha"],
+                }
+            )
+
+        # Create tree with base_tree (inherits unchanged files)
+        tree = self._post(
+            "/git/trees",
+            json={"base_tree": base_tree_sha, "tree": tree_items},
+        )
+
+        # Create commit
+        new_commit = self._post(
+            "/git/commits",
+            json={
+                "message": message,
+                "tree": tree["sha"],
+                "parents": [current_sha],
+            },
+        )
+
+        # Update ref (non-force — will fail on concurrent update)
+        self._patch(
+            f"/git/refs/heads/{branch}",
+            json={"sha": new_commit["sha"], "force": False},
+        )
+        log.info("Committed %d files to %s in one commit", len(files), branch)
+        return new_commit["sha"]
 
     def create_orphan_branch(self, branch: str, files: dict[str, str]) -> None:
         """Create an orphan branch with the given files.

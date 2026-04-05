@@ -327,6 +327,37 @@ class LocalGitProvider:
 
         return {"content": {"sha": blob_sha}}
 
+    def commit_files(self, branch: str, files: dict[str, str], message: str) -> str:
+        """Commit multiple files to a branch in a single commit."""
+        parent_sha = _git("rev-parse", f"refs/heads/{branch}", cwd=self.repo_path)
+        current_tree_sha = _git(
+            "rev-parse", f"refs/heads/{branch}^{{tree}}", cwd=self.repo_path
+        )
+
+        # Apply each file to the tree
+        tree_sha = current_tree_sha
+        for path, content in files.items():
+            blob_sha = _write_blob(self.repo_path, content.encode())
+            tree_sha = _update_tree(self.repo_path, tree_sha, path, blob_sha)
+
+        commit_sha = _git(
+            "commit-tree",
+            tree_sha,
+            "-p",
+            parent_sha,
+            "-m",
+            message,
+            cwd=self.repo_path,
+        )
+
+        _git(
+            "update-ref",
+            f"refs/heads/{branch}",
+            commit_sha,
+            cwd=self.repo_path,
+        )
+        return commit_sha
+
     def create_orphan_branch(self, branch: str, files: dict[str, str]) -> None:
         """Create an orphan branch with the given files (content is plain text)."""
         # Build tree from scratch

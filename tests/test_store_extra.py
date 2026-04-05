@@ -57,6 +57,8 @@ def test_write_status_md_conflict_retries_once(
     store: StateStore, mock_client: MagicMock
 ) -> None:
     """On root STATUS.md 409, the store re-reads the SHA and retries the write."""
+    # Force legacy write path (no atomic commit_files)
+    del mock_client.commit_files
     mock_client.get_file_content.return_value = _state_response(
         empty_state(), "current-sha"
     )
@@ -80,6 +82,7 @@ def test_write_status_md_conflict_retry_also_fails_logs_warning(
     store: StateStore, mock_client: MagicMock, caplog: pytest.LogCaptureFixture
 ) -> None:
     """If the root STATUS.md retry also fails, a warning is logged and write does not raise."""
+    del mock_client.commit_files
     mock_client.get_file_content.return_value = _state_response(empty_state(), "sha-x")
 
     mock_client.put_file_content.side_effect = [
@@ -98,6 +101,7 @@ def test_write_status_md_non_404_non_409_logs_warning(
     store: StateStore, mock_client: MagicMock
 ) -> None:
     """A non-404/non-409 error on STATUS.md logs a warning but does not raise."""
+    del mock_client.commit_files
     mock_client.get_file_content.return_value = _state_response(empty_state(), "sha-x")
 
     mock_client.put_file_content.side_effect = [
@@ -116,6 +120,7 @@ def test_write_status_md_404_is_silently_ignored(
     store: StateStore, mock_client: MagicMock
 ) -> None:
     """A 404 error on STATUS.md (e.g. branch gone) is silently swallowed."""
+    del mock_client.commit_files
     mock_client.get_file_content.return_value = _state_response(empty_state(), "sha-x")
 
     mock_client.put_file_content.side_effect = [
@@ -161,7 +166,7 @@ def test_ensure_branch_non_422_error_propagates(
 def test_write_conflict_retries_with_backoff(
     store: StateStore, mock_client: MagicMock
 ) -> None:
-    """On 409 conflicts, write retries up to max_retries=5 and sleeps between attempts.
+    """On 409 conflicts, write retries and sleeps between attempts.
 
     write_with_retry re-reads state on every attempt (not just on conflict),
     so the SHA is always fresh -- this is the core fix for the 409 race.
@@ -170,14 +175,14 @@ def test_write_conflict_retries_with_backoff(
         empty_state(), "refreshed-sha"
     )
 
-    # First 4 attempts conflict; 5th succeeds
+    # First 4 attempts conflict; 5th succeeds (atomic commit_files path)
     conflict = RuntimeError("409 Conflict")
-    mock_client.put_file_content.side_effect = [
+    mock_client.commit_files.side_effect = [
         conflict,
         conflict,
         conflict,
         conflict,
-        {"content": {"sha": "final-sha"}},
+        "new-commit-sha",
     ]
 
     with (
@@ -189,15 +194,14 @@ def test_write_conflict_retries_with_backoff(
 
     # 4 conflicts -> 4 sleeps before the 5th (successful) attempt
     assert mock_sleep.call_count == 4
-    assert store._state_sha == "final-sha"
 
 
-def test_write_exhausts_five_retries_then_raises(
+def test_write_exhausts_retries_then_raises(
     store: StateStore, mock_client: MagicMock
 ) -> None:
-    """After 5 failed attempts, ConflictError is raised."""
+    """After max retries failed attempts, ConflictError is raised."""
     mock_client.get_file_content.return_value = _state_response(empty_state(), "rx")
-    mock_client.put_file_content.side_effect = RuntimeError("409 Conflict")
+    mock_client.commit_files.side_effect = RuntimeError("409 Conflict")
 
     with (
         patch("merge_queue.store.time.sleep"),
@@ -205,7 +209,7 @@ def test_write_exhausts_five_retries_then_raises(
     ):
         store.write(empty_state())
 
-    assert mock_client.put_file_content.call_count == 5
+    assert mock_client.commit_files.call_count == 7
 
 
 # --- write_with_retry() -- the core read-mutate-write loop ---
@@ -218,7 +222,7 @@ def test_write_with_retry_applies_mutation_on_fresh_read(
     initial = empty_state()
     initial["branches"]["main"] = {"queue": [], "active_batch": None}
     mock_client.get_file_content.return_value = _state_response(initial, "sha-1")
-    mock_client.put_file_content.return_value = {"content": {"sha": "sha-2"}}
+    mock_client.commit_files.return_value = "new-commit-sha"
 
     def add_entry(state: dict) -> None:
         state["branches"]["main"]["queue"].append({"position": 1, "stack": []})
@@ -230,7 +234,6 @@ def test_write_with_retry_applies_mutation_on_fresh_read(
         result = store.write_with_retry(add_entry)
 
     assert len(result["branches"]["main"]["queue"]) == 1
-    assert store._state_sha == "sha-2"
 
 
 def test_write_with_retry_reapplies_mutation_after_conflict(
@@ -256,9 +259,9 @@ def test_write_with_retry_reapplies_mutation_after_conflict(
         _state_response(initial, "sha-1"),  # first read() attempt
         _state_response(after_conflict, "sha-2"),  # second read() after conflict
     ]
-    mock_client.put_file_content.side_effect = [
+    mock_client.commit_files.side_effect = [
         RuntimeError("409 Conflict"),  # first write fails
-        {"content": {"sha": "sha-3"}},  # second write succeeds
+        "new-commit-sha",  # second write succeeds
     ]
 
     entries_added: list[int] = []
@@ -286,7 +289,6 @@ def test_write_with_retry_reapplies_mutation_after_conflict(
     pr_numbers = [pr["number"] for entry in queue for pr in entry["stack"]]
     assert 42 in pr_numbers
     assert 99 in pr_numbers
-    assert store._state_sha == "sha-3"
 
 
 def test_write_with_retry_raises_conflict_after_exhausting_retries(
@@ -294,7 +296,7 @@ def test_write_with_retry_raises_conflict_after_exhausting_retries(
 ) -> None:
     """write_with_retry raises ConflictError after max_retries failed attempts."""
     mock_client.get_file_content.return_value = _state_response(empty_state(), "sha-x")
-    mock_client.put_file_content.side_effect = RuntimeError("409 Conflict")
+    mock_client.commit_files.side_effect = RuntimeError("409 Conflict")
 
     with (
         patch("merge_queue.store.time.sleep"),
@@ -302,4 +304,4 @@ def test_write_with_retry_raises_conflict_after_exhausting_retries(
     ):
         store.write_with_retry(lambda s: None, max_retries=3)
 
-    assert mock_client.put_file_content.call_count == 3
+    assert mock_client.commit_files.call_count == 3

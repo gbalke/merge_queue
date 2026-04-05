@@ -4,7 +4,7 @@ Merge queue for stacked PRs. Python package invoked by GitHub Actions.
 
 ## Development Workflow
 
-ALL changes go through revup + merge queue. Never push directly to main.
+ALL changes go through revup + merge queue. **NEVER force push or push directly to main under ANY circumstances.** This includes hotfixes, urgent fixes, and "just this once" situations. No exceptions.
 
 - Use the `/revup-commit` skill (`.claude/skills/revup-commit/SKILL.md`) for creating commits with topic trailers
 - Each change = one focused revup topic
@@ -16,6 +16,7 @@ ALL changes go through revup + merge queue. Never push directly to main.
   ```
 - Upload with `revup upload --skip-confirm`
 - Add `queue` label to PRs to enter the merge queue
+- **Agents must NEVER use `git push origin main` or bypass branch protection**
 
 ## Using Agents
 

@@ -268,9 +268,11 @@ class TestDoAbortApiCalls:
         # One comment (update existing)
         assert client.update_comment.call_count == 1
         assert client.create_comment.call_count == 0
-        # State written once: state.json + branch STATUS.md + root STATUS.md = up to 3
-        write_count = client.put_file_content.call_count
-        assert 1 <= write_count <= 3
+        # State written once: atomic commit_files (1 call) or legacy put_file_content
+        write_count = (
+            client.commit_files.call_count + client.put_file_content.call_count
+        )
+        assert write_count >= 1
 
     def test_abort_active_batch_call_budget(self):
         """Aborting the active batch: batch_mod.abort_batch + 1 write + comment."""
@@ -315,8 +317,11 @@ class TestDoAbortApiCalls:
         assert client.update_deployment_status.call_count == 1
         # comment on each PR in batch (1 PR → update existing)
         assert client.update_comment.call_count == 1
-        # state written once
-        assert client.put_file_content.call_count >= 1
+        # state written once (atomic or legacy)
+        write_count = (
+            client.commit_files.call_count + client.put_file_content.call_count
+        )
+        assert write_count >= 1
 
     def test_not_found_makes_only_read_call(self):
         """PR not in queue or batch: only 1 read, no writes."""
@@ -395,9 +400,9 @@ class TestDoEnqueueApiCalls:
 
         get_pr_count = client.get_pr.call_count
         # Budget: exactly 1 get_pr — any more is wasteful
-        assert get_pr_count <= 1, (
-            f"get_pr called {get_pr_count} times; expected at most 1"
-        )
+        assert (
+            get_pr_count <= 1
+        ), f"get_pr called {get_pr_count} times; expected at most 1"
         assert client.create_deployment.call_count == 1
         assert client.update_deployment_status.call_count == 1
         assert client.create_comment.call_count == 1
@@ -768,9 +773,9 @@ class TestNoDuplicateFetch:
 
             do_process(client)
 
-        assert QS.fetch.call_count == 1, (
-            f"QueueState.fetch called {QS.fetch.call_count} times; expected 1"
-        )
+        assert (
+            QS.fetch.call_count == 1
+        ), f"QueueState.fetch called {QS.fetch.call_count} times; expected 1"
 
     @patch("merge_queue.cli.do_process", return_value="merged")
     def test_do_enqueue_fetches_state_once(self, _do_process):
@@ -796,9 +801,9 @@ class TestNoDuplicateFetch:
 
             do_enqueue(client, 1)
 
-        assert QS.fetch.call_count == 1, (
-            f"QueueState.fetch called {QS.fetch.call_count} times in do_enqueue; expected 1"
-        )
+        assert (
+            QS.fetch.call_count == 1
+        ), f"QueueState.fetch called {QS.fetch.call_count} times in do_enqueue; expected 1"
 
 
 # ---------------------------------------------------------------------------

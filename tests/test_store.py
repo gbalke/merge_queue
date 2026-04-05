@@ -65,13 +65,11 @@ class TestRead:
 
 class TestWrite:
     def test_writes_state_and_status(self, store, mock_client):
-        # write_with_retry always calls read() first, then put_file_content.
-        # _ensure_branch and read() both call get_file_content; a single
-        # return_value covers all calls.
+        # write_with_retry uses commit_files for atomic writes when available.
         mock_client.get_file_content.return_value = _state_response(
             empty_state(), "old-sha"
         )
-        mock_client.put_file_content.return_value = {"content": {"sha": "new-sha"}}
+        mock_client.commit_files.return_value = "new-commit-sha"
 
         state = empty_state()
         state["updated_at"] = "2026-04-04T00:00:00Z"
@@ -84,21 +82,20 @@ class TestWrite:
         ):
             store.write(state)
 
-        # v2 empty state has no branches, so: state.json + root STATUS.md = 2 put calls
-        assert mock_client.put_file_content.call_count == 2
-        call1 = mock_client.put_file_content.call_args_list[0]
-        assert call1[0][0] == "state.json"
-        assert call1[0][1] == "mq/state"
-        assert call1[1]["sha"] == "old-sha"
-        call2 = mock_client.put_file_content.call_args_list[1]
-        assert call2[0][0] == "STATUS.md"
+        # Single atomic commit_files call with state.json + STATUS.md
+        assert mock_client.commit_files.call_count == 1
+        call_args = mock_client.commit_files.call_args
+        assert call_args[0][0] == "mq/state"  # branch
+        files = call_args[0][1]
+        assert "state.json" in files
+        assert "STATUS.md" in files
 
     def test_conflict_raises(self, store, mock_client):
         # Each attempt re-reads state to get a fresh SHA.
         mock_client.get_file_content.return_value = _state_response(
             empty_state(), "sha-x"
         )
-        mock_client.put_file_content.side_effect = RuntimeError("409 Conflict")
+        mock_client.commit_files.side_effect = RuntimeError("409 Conflict")
 
         with patch("merge_queue.store.time.sleep"), pytest.raises(ConflictError):
             store.write(empty_state())

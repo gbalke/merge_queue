@@ -1,14 +1,15 @@
 """Persistent state store on the mq/state branch.
 
-Reads/writes state.json via GitHub Contents API with optimistic concurrency.
+Reads state.json via GitHub Contents API.
+Writes state.json + STATUS.md files atomically via Git Trees API (single commit).
 """
 
 from __future__ import annotations
 
 import base64
+import datetime
 import json
 import logging
-import datetime
 import random
 import time
 from collections.abc import Callable
@@ -83,59 +84,43 @@ class StateStore:
     def write_with_retry(
         self,
         mutate_fn: Callable[[dict], None],
-        max_retries: int = 5,
+        max_retries: int = 7,
     ) -> dict:
-        """Read state, apply mutation, write -- retrying on 409 by re-reading first.
+        """Read state, apply mutation, write -- retrying on conflict.
 
-        On each conflict the full state is re-read from the branch so that the
-        next attempt applies our changes on top of whatever another writer
-        committed, rather than blindly overwriting with a stale snapshot.
+        Uses commit_files() to write state.json + STATUS.md in a single
+        atomic commit (no SHA races between sequential file writes).
 
-        Args:
-            mutate_fn: Called with the current state dict to modify it in place.
-                       Called once per attempt (including retries after conflict).
-            max_retries: Maximum number of write attempts before raising.
-
-        Returns:
-            The final state dict that was successfully written.
-
-        Raises:
-            ConflictError: If all attempts fail with a 409 conflict.
+        Falls back to put_file_content if commit_files is not available
+        (e.g. LocalGitProvider in tests).
         """
         self._ensure_branch()
 
         for attempt in range(1, max_retries + 1):
+            if hasattr(self.client, "invalidate_cache"):
+                self.client.invalidate_cache()
             state = self.read()
             mutate_fn(state)
             state["updated_at"] = datetime.datetime.now(
                 datetime.timezone.utc
             ).isoformat()
 
-            content_b64 = base64.b64encode(
-                json.dumps(state, indent=2).encode()
-            ).decode()
-
             try:
-                result = self.client.put_file_content(
-                    STATE_PATH,
-                    STATE_BRANCH,
-                    content_b64,
-                    message="Update merge queue state",
-                    sha=self._state_sha,
-                )
-                self._state_sha = result["content"]["sha"]
-                self._flush_status(state)
+                if hasattr(self.client, "commit_files"):
+                    self._atomic_write(state)
+                else:
+                    self._legacy_write(state)
                 return state
             except Exception as e:
                 if (
-                    "409" in str(e) or "conflict" in str(e).lower()
+                    "409" in str(e) or "conflict" in str(e).lower() or "422" in str(e)
                 ) and attempt < max_retries:
                     log.warning(
-                        "State write conflict (attempt %d/%d), re-reading and retrying...",
+                        "State write conflict (attempt %d/%d), retrying...",
                         attempt,
                         max_retries,
                     )
-                    time.sleep(random.uniform(0.5, 2.0))
+                    time.sleep(random.uniform(0.5, 1.5) * attempt)
                     continue
                 if "409" in str(e) or "conflict" in str(e).lower():
                     raise ConflictError(
@@ -145,15 +130,61 @@ class StateStore:
 
         raise ConflictError("Unreachable")  # pragma: no cover
 
-    def write(self, state: dict, max_retries: int = 5) -> None:
-        """Write state.json and per-branch STATUS.md files to the mq/state branch.
+    def _atomic_write(self, state: dict) -> None:
+        """Write state.json + STATUS.md files in a single commit via Git Trees API."""
+        files: dict[str, str] = {
+            STATE_PATH: json.dumps(state, indent=2),
+        }
+
+        # Render STATUS.md files
+        for branch_name, branch_state in state.get("branches", {}).items():
+            path = _branch_status_path(branch_name)
+            try:
+                files[path] = render_branch_status_md(
+                    branch_name, branch_state, self.client
+                )
+            except Exception:
+                log.warning("Could not render status for %s", branch_name)
+
+        try:
+            files[ROOT_STATUS_PATH] = render_root_status_md(state, self.client)
+        except Exception:
+            log.warning("Could not render root status")
+
+        self.client.commit_files(STATE_BRANCH, files, "Update merge queue state")
+
+    def _legacy_write(self, state: dict) -> None:
+        """Write state.json via Contents API (for providers without commit_files)."""
+        content_b64 = base64.b64encode(json.dumps(state, indent=2).encode()).decode()
+
+        result = self.client.put_file_content(
+            STATE_PATH,
+            STATE_BRANCH,
+            content_b64,
+            message="Update merge queue state",
+            sha=self._state_sha,
+        )
+        self._state_sha = result["content"]["sha"]
+
+        # Best-effort STATUS.md writes
+        for branch_name, branch_state in state.get("branches", {}).items():
+            self._write_status_file(
+                _branch_status_path(branch_name),
+                render_branch_status_md(branch_name, branch_state, self.client),
+                f"Update merge queue status for {branch_name}",
+            )
+        self._write_status_file(
+            ROOT_STATUS_PATH,
+            render_root_status_md(state, self.client),
+            "Update merge queue root status",
+        )
+
+    def write(self, state: dict, max_retries: int = 7) -> None:
+        """Write state.json and STATUS.md files to the mq/state branch.
 
         Delegates to write_with_retry with a mutation that replaces the remote
-        state with our intended state. On a 409, the remote state is re-read
-        and our version is applied on top, ensuring the SHA is always fresh.
+        state with our intended state.
         """
-        # Capture the intended state up front. The closure always installs
-        # exactly this version -- last-writer-wins on conflict.
         intended = state
 
         def _overwrite(remote: dict) -> None:
@@ -161,21 +192,6 @@ class StateStore:
             remote.update(intended)
 
         self.write_with_retry(_overwrite, max_retries=max_retries)
-
-    def _flush_status(self, state: dict) -> None:
-        """Write per-branch and root STATUS.md files (best-effort)."""
-        for branch_name, branch_state in state.get("branches", {}).items():
-            self._write_status_file(
-                _branch_status_path(branch_name),
-                render_branch_status_md(branch_name, branch_state, self.client),
-                f"Update merge queue status for {branch_name}",
-            )
-
-        self._write_status_file(
-            ROOT_STATUS_PATH,
-            render_root_status_md(state, self.client),
-            "Update merge queue root status",
-        )
 
     def _write_status_file(self, path: str, content: str, message: str) -> None:
         """Write a status markdown file best-effort, retrying once on SHA conflict."""
