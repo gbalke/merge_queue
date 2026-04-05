@@ -1,13 +1,16 @@
 # Merge Queue Status
 
 ## Active Batch
-_None — queue is idle._
+**Branch:** ``
+**Status:** locking
+**Started:** 2026-04-05T06:37:27.727809+00:00
 
-## Queue (1 stack waiting)
+| PR | Branch | Title |
+|----|--------|-------|
+| [#61](https://github.com/gbalke/merge_queue/pull/61) | `greg/revup/main/comment-redesign` | Redesign comment UI: minimal, consistent, modern |
 
-| Position | PRs | Queued At |
-|----------|-----|-----------|
-| 1 | #61 | 2026-04-05T06:37:24 |
+## Queue
+_Empty — nothing waiting._
 
 ## Recent History (last 5)
 
@@ -19,4 +22,4 @@ _None — queue is idle._
 | `1775368214` | #58 |  ci_failed | 1m 27s |
 | `1775367984` | #57 | ✅ merged | 1m 34s |
 
-_Updated 2026-04-05T06:37:25.958228+00:00_
+_Updated 2026-04-05T06:37:27.727822+00:00_
