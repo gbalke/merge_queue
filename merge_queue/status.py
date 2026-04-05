@@ -10,8 +10,10 @@ from merge_queue.comments import _fmt_duration
 def render_status_md(state: dict, client: Any = None) -> str:
     """Render state as a clean queue-focused STATUS.md.
 
-    Shows only what's currently happening — active batch and waiting stacks.
-    No history clutter. This is the persistent queue page.
+    Shows everything in the queue in order:
+    1. Active batch (currently processing) at the top
+    2. Waiting stacks below in FIFO order
+    3. Empty message when idle
     """
     lines = ["# Merge Queue", ""]
 
@@ -19,50 +21,49 @@ def render_status_md(state: dict, client: Any = None) -> str:
     if client and hasattr(client, "owner") and hasattr(client, "repo"):
         owner_repo = f"{client.owner}/{client.repo}"
 
-    # Active batch
     batch = state.get("active_batch")
-    if batch:
-        progress = batch.get("progress", "processing")
-        progress_emoji = {
-            "locking": "🔒",
-            "running_ci": "🔄",
-            "completing": "🔄",
-        }.get(progress, "🔄")
+    queue = state.get("queue", [])
 
-        lines.append(f"{progress_emoji} **Now processing**")
-        lines.append("")
+    has_items = batch or queue
+
+    if has_items:
+        # Single unified table showing everything in order
         lines.append("| # | PR | Title | Status |")
         lines.append("|:--|:---|:------|:-------|")
-        for i, pr in enumerate(batch.get("stack", []), 1):
-            pr_link = f"#{pr['number']}"
-            if owner_repo:
-                pr_link = f"[#{pr['number']}](https://github.com/{owner_repo}/pull/{pr['number']})"
-            lines.append(f"| {i} | {pr_link} | {pr.get('title', '')} | {progress} |")
-        lines.append("")
 
-    # Queue
-    queue = state.get("queue", [])
-    if queue:
-        lines.append(f"**Waiting** ({len(queue)})")
-        lines.append("")
-        lines.append("| # | PR | Title |")
-        lines.append("|:--|:---|:------|")
         pos = 1
+
+        # Active batch first
+        if batch:
+            progress = batch.get("progress", "processing")
+            status_label = {
+                "locking": "🔒 locking",
+                "running_ci": "🔄 CI running",
+                "completing": "🔄 merging",
+            }.get(progress, f"🔄 {progress}")
+
+            for pr in batch.get("stack", []):
+                pr_link = _pr_link(pr, owner_repo)
+                lines.append(
+                    f"| {pos} | {pr_link} | {pr.get('title', '')} | {status_label} |"
+                )
+            pos += 1
+
+        # Waiting entries
         for entry in queue:
             for pr in entry.get("stack", []):
-                pr_link = f"#{pr['number']}"
-                if owner_repo:
-                    pr_link = f"[#{pr['number']}](https://github.com/{owner_repo}/pull/{pr['number']})"
-                lines.append(f"| {pos} | {pr_link} | {pr.get('title', '')} |")
+                pr_link = _pr_link(pr, owner_repo)
+                lines.append(
+                    f"| {pos} | {pr_link} | {pr.get('title', '')} | ⏳ waiting |"
+                )
             pos += 1
+
+        lines.append("")
+    else:
+        lines.append("_Queue is empty — all clear._")
         lines.append("")
 
-    # Empty state
-    if not batch and not queue:
-        lines.append("_Queue is empty._")
-        lines.append("")
-
-    # Last completed (just one line, not a full history)
+    # Last completed
     history = state.get("history", [])
     if history:
         last = history[-1]
@@ -80,6 +81,13 @@ def render_status_md(state: dict, client: Any = None) -> str:
     lines.append(f"<sub>Updated {updated or 'never'} UTC</sub>")
 
     return "\n".join(lines) + "\n"
+
+
+def _pr_link(pr: dict, owner_repo: str) -> str:
+    num = pr.get("number", "?")
+    if owner_repo:
+        return f"[#{num}](https://github.com/{owner_repo}/pull/{num})"
+    return f"#{num}"
 
 
 def render_status_terminal(state: dict) -> str:

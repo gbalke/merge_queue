@@ -28,7 +28,7 @@ def test_render_status_md_queue_shows_pr_numbers() -> None:
     }
     md = render_status_md(state)
     assert "#1" in md
-    assert "Waiting" in md
+    assert "waiting" in md
 
 
 def test_render_status_md_history_duration_over_60s() -> None:
