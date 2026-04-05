@@ -72,13 +72,12 @@ def test_merged_with_timestamps_no_ci_started() -> None:
         queued_at="2026-01-01T00:00:00+00:00",
         completed_at="2026-01-01T00:02:00+00:00",
     )
-    assert "**Total**" in result
-    assert "2m 0s" in result
-    assert "Queued" not in result
+    assert "**2m 0s**" in result
+    assert "| Total |" in result
 
 
 def test_merged_with_all_timestamps_shows_full_stats_table() -> None:
-    """merged() with all timestamps renders the full stats table."""
+    """merged() with all timestamps renders the full horizontal stats table."""
     result = comments.merged(
         "main",
         queued_at="2026-01-01T00:00:00+00:00",
@@ -87,18 +86,18 @@ def test_merged_with_all_timestamps_shows_full_stats_table() -> None:
         ci_completed_at="2026-01-01T00:02:30+00:00",
         completed_at="2026-01-01T00:03:00+00:00",
     )
-    assert "Queued" in result
-    assert "Lock + merge" in result
-    assert "CI" in result
-    assert "Merge" in result
-    assert "**Total**" in result
+    assert "#### Timing" in result
+    # Horizontal layout: headers in one row, values in another
+    assert "| Queued | Lock | CI | Merge | Total |" in result
     assert "30s" in result  # queue wait
     assert "1m 30s" in result  # CI duration
+    assert "**3m 0s**" in result  # total
 
 
 def test_merged_with_stack() -> None:
-    """merged() with a stack renders the PR table."""
+    """merged() with a stack renders the PR table with header."""
     result = comments.merged("main", stack=_STACK)
+    assert "#### Commits" in result
     assert "| PR | Title |" in result
     assert "#1" in result
 
@@ -203,13 +202,15 @@ def test_progress_running_ci_with_branch() -> None:
     result = comments.progress(
         "running_ci",
         _STACK,
-        timings={"Queued": "5s", "Lock + merge": "3s"},
+        timings={"Queued": "5s", "Lock": "3s"},
         branch="mq/abc123",
     )
     assert "CI running" in result
     assert "mq/abc123" in result
-    assert "| Queued | 5s |" in result
-    assert "*CI*" in result  # active phase
+    assert "#### Timing" in result
+    # Horizontal layout: completed phases + active phase
+    assert "| Queued | Lock | CI |" in result
+    assert "| 5s | 3s | *...* |" in result
 
 
 def test_progress_merged_no_active_row() -> None:

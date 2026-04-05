@@ -31,24 +31,26 @@ def _pr_table(stack: list[dict]) -> str:
         num = pr.get("number", "?")
         title = pr.get("title", "")
         rows.append(f"| #{num} | {title} |")
-    return "\n| PR | Title |\n|:---|:------|\n" + "\n".join(rows)
+    return "\n\n#### Commits\n\n| PR | Title |\n|:---|:------|\n" + "\n".join(rows)
 
 
 def _timing_table(timings: dict[str, str] | None, active_label: str = "") -> str:
-    """Render a phase/duration timing table.
+    """Render a horizontal phase/duration timing table.
 
     timings: dict of phase name -> duration string
-    active_label: if set, append an in-progress row with this label
+    active_label: if set, append an in-progress column with this label
     """
     if not timings and not active_label:
         return ""
-    rows = []
-    if timings:
-        for name, dur in timings.items():
-            rows.append(f"| {name} | {dur} |")
+    headers = list(timings.keys()) if timings else []
+    values = list(timings.values()) if timings else []
     if active_label:
-        rows.append(f"| *{active_label}* | *...* |")
-    return "\n| Phase | Duration |\n|:------|:---------|\n" + "\n".join(rows)
+        headers.append(active_label)
+        values.append("*...*")
+    header_row = "| " + " | ".join(headers) + " |"
+    sep_row = "| " + " | ".join(":---:" for _ in headers) + " |"
+    val_row = "| " + " | ".join(values) + " |"
+    return f"\n\n#### Timing\n\n{header_row}\n{sep_row}\n{val_row}"
 
 
 def _mq_link(owner: str, repo: str) -> str:
@@ -105,7 +107,7 @@ def progress(
 
     phase: "queued", "locking", "running_ci", "completing", "merged", "failed", "aborted"
     timings: dict of phase name -> duration string
-        e.g. {"Queued": "5s", "Lock + merge": "3s"}
+        e.g. {"Queued": "5s", "Lock": "3s"}
     """
     phase_headers = {
         "queued": "\U0001f6a6 **Queued**",
@@ -177,34 +179,42 @@ def merged(
             t_queued = datetime.fromisoformat(queued_at)
             t_completed = datetime.fromisoformat(completed_at)
             total = (t_completed - t_queued).total_seconds()
-            rows = []
+            headers = []
+            values = []
 
             if started_at:
                 t_started = datetime.fromisoformat(started_at)
-                rows.append(
-                    f"| Queued | {_fmt_duration((t_started - t_queued).total_seconds())} |"
-                )
+                headers.append("Queued")
+                values.append(_fmt_duration((t_started - t_queued).total_seconds()))
 
                 if ci_started_at:
                     t_ci_start = datetime.fromisoformat(ci_started_at)
-                    rows.append(
-                        f"| Lock + merge | {_fmt_duration((t_ci_start - t_started).total_seconds())} |"
+                    headers.append("Lock")
+                    values.append(
+                        _fmt_duration((t_ci_start - t_started).total_seconds())
                     )
 
                     if ci_completed_at:
                         t_ci_end = datetime.fromisoformat(ci_completed_at)
-                        rows.append(
-                            f"| CI | {_fmt_duration((t_ci_end - t_ci_start).total_seconds())} |"
+                        headers.append("CI")
+                        values.append(
+                            _fmt_duration((t_ci_end - t_ci_start).total_seconds())
                         )
-                        rows.append(
-                            f"| Merge | {_fmt_duration((t_completed - t_ci_end).total_seconds())} |"
+                        headers.append("Merge")
+                        values.append(
+                            _fmt_duration((t_completed - t_ci_end).total_seconds())
                         )
                     else:
-                        rows.append(
-                            f"| CI + merge | {_fmt_duration((t_completed - t_ci_start).total_seconds())} |"
+                        headers.append("CI + merge")
+                        values.append(
+                            _fmt_duration((t_completed - t_ci_start).total_seconds())
                         )
-            rows.append(f"| **Total** | **{_fmt_duration(total)}** |")
-            stats = "\n\n| Phase | Duration |\n|:------|:---------|\n" + "\n".join(rows)
+            headers.append("Total")
+            values.append(f"**{_fmt_duration(total)}**")
+            header_row = "| " + " | ".join(headers) + " |"
+            sep_row = "| " + " | ".join(":---:" for _ in headers) + " |"
+            val_row = "| " + " | ".join(values) + " |"
+            stats = f"\n\n#### Timing\n\n{header_row}\n{sep_row}\n{val_row}"
         except Exception:
             pass
 
@@ -227,6 +237,8 @@ def failed(
     failed_step: str = "",
     owner: str = "",
     repo: str = "",
+    stack: list[dict] | None = None,
+    timings: dict[str, str] | None = None,
 ) -> str:
     header = f"\u274c **Failed** \u2014 {reason}"
     details = ""
@@ -238,8 +250,10 @@ def failed(
             parts.append(f"**Step:** {failed_step}")
         details = "\n\n> " + " \u00b7 ".join(parts)
 
+    timing = _timing_table(timings)
+    table = _pr_table(stack) if stack else ""
     footer = _actions_or_mq_footer(owner, repo, ci_run_url, "View failed run")
-    return f"{header}{details}{footer}"
+    return f"{header}{details}{timing}{table}{footer}"
 
 
 def batch_error(error: str, owner: str = "", repo: str = "") -> str:
@@ -265,3 +279,13 @@ def ci_not_ready(pr_number: int, owner: str = "", repo: str = "") -> str:
 
 def ci_retriggered(owner: str = "", repo: str = "") -> str:
     return f"\U0001f504 **CI retriggered** via `re-test` label{_actions_or_mq_footer(owner, repo)}"
+
+
+def break_glass_denied(sender: str, owner: str = "", repo: str = "") -> str:
+    link = _mq_link(owner, repo)
+    footer = _footer(link) if link else ""
+    return (
+        f"\u26a0\ufe0f **break-glass denied** \u2014 `{sender}` is not authorized.\n\n"
+        f"Only repo admins or users in `merge-queue.yml` can use break-glass."
+        f"{footer}"
+    )
