@@ -53,7 +53,7 @@ def _timing_table(timings: dict[str, str] | None, active_label: str = "") -> str
 
 def _mq_link(owner: str, repo: str) -> str:
     if owner and repo:
-        return f"[Queue](https://github.com/{owner}/{repo}/deployments/merge-queue)"
+        return f"[Queue](https://github.com/{owner}/{repo}/blob/mq/state/STATUS.md)"
     return ""
 
 

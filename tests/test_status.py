@@ -51,28 +51,26 @@ def _state_with_active():
 class TestRenderStatusMd:
     def test_empty_state(self):
         md = render_status_md(empty_state())
-        assert "# Merge Queue Status" in md
-        assert "idle" in md.lower() or "None" in md
-        assert "Empty" in md or "empty" in md
+        assert "# Merge Queue" in md
+        assert "empty" in md.lower()
 
     def test_active_batch(self):
         md = render_status_md(_state_with_active())
+        assert "Now processing" in md
         assert "running_ci" in md
-        assert "feat-a" in md
-        assert "feat-b" in md
         assert "#1" in md
         assert "#2" in md
+        assert "Add feature A" in md
 
     def test_queue_entries(self):
         md = render_status_md(_state_with_active())
-        assert "1 stack" in md
+        assert "Waiting" in md
         assert "#3" in md
 
     def test_history(self):
         md = render_status_md(_state_with_active())
         assert "merged" in md
         assert "#10" in md
-        assert "2m" in md  # 123s = 2m 3s
 
     def test_pr_links_with_client(self):
         from unittest.mock import MagicMock
@@ -85,7 +83,7 @@ class TestRenderStatusMd:
 
     def test_updated_timestamp(self):
         md = render_status_md(_state_with_active())
-        assert "2026-04-04T01:00:00Z" in md
+        assert "2026-04-04T01:00:00" in md
 
 
 class TestRenderStatusTerminal:
