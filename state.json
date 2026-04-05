@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T14:20:08.325376+00:00",
+  "updated_at": "2026-04-05T14:26:09.379533+00:00",
   "queue": [
     {
       "position": 1,
@@ -36,6 +36,24 @@
       "target_branch": "main",
       "comment_ids": {
         "77": 4188961647
+      }
+    },
+    {
+      "position": 3,
+      "queued_at": "2026-04-05T14:26:08.496225+00:00",
+      "stack": [
+        {
+          "number": 79,
+          "head_sha": "cd118f88b4eadf7a8a1351562b7d26763d6273c7",
+          "head_ref": "greg/revup/main/fix-409-retry",
+          "base_ref": "main",
+          "title": "Fix: auto-retry state.json writes on 409 conflict"
+        }
+      ],
+      "deployment_id": 4275629229,
+      "target_branch": "main",
+      "comment_ids": {
+        "79": 4188970615
       }
     }
   ],
