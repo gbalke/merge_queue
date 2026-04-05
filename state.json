@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:18:33.085933+00:00",
+  "updated_at": "2026-04-05T22:20:02.285386+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -59,29 +59,7 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": {
-        "batch_id": "1775427510",
-        "branch": "mq/main/1775427510",
-        "ruleset_id": 14716442,
-        "started_at": "2026-04-05T22:18:27.231998+00:00",
-        "progress": "running_ci",
-        "stack": [
-          {
-            "number": 109,
-            "head_sha": "cbb429c72a9cdf0009efbcbc39c2044662c8c677",
-            "head_ref": "greg/revup/main/fix-stuck-completing",
-            "base_ref": "main",
-            "title": "Fix _resume_completion passing prs= instead of stack= to Batch"
-          }
-        ],
-        "deployment_id": 4277924197,
-        "comment_ids": {
-          "109": 4189618266
-        },
-        "queued_at": "2026-04-05T22:15:05.768465+00:00",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T22:18:32.563708+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -414,6 +392,16 @@
         112
       ],
       "duration_seconds": 94.266994,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775427510",
+      "status": "ci_failed",
+      "completed_at": "2026-04-05T22:20:01.912011+00:00",
+      "prs": [
+        109
+      ],
+      "duration_seconds": 94.680013,
       "target_branch": "main"
     }
   ]
