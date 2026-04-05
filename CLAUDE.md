@@ -18,6 +18,20 @@ ALL changes go through revup + merge queue. **NEVER force push or push directly 
 - Add `queue` label to PRs to enter the merge queue
 - **Agents must NEVER use `git push origin main` or bypass branch protection**
 
+## Rebasing PRs onto Main
+
+When main has moved ahead and a PR has conflicts or stale CI:
+
+1. Fetch latest: `git fetch origin && git checkout main && git reset --hard origin/main`
+2. Find the topic commit: `git log --all --oneline --grep="Topic: <topic-name>"`
+3. Cherry-pick onto main: `git cherry-pick <sha>`
+4. If conflicts, resolve manually — read the diff, understand the intent, apply to current code
+5. Run lint + format + tests to verify
+6. Upload: `revup upload --skip-confirm`
+7. Re-add `queue` label to the PR
+
+If cherry-pick has too many conflicts, re-implement manually: read `gh pr diff <N>`, apply the intent to current code as a new commit with the same `Topic:` trailer.
+
 ## Using Agents
 
 For non-trivial work, spawn worktree agents:
