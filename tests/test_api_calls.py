@@ -609,17 +609,18 @@ class TestDoProcessApiCalls:
         )
 
     def test_no_queue_makes_minimal_calls(self):
-        """Empty queue: 1 read + 0 writes."""
+        """Empty queue: 1 read + 1 list_open_prs (sync-missing scan) + 0 writes."""
         client = _counting_client()
 
         result = do_process(client)
 
         assert result == "no_stacks"
         assert client.get_file_content.call_count == 1
+        assert client.list_open_prs.call_count == 1
         assert client.put_file_content.call_count == 0
         total = _total_api_calls(client)
-        assert total == 1, (
-            f"Empty queue do_process made {total} calls; expected exactly 1. "
+        assert total == 2, (
+            f"Empty queue do_process made {total} calls; expected exactly 2. "
             f"Breakdown: {_call_summary(client)}"
         )
 
