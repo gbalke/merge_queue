@@ -1,15 +1,15 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T20:42:47.438336+00:00",
+  "updated_at": "2026-04-05T20:42:51.182537+00:00",
   "branches": {
     "main": {
       "queue": [],
       "active_batch": {
-        "batch_id": "",
-        "branch": "",
-        "ruleset_id": null,
+        "batch_id": "1775421769",
+        "branch": "mq/main/1775421769",
+        "ruleset_id": 14715376,
         "started_at": "2026-04-05T20:42:47.298116+00:00",
-        "progress": "locking",
+        "progress": "running_ci",
         "stack": [
           {
             "number": 101,
@@ -24,7 +24,8 @@
           "101": 4189494693
         },
         "queued_at": "2026-04-05T20:39:51.576588+00:00",
-        "target_branch": "main"
+        "target_branch": "main",
+        "ci_started_at": "2026-04-05T20:42:51.006682+00:00"
       }
     },
     "release/1.0": {
