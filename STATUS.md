@@ -2,9 +2,9 @@
 
 ## Branches
 
-- [`main`](https://github.com/gbalke/merge_queue/blob/mq/state/main/STATUS.md) — 🔄 processing
+- [`main`](https://github.com/gbalke/merge_queue/blob/mq/state/main/STATUS.md) — ⏳ 2 waiting
 - [`release/1.0`](https://github.com/gbalke/merge_queue/blob/mq/state/release/1.0/STATUS.md) — ✅ idle
 
-Last: ✅ #93 merged (1m 38s)
+Last: ✅ #94 merged (1m 39s)
 
-<sub>Updated 2026-04-05T18:44:21 UTC</sub>
+<sub>Updated 2026-04-05T18:44:31 UTC</sub>
