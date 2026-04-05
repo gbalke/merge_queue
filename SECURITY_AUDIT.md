@@ -7,6 +7,22 @@
 
 ---
 
+## Resolution Status
+
+| Finding | Severity | Status | PR |
+|---------|----------|--------|----|
+| CRITICAL-1 | Critical | ✅ Resolved | #60 |
+| CRITICAL-2 | Critical | ✅ Resolved | #60 |
+| HIGH-1 | High | ❌ Open | — |
+| HIGH-2 | High | ❌ Open | — |
+| HIGH-3 | High | ❌ Open | — |
+| MEDIUM-1 | Medium | ✅ Resolved | #60 |
+| MEDIUM-2 | Medium | ❌ Open | — |
+| LOW-1 | Low | ❌ Open | — |
+| LOW-2 | Low | ❌ Open | — |
+
+---
+
 ## Executive Summary
 
 The merge queue has **two critical vulnerabilities** and **three high-severity issues**. The most serious is that the workflow installs Python code directly from a PR branch and then runs it with `GITHUB_TOKEN` and `MQ_ADMIN_TOKEN` in scope — this gives any contributor who can submit a PR unconditional code execution with those secrets. A secondary critical issue is workflow command injection via unsanitized PR data written into a `$GITHUB_OUTPUT` shell context.
@@ -15,7 +31,9 @@ The merge queue has **two critical vulnerabilities** and **three high-severity i
 
 ## Findings
 
-### CRITICAL-1: Arbitrary code execution from PR branch with live secrets
+### CRITICAL-1: Arbitrary code execution from PR branch with live secrets — ✅ RESOLVED
+
+**Status:** Resolved in PR #60. The bootstrap workaround was removed; the workflow now always checks out and installs from the default branch (`main`). New MQ code changes require merging to `main` before they take effect.
 
 **File:** `.github/workflows/merge-queue.yml`, lines 40–54
 
@@ -67,7 +85,9 @@ There is no sandboxing between the installed package and the secret-bearing envi
 
 ---
 
-### CRITICAL-2: Workflow command injection via `steps.cmd.outputs.cmd`
+### CRITICAL-2: Workflow command injection via `steps.cmd.outputs.cmd` — ✅ RESOLVED
+
+**Status:** Resolved in PR #60. The command is now passed via the `$MQ_CMD` environment variable instead of direct shell interpolation: `run: python -m merge_queue $MQ_CMD` with `env: MQ_CMD: ${{ steps.cmd.outputs.cmd }}`. This prevents shell interpretation of the command string.
 
 **File:** `.github/workflows/merge-queue.yml`, line 75
 
@@ -203,7 +223,9 @@ Alternatively, pass `MQ_ADMIN_TOKEN` as a CLI argument rather than an environmen
 
 ---
 
-### MEDIUM-1: `pyproject.toml` install hooks not present but the attack surface exists
+### MEDIUM-1: `pyproject.toml` install hooks not present but the attack surface exists — ✅ RESOLVED
+
+**Status:** Resolved by the CRITICAL-1 fix in PR #60. Since the workflow no longer installs from PR branches, this attack surface no longer exists.
 
 **File:** `pyproject.toml`
 
