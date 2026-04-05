@@ -400,9 +400,9 @@ class TestDoEnqueueApiCalls:
 
         get_pr_count = client.get_pr.call_count
         # Budget: exactly 1 get_pr — any more is wasteful
-        assert (
-            get_pr_count <= 1
-        ), f"get_pr called {get_pr_count} times; expected at most 1"
+        assert get_pr_count <= 1, (
+            f"get_pr called {get_pr_count} times; expected at most 1"
+        )
         assert client.create_deployment.call_count == 1
         assert client.update_deployment_status.call_count == 1
         assert client.create_comment.call_count == 1
@@ -773,9 +773,9 @@ class TestNoDuplicateFetch:
 
             do_process(client)
 
-        assert (
-            QS.fetch.call_count == 1
-        ), f"QueueState.fetch called {QS.fetch.call_count} times; expected 1"
+        assert QS.fetch.call_count == 1, (
+            f"QueueState.fetch called {QS.fetch.call_count} times; expected 1"
+        )
 
     @patch("merge_queue.cli.do_process", return_value="merged")
     def test_do_enqueue_fetches_state_once(self, _do_process):
@@ -801,9 +801,9 @@ class TestNoDuplicateFetch:
 
             do_enqueue(client, 1)
 
-        assert (
-            QS.fetch.call_count == 1
-        ), f"QueueState.fetch called {QS.fetch.call_count} times in do_enqueue; expected 1"
+        assert QS.fetch.call_count == 1, (
+            f"QueueState.fetch called {QS.fetch.call_count} times in do_enqueue; expected 1"
+        )
 
 
 # ---------------------------------------------------------------------------
