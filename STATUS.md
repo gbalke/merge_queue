@@ -3,8 +3,11 @@
 ## Active Batch
 _None — queue is idle._
 
-## Queue
-_Empty — nothing waiting._
+## Queue (1 stack waiting)
+
+| Position | PRs | Queued At |
+|----------|-----|-----------|
+| 1 | #62 | 2026-04-05T06:43:44 |
 
 ## Recent History (last 6)
 
@@ -17,4 +20,4 @@ _Empty — nothing waiting._
 | `1775368214` | #58 |  ci_failed | 1m 27s |
 | `1775367984` | #57 | ✅ merged | 1m 34s |
 
-_Updated 2026-04-05T06:39:04.219085+00:00_
+_Updated 2026-04-05T06:43:45.353629+00:00_
