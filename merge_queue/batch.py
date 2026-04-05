@@ -289,7 +289,11 @@ def complete_batch(
     # Verify target branch hasn't diverged
     status = client.compare_commits(target_branch, batch_sha)
     if status != "ahead":
-        raise BatchError(f"{target_branch} has diverged (status: {status})")
+        raise BatchError(
+            f"{target_branch} has diverged — another commit landed while CI was running. "
+            f"The batch branch is no longer a fast-forward of {target_branch}. "
+            f"Re-add the `queue` label to retry."
+        )
 
     # Retarget PRs to target_branch BEFORE fast-forward
     for pr in batch.stack.prs:

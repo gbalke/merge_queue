@@ -246,6 +246,11 @@ def failed(
     timings: dict[str, str] | None = None,
 ) -> str:
     header = f"\u274c **Failed** \u2014 {reason}"
+    if "diverged" in reason:
+        header += (
+            "\n\nThis usually means another commit was pushed to the target branch"
+            " while CI was running."
+        )
     details = ""
     if failed_job or failed_step:
         parts = []
