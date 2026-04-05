@@ -1,29 +1,31 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T17:51:51.025396+00:00",
+  "updated_at": "2026-04-05T17:51:53.815708+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-05T17:51:30Z",
-          "stack": [
-            {
-              "number": 90,
-              "head_sha": "447414ec4068530b89cf09f60a01829a54dac353",
-              "head_ref": "greg/revup/main/local-test-provider",
-              "base_ref": "main",
-              "title": "Add LocalGitProvider and integration test harness"
-            }
-          ],
-          "deployment_id": 4276649961,
-          "target_branch": "main",
-          "comment_ids": {
-            "90": 4189266729
+      "queue": [],
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T17:51:53.815692+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 90,
+            "head_sha": "447414ec4068530b89cf09f60a01829a54dac353",
+            "head_ref": "greg/revup/main/local-test-provider",
+            "base_ref": "main",
+            "title": "Add LocalGitProvider and integration test harness"
           }
-        }
-      ],
-      "active_batch": null
+        ],
+        "deployment_id": 4276649961,
+        "comment_ids": {
+          "90": 4189266729
+        },
+        "queued_at": "2026-04-05T17:51:30Z",
+        "target_branch": "main"
+      }
     }
   },
   "history": [
