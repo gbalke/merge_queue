@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T21:07:30.011211+00:00",
+  "updated_at": "2026-04-05T21:15:01.106913+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -75,6 +75,24 @@
             "101": 4189530649
           },
           "target_branch": "main"
+        },
+        {
+          "position": 5,
+          "queued_at": "2026-04-05T21:14:39Z",
+          "stack": [
+            {
+              "number": 109,
+              "head_sha": "cbb429c72a9cdf0009efbcbc39c2044662c8c677",
+              "head_ref": "greg/revup/main/fix-stuck-completing",
+              "base_ref": "main",
+              "title": "Fix _resume_completion passing prs= instead of stack= to Batch"
+            }
+          ],
+          "deployment_id": 4277650890,
+          "target_branch": "main",
+          "comment_ids": {
+            "109": 4189541055
+          }
         }
       ],
       "active_batch": null
