@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T18:02:29.566462+00:00",
+  "updated_at": "2026-04-05T18:02:39.635263+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775412077",
-        "branch": "mq/main/1775412077",
-        "ruleset_id": 14712172,
-        "started_at": "2026-04-05T18:01:15.415994+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 91,
-            "head_sha": "631736d91f15d98510907c3c817ac8ac346c555d",
-            "head_ref": "greg/revup/main/auto-protect-branches",
-            "base_ref": "main",
-            "title": "Auto-configure branch protection rulesets for MQ target branches"
-          }
-        ],
-        "deployment_id": 4276695373,
-        "comment_ids": {
-          "91": 4189279054
-        },
-        "queued_at": "2026-04-05T18:00:56Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T18:01:20.275554+00:00"
-      }
+      "active_batch": null
     }
   },
   "history": [
@@ -165,6 +143,16 @@
         90
       ],
       "duration_seconds": 100.086268,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775412077",
+      "status": "merged",
+      "completed_at": "2026-04-05T18:02:39.635231+00:00",
+      "prs": [
+        91
+      ],
+      "duration_seconds": 84.219237,
       "target_branch": "main"
     }
   ]
