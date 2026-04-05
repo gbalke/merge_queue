@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T17:53:33.901984+00:00",
+  "updated_at": "2026-04-05T18:01:12.148903+00:00",
   "branches": {
     "main": {
-      "queue": [],
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-05T18:00:56Z",
+          "stack": [
+            {
+              "number": 91,
+              "head_sha": "631736d91f15d98510907c3c817ac8ac346c555d",
+              "head_ref": "greg/revup/main/auto-protect-branches",
+              "base_ref": "main",
+              "title": "Auto-configure branch protection rulesets for MQ target branches"
+            }
+          ],
+          "deployment_id": 4276695373,
+          "target_branch": "main",
+          "comment_ids": {
+            "91": 4189279054
+          }
+        }
+      ],
       "active_batch": null
     }
   },
