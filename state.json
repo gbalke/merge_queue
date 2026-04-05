@@ -1,27 +1,9 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T16:05:00.304573+00:00",
+  "updated_at": "2026-04-05T16:05:02.423398+00:00",
   "queue": [
     {
       "position": 1,
-      "queued_at": "2026-04-05T16:01:59.413098+00:00",
-      "stack": [
-        {
-          "number": 87,
-          "head_sha": "2f204413eb5b1134292852ca04141de8282b9534",
-          "head_ref": "greg/revup/release/1.0/rel-batch-b",
-          "base_ref": "release/1.0",
-          "title": "Add batch test B"
-        }
-      ],
-      "deployment_id": 4276105807,
-      "comment_ids": {
-        "87": 4189110220
-      },
-      "target_branch": "release/1.0"
-    },
-    {
-      "position": 2,
       "queued_at": "2026-04-05T16:02:00.274776+00:00",
       "stack": [
         {
@@ -39,7 +21,28 @@
       "target_branch": "main"
     }
   ],
-  "active_batch": null,
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-05T16:05:02.423384+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 87,
+        "head_sha": "2f204413eb5b1134292852ca04141de8282b9534",
+        "head_ref": "greg/revup/release/1.0/rel-batch-b",
+        "base_ref": "release/1.0",
+        "title": "Add batch test B"
+      }
+    ],
+    "deployment_id": 4276105807,
+    "comment_ids": {
+      "87": 4189110220
+    },
+    "queued_at": "2026-04-05T16:01:59.413098+00:00",
+    "target_branch": "release/1.0"
+  },
   "history": [
     {
       "batch_id": "1775400996",
