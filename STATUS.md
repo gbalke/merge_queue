@@ -1,11 +1,7 @@
 # Merge Queue
 
-## release/1.0
+_Queue is empty — all clear._
 
-| # | PR | Title | Status | Queued |
-|:--|:---|:------|:-------|:------|
-| 1 | [#73](https://github.com/gbalke/merge_queue/pull/73) | Add release feature 2 | 🔄 merging | <relative-time datetime="2026-04-05T15:31:45Z">2026-04-05T15:31:45Z</relative-time> |
+Last:  #73 complete_error (1m 14s)
 
-Last:  #74 complete_error (1m 30s)
-
-<sub>Updated 2026-04-05T15:34:30 UTC</sub>
+<sub>Updated 2026-04-05T15:34:33 UTC</sub>
