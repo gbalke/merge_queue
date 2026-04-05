@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T16:01:57.268843+00:00",
+  "updated_at": "2026-04-05T16:02:01.078813+00:00",
   "queue": [
     {
       "position": 1,
@@ -19,6 +19,60 @@
       "comment_ids": {
         "86": 4189110152
       }
+    },
+    {
+      "position": 2,
+      "queued_at": "2026-04-05T16:01:58.587703+00:00",
+      "stack": [
+        {
+          "number": 88,
+          "head_sha": "87959604dc5906db1bf37901d3c9dd4f6b6a9668",
+          "head_ref": "greg/revup/release/1.0/rel-batch-c",
+          "base_ref": "release/1.0",
+          "title": "Add batch test C"
+        }
+      ],
+      "deployment_id": 4276105737,
+      "comment_ids": {
+        "88": 4189110201
+      },
+      "target_branch": "release/1.0"
+    },
+    {
+      "position": 3,
+      "queued_at": "2026-04-05T16:01:59.413098+00:00",
+      "stack": [
+        {
+          "number": 87,
+          "head_sha": "2f204413eb5b1134292852ca04141de8282b9534",
+          "head_ref": "greg/revup/release/1.0/rel-batch-b",
+          "base_ref": "release/1.0",
+          "title": "Add batch test B"
+        }
+      ],
+      "deployment_id": 4276105807,
+      "comment_ids": {
+        "87": 4189110220
+      },
+      "target_branch": "release/1.0"
+    },
+    {
+      "position": 4,
+      "queued_at": "2026-04-05T16:02:00.274776+00:00",
+      "stack": [
+        {
+          "number": 85,
+          "head_sha": "7a5383cd7f9ea629b060d8c6d3d200861563ae95",
+          "head_ref": "greg/revup/main/auto-rebase",
+          "base_ref": "main",
+          "title": "Add auto-rebase on conflict: rebase and retry instead of failing"
+        }
+      ],
+      "deployment_id": 4276105867,
+      "comment_ids": {
+        "85": 4189110233
+      },
+      "target_branch": "main"
     }
   ],
   "active_batch": null,
