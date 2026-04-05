@@ -62,33 +62,25 @@ def _comment(
         return None
 
 
-def _update_progress(
+def _normalize_cids(cids: dict | None) -> dict[int, int]:
+    """Normalize comment_ids keys to int (JSON deserializes them as strings)."""
+    if not cids:
+        return {}
+    return {int(k): v for k, v in cids.items()}
+
+
+def _update_deployment(
     client: GitHubClientProtocol,
-    phase: str,
-    stack: list[dict],
-    cids: dict,
-    timings: dict[str, str],
-    owner: str = "",
-    repo: str = "",
-    ci_run_url: str = "",
-    branch: str = "",
+    dep_id: int | None,
+    state: str,
+    description: str = "",
 ) -> None:
-    """Update all PR comments with current phase and timing."""
-    for pr in stack:
-        _comment(
-            client,
-            pr["number"],
-            comments.progress(
-                phase,
-                stack,
-                timings=timings,
-                ci_run_url=ci_run_url,
-                branch=branch,
-                owner=owner,
-                repo=repo,
-            ),
-            cids,
-        )
+    """Update deployment status, ignoring errors."""
+    if dep_id:
+        try:
+            client.update_deployment_status(dep_id, state, description)
+        except Exception:
+            pass
 
 
 def _clear_active_batch(state: dict, store: StateStore) -> None:
@@ -362,17 +354,9 @@ def do_process(client: GitHubClientProtocol) -> str:
     log.info("Processing: %s", " -> ".join(f"#{pr.number}" for pr in prs))
 
     dep_id = entry.get("deployment_id")
-    cids = entry.get("comment_ids", {})
-    # Normalize keys to int
-    cids = {int(k): v for k, v in cids.items()} if cids else {}
+    cids = _normalize_cids(entry.get("comment_ids"))
 
-    if dep_id:
-        try:
-            client.update_deployment_status(
-                dep_id, "in_progress", "Locking branches..."
-            )
-        except Exception:
-            pass
+    _update_deployment(client, dep_id, "in_progress", "Locking branches...")
 
     # Set active batch in state (include comment_ids for abort)
     started_at = _now_iso()
@@ -401,11 +385,7 @@ def do_process(client: GitHubClientProtocol) -> str:
                 client.remove_label(pr.number, "queue")
             except Exception:
                 pass
-        if dep_id:
-            try:
-                client.update_deployment_status(dep_id, "failure", str(e)[:140])
-            except Exception:
-                pass
+        _update_deployment(client, dep_id, "failure", str(e)[:140])
         _clear_active_batch(state, store)
         return "batch_error"
 
@@ -419,13 +399,7 @@ def do_process(client: GitHubClientProtocol) -> str:
     state["updated_at"] = _now_iso()
     store.write(state)
 
-    if dep_id:
-        try:
-            client.update_deployment_status(
-                dep_id, "in_progress", f"CI running on {batch.branch}"
-            )
-        except Exception:
-            pass
+    _update_deployment(client, dep_id, "in_progress", f"CI running on {batch.branch}")
 
     # Update comments to show CI running (with link to Actions tab)
     actions_url = f"https://github.com/{owner}/{repo}/actions" if owner and repo else ""
@@ -457,13 +431,9 @@ def do_process(client: GitHubClientProtocol) -> str:
             merge_completed_at = _now_iso()
             log.info("Batch merged!")
             status = "merged"
-            if dep_id:
-                try:
-                    client.update_deployment_status(
-                        dep_id, "success", f"Merged to {api_state.default_branch}"
-                    )
-                except Exception:
-                    pass
+            _update_deployment(
+                client, dep_id, "success", f"Merged to {api_state.default_branch}"
+            )
             # Update comments with full timing breakdown
             for pr in prs:
                 _comment(
@@ -487,11 +457,7 @@ def do_process(client: GitHubClientProtocol) -> str:
             log.error("Complete failed: %s", e)
             batch_mod.fail_batch(client, batch, str(e))
             status = "complete_error"
-            if dep_id:
-                try:
-                    client.update_deployment_status(dep_id, "failure", str(e)[:140])
-                except Exception:
-                    pass
+            _update_deployment(client, dep_id, "failure", str(e)[:140])
             for pr in prs:
                 _comment(
                     client,
@@ -509,12 +475,8 @@ def do_process(client: GitHubClientProtocol) -> str:
                 failed_job, failed_step = client.get_failed_job_info(ci_result.run_url)
             except Exception:
                 pass
-        if dep_id:
-            desc = f"CI failed: {failed_job}" if failed_job else "CI failed"
-            try:
-                client.update_deployment_status(dep_id, "failure", desc[:140])
-            except Exception:
-                pass
+        desc = f"CI failed: {failed_job}" if failed_job else "CI failed"
+        _update_deployment(client, dep_id, "failure", desc[:140])
         for pr in prs:
             _comment(
                 client,
@@ -572,13 +534,8 @@ def do_abort(client: GitHubClientProtocol, pr_number: int) -> str:
         log.info("Aborting active batch for PR #%d", pr_number)
         batch_mod.abort_batch(client)
         dep_id = active.get("deployment_id")
-        cids = active.get("comment_ids", {})
-        cids = {int(k): v for k, v in cids.items()} if cids else {}
-        if dep_id:
-            try:
-                client.update_deployment_status(dep_id, "inactive", "Aborted")
-            except Exception:
-                pass
+        cids = _normalize_cids(active.get("comment_ids"))
+        _update_deployment(client, dep_id, "inactive", "Aborted")
         state["active_batch"] = None
         state["updated_at"] = _now_iso()
         store.write(state)
@@ -594,14 +551,9 @@ def do_abort(client: GitHubClientProtocol, pr_number: int) -> str:
             removed = queue.pop(i)
             for j, e in enumerate(queue):
                 e["position"] = j + 1
-            cids = removed.get("comment_ids", {})
-            cids = {int(k): v for k, v in cids.items()} if cids else {}
+            cids = _normalize_cids(removed.get("comment_ids"))
             dep_id = removed.get("deployment_id")
-            if dep_id:
-                try:
-                    client.update_deployment_status(dep_id, "inactive", "Removed")
-                except Exception:
-                    pass
+            _update_deployment(client, dep_id, "inactive", "Removed")
             state["updated_at"] = _now_iso()
             store.write(state)
             for pr in removed.get("stack", []):
