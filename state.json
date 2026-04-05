@@ -1,29 +1,11 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T20:41:25.798601+00:00",
+  "updated_at": "2026-04-05T20:41:28.952138+00:00",
   "branches": {
     "main": {
       "queue": [
         {
           "position": 1,
-          "queued_at": "2026-04-05T20:39:50.727010+00:00",
-          "stack": [
-            {
-              "number": 104,
-              "head_sha": "82bf7cf17b9a3fc7e51e2fb5b5566ac3f4781936",
-              "head_ref": "greg/revup/main/enforce-no-direct-push",
-              "base_ref": "main",
-              "title": "Enforce never-push-to-main rule in CLAUDE.md"
-            }
-          ],
-          "deployment_id": 4277480837,
-          "comment_ids": {
-            "104": 4189494680
-          },
-          "target_branch": "main"
-        },
-        {
-          "position": 2,
           "queued_at": "2026-04-05T20:39:51.576588+00:00",
           "stack": [
             {
@@ -41,7 +23,28 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": null
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T20:41:28.813290+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 104,
+            "head_sha": "82bf7cf17b9a3fc7e51e2fb5b5566ac3f4781936",
+            "head_ref": "greg/revup/main/enforce-no-direct-push",
+            "base_ref": "main",
+            "title": "Enforce never-push-to-main rule in CLAUDE.md"
+          }
+        ],
+        "deployment_id": 4277480837,
+        "comment_ids": {
+          "104": 4189494680
+        },
+        "queued_at": "2026-04-05T20:39:50.727010+00:00",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],

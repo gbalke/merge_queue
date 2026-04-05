@@ -2,6 +2,6 @@
 
 | # | PR | Title | Status | Queued |
 |:--|:---|:------|:-------|:------|
-| 1 | [#104](https://github.com/gbalke/merge_queue/pull/104) | Enforce never-push-to-main rule in CLAUDE.md | ⏳ waiting | <relative-time datetime="2026-04-05T20:39:50Z">2026-04-05T20:39:50Z</relative-time> |
+| 1 | [#104](https://github.com/gbalke/merge_queue/pull/104) | Enforce never-push-to-main rule in CLAUDE.md | 🔒 locking | <relative-time datetime="2026-04-05T20:39:50Z">2026-04-05T20:39:50Z</relative-time> |
 | 2 | [#101](https://github.com/gbalke/merge_queue/pull/101) | Protect all mq/* branches: only admin token can write | ⏳ waiting | <relative-time datetime="2026-04-05T20:39:51Z">2026-04-05T20:39:51Z</relative-time> |
 
