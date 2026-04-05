@@ -1,30 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T13:59:09.597037+00:00",
+  "updated_at": "2026-04-05T13:59:18.438089+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775397463",
-    "branch": "mq/1775397463",
-    "ruleset_id": 14710079,
-    "started_at": "2026-04-05T13:57:42.850628+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 70,
-        "head_sha": "b9036f06e215d92a190291948fd73fd6810130af",
-        "head_ref": "greg/revup/main/queue-visibility",
-        "base_ref": "main",
-        "title": "Unified queue page: single table with all PRs and status"
-      }
-    ],
-    "deployment_id": 4275493495,
-    "comment_ids": {
-      "70": 4188930943
-    },
-    "queued_at": "2026-04-05T13:57:40.466905+00:00",
-    "target_branch": "main",
-    "ci_started_at": "2026-04-05T13:57:45.720847+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775367984",
@@ -152,6 +130,15 @@
         71
       ],
       "duration_seconds": 96.15013
+    },
+    {
+      "batch_id": "1775397463",
+      "status": "merged",
+      "completed_at": "2026-04-05T13:59:18.438067+00:00",
+      "prs": [
+        70
+      ],
+      "duration_seconds": 95.587439
     }
   ]
 }
