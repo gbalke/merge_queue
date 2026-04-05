@@ -1,29 +1,11 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:03:25.127362+00:00",
+  "updated_at": "2026-04-05T22:03:28.097812+00:00",
   "branches": {
     "main": {
       "queue": [
         {
           "position": 1,
-          "queued_at": "2026-04-05T21:39:24Z",
-          "stack": [
-            {
-              "number": 111,
-              "head_sha": "9f21f5b927fa5e8199e4287a8204b1e9f996114a",
-              "head_ref": "greg/revup/main/hotfix-queue-priority",
-              "base_ref": "main",
-              "title": "Hotfixes go through merge queue at front of queue instead of pushing directly to main"
-            }
-          ],
-          "deployment_id": 4277762822,
-          "target_branch": "main",
-          "comment_ids": {
-            "111": 4189572127
-          }
-        },
-        {
-          "position": 2,
           "queued_at": "2026-04-05T21:42:54Z",
           "stack": [
             {
@@ -41,7 +23,28 @@
           }
         }
       ],
-      "active_batch": null
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T22:03:27.965545+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 111,
+            "head_sha": "9f21f5b927fa5e8199e4287a8204b1e9f996114a",
+            "head_ref": "greg/revup/main/hotfix-queue-priority",
+            "base_ref": "main",
+            "title": "Hotfixes go through merge queue at front of queue instead of pushing directly to main"
+          }
+        ],
+        "deployment_id": 4277762822,
+        "comment_ids": {
+          "111": 4189572127
+        },
+        "queued_at": "2026-04-05T21:39:24Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
