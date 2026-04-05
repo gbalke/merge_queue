@@ -4,282 +4,172 @@
 
 ```
   USER ACTION                    GITHUB ACTIONS                    GITHUB API
-  ───────────                    ──────────────                    ──────────
-                                 ┌──────────────────────┐
-  Add 'queue'  ───────────────>  │  merge-queue.yml      │
-  label to PR                    │  (workflow trigger)    │
-                                 │                        │
-  Add 'hotfix' ───────────────>  │  Determines command:   │
-  label to PR                    │  labeled  -> enqueue   │
-                                 │  labeled  -> hotfix    │
-  Add 're-test' ──────────────>  │  labeled  -> retest    │
-  label to PR                    │  unlabel  -> abort     │
-                                 │  dispatch -> process   │
-  Remove 'queue' ─────────────>  │  dispatch -> status    │
-  label from PR                  │  dispatch -> check-rules│
-                                 └──────────┬─────────────┘
-                                            │
+  -----------                    --------------                    ----------
+                                 merge-queue.yml
+  Add 'queue'  ----------------> labeled  -> enqueue
+  Add 'hotfix' ----------------> labeled  -> hotfix
+  Add 'break-glass' -----------> labeled  -> break-glass
+  Add 're-test' ---------------> labeled  -> retest
+  Remove 'queue' --------------> unlabeled -> abort
+                                 dispatch  -> process | status | check-rules
+                                            |
                                             v
-                                 ┌──────────────────────┐
-                                 │  python -m merge_queue │
-                                 │  $MQ_CMD (via env var) │
-                                 └──────────┬─────────────┘
-                                            │
-                 ┌──────────────────────────┼──────────────────────────┐
-                 │                          │                          │
-                 v                          v                          v
-          ┌─────────────┐          ┌──────────────┐          ┌──────────────┐
-          │  enqueue     │          │  process      │          │  abort        │
-          │  hotfix      │          │  (cli.py)     │          │  (cli.py)     │
-          │  (cli.py)    │          │               │          │               │
-          └──────┬──────┘          └──────┬───────┘          └──────┬───────┘
-                 │                        │                         │
-                 v                        v                         v
-          Comment on PR           See flow below              Delete rulesets
-          _sync_missing_prs()                                 Remove 'locked'
-          Check if idle ──yes──>  do_process()                Delete mq/* branch
-            │
-            no
-            │
-            v
-          "Waiting for
-           processor"
+                                 python -m merge_queue $MQ_CMD
+                                            |
+                 +--------------------------+---------------------------+
+                 |                          |                           |
+            enqueue/hotfix/          process                     abort
+            break-glass              (cli.py)                    (cli.py)
+            (cli.py)                    |                           |
+                 |                      v                           v
+                 v                 See flow below             Delete rulesets
+            Comment on PR                                    Remove 'locked'
+            _sync_missing_prs()                              Delete mq/* branch
+            Check if idle --yes--> do_process()
 ```
 
 ## Processing Flow (do_process)
 
 ```
 do_process(client)
-│
-├─ 1. LOAD CONFIG
-│     │
-│     ├── config.load_config(client)
-│     │     └── Read merge-queue.yml from default branch
-│     │         Parse: break_glass_users, target_branches
-│     │
-├─ 2. CHECK ACTIVE BATCH (per target branch)
-│     │
-│     ├── mq/<target>/* branch exists? ──yes──> return "batch_active"
-│     │                                         (another run is handling it)
-│     no
-│     │
-├─ 3. RUN PRE-CONDITION RULES
-│     │
-│     ├── rules.check_all()
-│     │     ├── single_active_batch     (at most 1 mq/ branch per target)
-│     │     ├── locked_prs_have_rulesets (locked PRs covered by ruleset)
-│     │     ├── no_orphaned_locks       (no locked PRs without mq/ branch)
-│     │     ├── queue_order_is_fifo     (active batch is earliest-queued)
-│     │     └── stack_integrity         (stacks form valid chains)
-│     │
-│     ├── Any rule fails? ──yes──> return "rules_failed"
-│     │
-│     no
-│     │
-├─ 4. FIND NEXT STACK (FIFO, per-branch queue)
-│     │
-│     ├── fetch_queued_prs()
-│     │     └── List open PRs with 'queue' label
-│     │         For each: get label timestamp via Timeline API
-│     │
-│     ├── detect_stacks()
-│     │     └── Group PRs by base_ref chains:
-│     │           main <─ PR#1 <─ PR#2 <─ PR#3  = one stack
-│     │           release/1.0 <─ PR#4            = another stack (different queue)
-│     │
-│     ├── order_queue() per target branch
-│     │     └── Sort stacks by earliest queued_at (FIFO)
-│     │
-│     ├── select_next()
-│     │     └── Pick first stack from first available branch queue
-│     │
-│     ├── No stacks? ──yes──> return "no_stacks"
-│     │
-│     no
-│     │
-├─ 5. CI GATE CHECK
-│     │
-│     ├── All PRs in stack must have passing CI
-│     │     └── Unless break-glass label applied by authorized user
-│     │
-│     ├── CI not passing? ──yes──> Comment, skip stack
-│     │
-│     no
-│     │
-├─ 6. CREATE BATCH (batch.create_batch)
-│     │
-│     │   ┌──────────────────────────────────────────────────────┐
-│     │   │  a. Create ruleset locking PR branches               │
-│     │   │     (MQ_ADMIN_TOKEN -> GitHub Rulesets API)          │
-│     │   │     Pushes to PR branches now rejected: GH013        │
-│     │   │                                                      │
-│     │   │  b. Add 'locked' label to each PR                   │
-│     │   │                                                      │
-│     │   │  c. git checkout -b mq/<target>/<batch_id>          │
-│     │   │                                                      │
-│     │   │  d. For each PR in stack (bottom to top):            │
-│     │   │       git fetch origin <head_ref>                    │
-│     │   │       verify SHA matches (optimistic lock)           │
-│     │   │       git merge --no-ff origin/<head_ref>            │
-│     │   │                                                      │
-│     │   │  e. git push origin mq/<target>/<batch_id>          │
-│     │   │                                                      │
-│     │   │  If c-e fail: delete ruleset, remove 'locked' labels │
-│     │   └──────────────────────────────────────────────────────┘
-│     │
-│     ├── BatchError? ──yes──> Comment, remove 'queue', return "batch_error"
-│     │
-│     no
-│     │
-├─ 7. RUN CI (batch.run_ci)
-│     │
-│     │   ┌──────────────────────────────────────────────────────┐
-│     │   │  a. Dispatch CI workflow on mq/<target>/<batch_id>   │
-│     │   │     (workflow_dispatch -> $MQ_CI_WORKFLOW)            │
-│     │   │                                                      │
-│     │   │  b. Poll for CI run to appear (5s intervals)         │
-│     │   │                                                      │
-│     │   │  c. Poll for completion (15s intervals, 30min max)   │
-│     │   └──────────────────────────────────────────────────────┘
-│     │
-│     ├── CI failed? ──yes──> fail_batch() -> return "ci_failed"
-│     │
-│     no
-│     │
-├─ 8. COMPLETE BATCH (batch.complete_batch)
-│     │
-│     │   ┌──────────────────────────────────────────────────────┐
-│     │   │  a. Verify optimistic locks (PR SHAs unchanged)      │
-│     │   │                                                      │
-│     │   │  b. Verify target branch hasn't diverged             │
-│     │   │     └── If diverged: auto-retry (up to 3 times)     │
-│     │   │         Recreate mq/ branch from new target tip      │
-│     │   │         Re-merge stack, re-run CI                    │
-│     │   │                                                      │
-│     │   │  c. Retarget all PRs to target branch                │
-│     │   │     (so GitHub sees "new commits" on each PR)        │
-│     │   │                                                      │
-│     │   │  d. Fast-forward target branch to mq/ tip            │
-│     │   │     (git.updateRef, force=false)                     │
-│     │   │                                                      │
-│     │   │  e. GitHub detects PR commits reachable from target  │
-│     │   │     -> PRs marked MERGED (purple)                    │
-│     │   │                                                      │
-│     │   │  f. Delete lock ruleset (branches unlocked)          │
-│     │   │                                                      │
-│     │   │  g. Remove 'locked' + 'queue' labels                │
-│     │   │                                                      │
-│     │   │  h. Comment "Successfully merged"                    │
-│     │   │                                                      │
-│     │   │  i. Delete mq/ branch + PR head branches             │
-│     │   └──────────────────────────────────────────────────────┘
-│     │
-│     ├── BatchError? ──yes──> fail_batch() -> return "complete_error"
-│     │
-│     no
-│     │
-├─ 9. CHECK FOR MORE QUEUED STACKS
-│     │
-│     ├── More stacks with 'queue' label?
-│     │     └── yes -> Dispatch merge-queue.yml (command=process)
-│     │                (self-dispatch for next batch)
-│     │
-│     └── return "merged"
+|
++- 1. LOAD STATE
+|     store.read() -> state.json from mq/state branch
+|     config.get_target_branches() -> merge-queue.yml from default branch
+|
++- 2. DETECT STUCK BATCHES (per target branch)
+|     |
+|     +-- active_batch exists?
+|           |
+|           +-- All PRs merged/closed? -> clear stale state
+|           +-- Age > 30min? -> abort_batch(), clear state
+|           +-- progress="completing"? -> _resume_completion()
+|                 (previous run was cancelled mid-merge; reconstruct Batch, retry)
+|           +-- Otherwise -> skip (another run is handling it)
+|
++- 3. SYNC STATE
+|     _sync_missing_prs() -- auto-enqueue PRs with 'queue' label not in state
+|     _cleanup_stale_entries() -- remove entries for PRs without 'queue' label
+|
++- 4. FIND NEXT BRANCH TO PROCESS (FIFO, per-branch queue)
+|     First branch with non-empty queue and no active_batch
+|
++- 5. ENSURE BRANCH PROTECTION
+|     ensure_branch_protection() -> creates mq-protect-* rulesets
+|     _ensure_mq_branches_protected() -> creates mq-branches-protect
+|
++- 6. RUN PRE-CONDITION RULES
+|     rules.check_all() -> single_active_batch, locked_prs_have_rulesets,
+|                           no_orphaned_locks, queue_order_is_fifo, stack_integrity
+|
++- 7. POP FIRST STACK (FIFO), CREATE BATCH
+|     batch.create_batch():
+|       a. Lock PR branches via ruleset (MQ_ADMIN_TOKEN)
+|       b. Add 'locked' label to each PR
+|       c. git checkout -b mq/<target>/<batch_id>
+|       d. For each PR: fetch, verify SHA, merge --no-ff
+|       e. git push
+|       On failure: delete ruleset, remove 'locked' labels
+|
++- 8. RUN CI
+|     batch.run_ci():
+|       a. Dispatch CI workflow on mq/<target>/<batch_id>
+|       b. Poll for run to appear (5s intervals)
+|       c. Poll for completion (15s intervals, 30min timeout)
+|
++- 9. COMPLETE OR FAIL
+      |
+      +-- CI passed:
+      |     Set progress="completing" in state (crash recovery marker)
+      |     batch.complete_batch():
+      |       a. Verify target branch hasn't diverged (compare_commits)
+      |       b. Retarget all PRs to target branch
+      |       c. Fast-forward target branch (update_ref via admin token)
+      |       d. Set commit status on new HEAD
+      |       e. Parallel cleanup: unlock ruleset, delete branches, post comments
+      |     On 422 from update_ref -> BatchError("diverged") -> auto-retry
+      |
+      +-- CI failed:
+      |     fail_batch(): unlock, remove labels, delete branch
+      |
+      +-- Diverged (target branch moved):
+            Re-queue entry with retry_count+1 (max 3 retries)
+            Recursive do_process()
 ```
 
-## Failure & Abort Flows
+## Hotfix and Break-Glass Flows
 
 ```
-fail_batch(client, batch, reason)        abort_batch(client)
-│                                        │
-├── Delete lock ruleset                  ├── Find all mq-lock-* rulesets
-├── Remove 'locked' label from PRs       │     └── Delete each
-├── Remove 'queue' label from PRs        ├── Find all PRs with 'locked'
-├── Comment with failure reason           │     └── Remove label
-├── Delete mq/* branch                   └── Delete all mq/* branches
-└── batch.status = FAILED
-
-                              ABORT TRIGGER
-                              ─────────────
-                    User removes 'queue' label from locked PR
-                                    │
-                                    v
-                             merge-queue.yml
-                             (unlabeled event)
-                                    │
-                                    v
-                         python -m merge_queue abort <pr>
-                                    │
-                              ┌─────┴──────┐
-                              │ PR locked?  │
-                              └─────┬──────┘
-                               no   │  yes
-                               │    │
-                               v    v
-                            noop    abort_batch()
-                                    + comment "Aborted"
+HOTFIX (do_hotfix)                    BREAK-GLASS (do_break_glass)
+-----------------                     --------------------------
+Auth check (admin/break_glass_users)  Auth check (same)
+       |                                     |
+       v                                     v
+Abort active batch if any             Abort active batch if any
+Re-queue aborted PRs behind hotfix   Re-queue aborted PRs
+       |                                     |
+       v                                     v
+Insert at front of queue              Create batch (merge PR into target)
+       |                                     |
+       v                                     v
+do_process() (normal CI pipeline)     Skip CI entirely
+                                             |
+                                             v
+                                      complete_batch() (fast-forward)
 ```
 
-## Queue Ordering (FIFO, Per-Branch)
+## Atomic State Writes
+
+State is stored as `state.json` + `STATUS.md` files on the `mq/state` branch.
+
+**Problem**: Sequential writes via the Contents API (one file per commit) caused
+409 SHA races when concurrent workflows updated state.
+
+**Solution**: `commit_files()` uses the Git Trees API to bundle `state.json` +
+all `STATUS.md` files into a single atomic commit (blobs -> tree -> commit ->
+update ref).
 
 ```
-EXAMPLE: Two stacks queued to different target branches
-
-  Time ──────────────────────────────────────────────>
-
-  T=0: User labels PR#4 with 'queue'    (stack B -> main, position 1)
-  T=1: User labels PR#1 with 'queue'    (stack A -> main, position 2)
-  T=2: User labels PR#7 with 'queue'    (stack C -> release/1.0, position 1)
-  T=3: User labels PR#2 with 'queue'    (stack A -> main, same position)
-
-  Stack detection:
-    Stack A: main <─ PR#1 <─ PR#2            queued_at = T=1
-    Stack B: main <─ PR#4                    queued_at = T=0
-    Stack C: release/1.0 <─ PR#7             queued_at = T=2
-
-  Per-branch FIFO:
-    main queue:         Stack B (T=0), then Stack A (T=1)
-    release/1.0 queue:  Stack C (T=2)
-
-  Processing:
-    1. Stack B: mq/main/<id>, merge PR#4, CI, merge to main
-    2. Stack C: mq/release/1.0/<id>, merge PR#7, CI, merge to release/1.0
-       (can run after Stack B since it targets a different branch)
-    3. Stack A: mq/main/<id>, merge PR#1 + PR#2, CI, merge to main
+store.write_with_retry(mutate_fn):
+  loop (up to 7 retries, exponential backoff):
+    1. read() -> state.json + cache SHA
+    2. mutate_fn(state)
+    3. _atomic_write(state):
+         - Create blobs for state.json + STATUS.md files
+         - Create tree with base_tree (inherits unchanged files)
+         - Create commit with single parent
+         - Update ref (force=false)
+    4. On 409/422 conflict -> retry from step 1
 ```
 
-## Branch State During Merge
+The `mq/state` branch is explicitly excluded from the `mq-branches-protect`
+ruleset because branch protection blocks the Git Data API writes. The GitHub
+Actions concurrency group provides single-writer safety instead.
 
-```
-BEFORE:
-  main:               A───B───C
-  release/1.0:        A───B───X───Y
-  feat-a:             A───B───C───D         (PR#1 targets main)
-  feat-b:             A───B───C───D───E     (PR#2 targets feat-a)
+## Branch Protection
 
-DURING (per-branch mq/ branch created):
-  main:               A───B───C
-  mq/main/abc123:     A───B───C───M1────M2  (M1 = merge feat-a, M2 = merge feat-b)
-  feat-a:             LOCKED (ruleset)
-  feat-b:             LOCKED (ruleset)
+`ensure_branch_protection()` manages three kinds of rulesets:
 
-AFTER (main fast-forwarded):
-  main:               A───B───C───M1────M2
-  feat-a:             DELETED
-  feat-b:             DELETED
-  mq/main/abc123:     DELETED
-  PR#1:               MERGED (purple)
-  PR#2:               MERGED (purple)
+| Ruleset | Pattern | Purpose |
+|---------|---------|---------|
+| `mq-protect-<branch>` | `refs/heads/main` etc. | Require PRs + CI for target branches. Admin role bypass lets MQ fast-forward. |
+| `mq-lock-<batch_id>` | `refs/heads/<pr_branch>` | Lock PR branches during batch. Prevents pushes (GH013). Deleted after merge/fail. |
+| `mq-branches-protect` | `refs/heads/mq/*` (excludes `mq/state`) | Only admin token can push to mq/* batch branches. |
 
-PER-BRANCH STATE BRANCHES:
-  mq/state            state.json (v2), STATUS.md (root index)
-                      + STATUS/<branch>.md (per-branch dashboard)
-```
+All ruleset operations use `MQ_ADMIN_TOKEN` (admin session) to bypass protection.
+`update_ref` also uses the admin token so the fast-forward succeeds despite rulesets.
+
+## Auto-Retry on Diverge
+
+When `complete_batch()` detects the target branch has moved:
+
+1. `compare_commits` returns status != "ahead" -> raise BatchError
+2. If `update_ref` returns 422 -> wrap as BatchError("diverged")
+3. `cli.py` catches "diverged", calls `fail_batch()`, re-queues entry with `retry_count + 1`
+4. Recursive `do_process()` rebuilds the batch from the new target tip
+5. After 3 retries (4 total attempts), gives up and fails
 
 ## State Schema (v2)
-
-The queue state is stored as `state.json` on the `mq/state` branch. Version 2
-introduced per-branch queues:
 
 ```json
 {
@@ -291,111 +181,149 @@ introduced per-branch queues:
         {
           "position": 1,
           "queued_at": "2026-04-03T11:55:00Z",
-          "stack": [{"number": 42, "head_sha": "abc123", "head_ref": "feat-a", "base_ref": "main", "title": "Add feature A"}],
-          "deployment_id": 12345
+          "stack": [{"number": 42, "head_sha": "abc", "head_ref": "feat-a", "base_ref": "main", "title": "Add feature A"}],
+          "deployment_id": 12345,
+          "comment_ids": {42: 99999},
+          "target_branch": "main",
+          "retry_count": 0
         }
       ],
-      "active_batch": null
-    },
-    "release/1.0": {
-      "queue": [],
-      "active_batch": null
+      "active_batch": {
+        "batch_id": "1712160000",
+        "branch": "mq/main/1712160000",
+        "ruleset_id": 789,
+        "started_at": "...",
+        "progress": "running_ci",
+        "stack": [...],
+        "deployment_id": 12345,
+        "comment_ids": {...},
+        "queued_at": "...",
+        "ci_started_at": "...",
+        "target_branch": "main"
+      }
     }
   },
   "history": [
-    {"batch_id": "prev123", "status": "merged", "prs": [40, 41], "merged_at": "2026-04-03T11:50:00Z"}
+    {"batch_id": "prev123", "status": "merged", "prs": [40, 41], "completed_at": "...", "target_branch": "main"}
   ]
 }
 ```
 
-Automatic migration from v1 (flat queue/active_batch) to v2 (branches dict) happens
-transparently in `store.py` on first read via `_migrate_v1_to_v2()`.
+`active_batch.progress` values: `locking` -> `running_ci` -> `completing`.
+The `completing` state is the crash-recovery marker: if a run is cancelled
+mid-merge, the next `do_process` call detects it and resumes via `_resume_completion`.
+
+Auto-migration from v1 (flat queue/active_batch) to v2 (branches dict) happens
+transparently in `store.py` via `_migrate_v1_to_v2()`.
 
 ## Module Dependencies
 
 ```
-  ┌───────────────────────────────────────────────────────┐
-  │                    merge-queue.yml                     │
-  │               (GitHub Actions workflow)                │
-  │            Command via $MQ_CMD env var                 │
-  └───────────────────────┬───────────────────────────────┘
-                          │ python -m merge_queue
+                    merge-queue.yml (GitHub Actions workflow)
+                          | python -m merge_queue
                           v
-                    ┌───────────┐
-                    │  cli.py   │  argparse routing
-                    └─────┬─────┘
-                          │
-          ┌───────────────┼───────────────────┐
-          │               │                   │
-          v               v                   v
-    ┌───────────┐  ┌──────────┐        ┌───────────┐
-    │ queue.py  │  │ batch.py │        │ rules.py  │
-    │           │  │          │        │           │
-    │ Pure logic│  │ Lifecycle│        │ Invariant │
-    │ No I/O   │  │ + git    │        │ checks    │
-    └─────┬─────┘  └────┬─────┘        └─────┬─────┘
-          │              │                    │
-          v              v                    v
-    ┌─────────────────────────────────────────────┐
-    │               types.py                      │
-    │  PullRequest, Stack, Batch, QueueEntry,     │
-    │  BatchStatus, RuleResult                    │
-    └──────────────────┬──────────────────────────┘
-                       │
-          ┌────────────┼────────────┐
-          v            v            v
-    ┌──────────┐ ┌──────────┐ ┌──────────┐
-    │ store.py │ │config.py │ │status.py │
-    │ state    │ │ YAML cfg │ │ Markdown │
-    │ persist  │ │ parser   │ │ render   │
-    └────┬─────┘ └────┬─────┘ └──────────┘
-         │            │
-         v            v
-    ┌───────────────────────────────────┐
-    │       github_client.py            │
-    │  GitHubClientProtocol interface   │
-    │  requests-based GitHub API        │
-    │  GITHUB_TOKEN + MQ_ADMIN_TOKEN    │
-    └───────────────┬───────────────────┘
-                    │
-                    │  (alternative impl for testing)
-                    v
-    ┌───────────────────────────────────┐
-    │     providers/local.py            │
-    │  LocalGitProvider                 │
-    │  Bare git repo + in-memory state  │
-    │  No GitHub API calls              │
-    └───────────────────────────────────┘
+                    +----------+
+                    |  cli.py  |  argparse routing + orchestration
+                    +----+-----+
+                         |
+         +---------------+-------------------+
+         |               |                   |
+         v               v                   v
+   +-----------+  +-----------+        +-----------+
+   | queue.py  |  | batch.py  |        | rules.py  |
+   | Pure logic|  | Lifecycle |        | Invariant |
+   | No I/O    |  | + git     |        | checks    |
+   +-----------+  +-----------+        +-----------+
+         |               |                   |
+         v               v                   v
+   +---------------------------------------------+
+   |               types.py                       |
+   |  PullRequest, Stack, Batch, QueueEntry,      |
+   |  BatchStatus, RuleResult                     |
+   +----------------------+-----------------------+
+                          |
+         +----------------+----------------+
+         v                v                v
+   +-----------+   +-----------+   +-----------+
+   | store.py  |   | config.py |   | status.py |
+   | state     |   | YAML cfg  |   | Markdown  |
+   | persist   |   | parser    |   | render    |
+   +-----+-----+   +-----+-----+   +-----------+
+         |               |
+         v               v
+   +---------------------------------------+
+   |       github_client.py                |
+   |  GitHubClientProtocol interface       |
+   |  requests-based GitHub API            |
+   |  GITHUB_TOKEN + MQ_ADMIN_TOKEN        |
+   +-------------------+-------------------+
+                       |
+                       v
+   +---------------------------------------+
+   |     providers/local.py                |
+   |  LocalGitProvider                     |
+   |  Bare git repo + in-memory state      |
+   |  No GitHub API calls                  |
+   +---------------------------------------+
 ```
+
+### Key design decisions
+
+- **Two tokens**: `GITHUB_TOKEN` for most operations, `MQ_ADMIN_TOKEN` for
+  rulesets and `update_ref` (bypasses branch protection).
+- **Config without PyYAML**: `config.py` parses `merge-queue.yml` with a
+  hand-rolled line parser. Sections: `break_glass_users`, `target_branches`,
+  `protected_paths` (with optional per-path `approvers`).
+- **Caching**: `github_client.py` caches open PRs, default branch, mq branches,
+  and rulesets within a single process run. `invalidate_cache()` clears after writes.
+- **Parallel cleanup**: `complete_batch` runs unlock, branch deletion, and
+  comment posting in parallel via ThreadPoolExecutor after the fast-forward.
+
+## ci/ Scripts
+
+The `ci/` directory is the single source of truth for CI checks, used by both
+local development and GitHub Actions:
+
+| Script | What it does |
+|--------|-------------|
+| `ci/run` | Runs all jobs in parallel, reports pass/fail |
+| `ci/lint` | `py_compile` syntax check + `ruff check` |
+| `ci/format` | `ruff format --check` |
+| `ci/test` | `pytest tests/ -x -q` with 90%+ coverage enforcement |
 
 ## Test Coverage
 
 ```
-  Module             Tests   What's tested
-  ──────────────────────────────────────────────────────────────────
-  types.py           -       Covered transitively
-  queue.py           28      Stack detection, FIFO, validation
-  batch.py           36      Create, complete, fail, abort, unlock, auto-retry
-  rules.py           16      All 5 invariant rules
-  cli.py             43      All commands, process loop, error paths
-  comments.py        27      Comment rendering, edge cases
-  config.py          8       Configurable CI workflow dispatch
-  status.py          18      Markdown + terminal status rendering
-  store.py           17      State persistence, v1->v2 migration, concurrency
-  state.py           -       Covered via cli/store tests
-  github_client.py   22      API calls, rate limiting, caching
-  providers/local.py -       Used as test infrastructure
-  ──────────────────────────────────────────────────────────────────
-
-  Additional test suites:
-    test_auto_rebase.py        4   Auto-retry on diverge
-    test_branch_protection.py  19  Ruleset creation and verification
-    test_break_glass.py        26  Break-glass authorization
-    test_ci_gate.py            10  CI gate enforcement
-    test_ci_gate_tdd.py        9   CI gate TDD scenarios
-    test_multi_branch.py       18  Multi-target-branch queues
-    test_per_branch.py         11  Per-branch state and STATUS.md
-    test_sync_missing.py       12  _sync_missing_prs auto-enqueue
-
-  TOTAL              337+ tests, 90%+ coverage enforced
+  Module                    Tests   What's tested
+  -------------------------------------------------------------------
+  test_cli.py                 19    Core commands, process loop
+  test_cli_extra.py           24    Edge cases, error paths
+  test_batch.py               36    Create, complete, fail, abort, unlock
+  test_queue.py               28    Stack detection, FIFO, validation
+  test_rules.py               16    All 5 invariant rules
+  test_comments_extra.py      27    Comment rendering
+  test_store.py               10    State persistence, v1->v2 migration
+  test_store_extra.py         12    Concurrency, conflict retry
+  test_status.py              14    Markdown + terminal rendering
+  test_status_extra.py         4    Additional status edge cases
+  test_configurable_ci.py     11    CI workflow dispatch config
+  test_api_calls.py           16    API calls, rate limiting
+  test_rate_limit.py           6    Rate limit tracking
+  test_sanitize.py            15    Input sanitization
+  test_branch_protection.py   41    Ruleset creation, verification, mq-branches-protect
+  test_break_glass.py         28    Break-glass authorization
+  test_break_glass_merge.py    5    Break-glass end-to-end merge
+  test_ci_gate.py             12    CI gate enforcement
+  test_ci_gate_tdd.py          9    CI gate TDD scenarios
+  test_multi_branch.py        25    Multi-target-branch queues
+  test_per_branch.py          12    Per-branch state and STATUS.md
+  test_sync_missing.py        12    _sync_missing_prs auto-enqueue
+  test_cleanup_stale.py        9    Stale entry cleanup
+  test_auto_rebase.py          6    Auto-retry on diverge
+  test_hotfix_queue.py         3    Hotfix front-of-queue + abort
+  test_stuck_completing.py     6    Stuck completion detection + resume
+  test_diverged_complete.py    2    Diverged complete_batch paths
+  test_protected_paths.py     56    Protected paths + per-path approvers
+  -------------------------------------------------------------------
+  TOTAL                      464 tests, 90%+ coverage enforced
 ```
