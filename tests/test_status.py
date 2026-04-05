@@ -54,20 +54,29 @@ class TestRenderStatusMd:
         assert "# Merge Queue" in md
         assert "empty" in md.lower()
 
-    def test_active_batch(self):
+    def test_active_batch_shows_in_table(self):
         md = render_status_md(_state_with_active())
-        assert "Now processing" in md
-        assert "running_ci" in md
+        assert "CI running" in md
         assert "#1" in md
         assert "#2" in md
         assert "Add feature A" in md
 
-    def test_queue_entries(self):
+    def test_waiting_entries_show_in_table(self):
         md = render_status_md(_state_with_active())
-        assert "Waiting" in md
+        assert "waiting" in md
         assert "#3" in md
+        assert "Fix X" in md
 
-    def test_history(self):
+    def test_unified_table_has_all_prs(self):
+        md = render_status_md(_state_with_active())
+        # All 3 PRs should appear in the table (2 active + 1 waiting)
+        assert "#1" in md
+        assert "#2" in md
+        assert "#3" in md
+        assert "CI running" in md
+        assert "waiting" in md
+
+    def test_history_last_line(self):
         md = render_status_md(_state_with_active())
         assert "merged" in md
         assert "#10" in md
@@ -84,6 +93,21 @@ class TestRenderStatusMd:
     def test_updated_timestamp(self):
         md = render_status_md(_state_with_active())
         assert "2026-04-04T01:00:00" in md
+
+    def test_only_queue_no_active(self):
+        state = {
+            **empty_state(),
+            "queue": [
+                {
+                    "position": 1,
+                    "stack": [{"number": 5, "title": "PR 5"}],
+                }
+            ],
+        }
+        md = render_status_md(state)
+        assert "waiting" in md
+        assert "#5" in md
+        assert "empty" not in md.lower()
 
 
 class TestRenderStatusTerminal:
