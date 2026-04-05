@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:16:53.460389+00:00",
+  "updated_at": "2026-04-05T22:18:22.553127+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -77,29 +77,7 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": {
-        "batch_id": "1775427411",
-        "branch": "mq/main/1775427411",
-        "ruleset_id": 14716431,
-        "started_at": "2026-04-05T22:16:47.963843+00:00",
-        "progress": "running_ci",
-        "stack": [
-          {
-            "number": 112,
-            "head_sha": "1456a1f5abd1b82953179f310bb2a477d7f5df1e",
-            "head_ref": "greg/revup/main/break-glass-immediate-merge",
-            "base_ref": "main",
-            "title": "Add break-glass immediate merge: skip CI entirely"
-          }
-        ],
-        "deployment_id": 4277924112,
-        "comment_ids": {
-          "112": 4189618231
-        },
-        "queued_at": "2026-04-05T22:15:04.555777+00:00",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T22:16:53.164114+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -422,6 +400,16 @@
         101
       ],
       "duration_seconds": 87.725423,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775427411",
+      "status": "ci_failed",
+      "completed_at": "2026-04-05T22:18:22.230837+00:00",
+      "prs": [
+        112
+      ],
+      "duration_seconds": 94.266994,
       "target_branch": "main"
     }
   ]
