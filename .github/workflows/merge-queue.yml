@@ -65,3 +65,4 @@ jobs:
           MQ_ADMIN_TOKEN: ${{ secrets.MQ_ADMIN_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MQ_SENDER: ${{ github.event.sender.login }}

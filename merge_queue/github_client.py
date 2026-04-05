@@ -113,6 +113,7 @@ class GitHubClientProtocol(Protocol):
         description: str = "",
         context: str = "Final Results",
     ) -> None: ...
+    def get_user_permission(self, username: str) -> str: ...
     def create_deployment(self, description: str, ref: str = "main") -> int: ...
     def update_deployment_status(
         self, deployment_id: int, state: str, description: str = ""
@@ -568,6 +569,16 @@ class GitHubClient:
                 "context": context,
             },
         )
+
+    # --- Collaborator permissions ---
+
+    def get_user_permission(self, username: str) -> str:
+        """Get a user's permission level.
+
+        Returns 'admin', 'maintain', 'write', 'read', or 'none'.
+        """
+        data = self._get(f"/collaborators/{username}/permission")
+        return data.get("permission", "none")
 
     # --- Deployments API (for live UI) ---
 

@@ -100,6 +100,28 @@ def _clear_active_batch(state: dict, store: StateStore) -> None:
     log.error("Could not clear active_batch after 3 attempts")
 
 
+def _is_break_glass_authorized(client: GitHubClientProtocol, sender: str) -> bool:
+    """Return True if sender is allowed to use the break-glass label.
+
+    Checks in order:
+    1. sender must be non-empty
+    2. Explicit allow list from merge-queue.yml (break_glass_users)
+    3. Repo admin or maintain permission via GitHub collaborator API
+    """
+    if not sender:
+        return False
+    from merge_queue.config import get_break_glass_users
+
+    allowed = get_break_glass_users(client)
+    if sender in allowed:
+        return True
+    try:
+        perm = client.get_user_permission(sender)
+        return perm in ("admin", "maintain")
+    except Exception:
+        return False
+
+
 # --- Core logic ---
 
 
@@ -184,9 +206,26 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
     pr_labels = [lbl["name"] for lbl in (cached_pr_data or {}).get("labels", [])]
     has_break_glass = "break-glass" in pr_labels
     if has_break_glass:
-        log.warning(
-            "break-glass label detected on PR #%d — bypassing CI gate", pr_number
-        )
+        sender = os.environ.get("MQ_SENDER", "")
+        authorized = _is_break_glass_authorized(client, sender)
+        if authorized:
+            log.warning(
+                "break-glass by %s on PR #%d — bypassing CI gate", sender, pr_number
+            )
+        else:
+            log.warning("break-glass rejected: %s is not authorized", sender)
+            cids_early: dict[int, int] = {}
+            _comment(
+                client,
+                pr_number,
+                comments.break_glass_denied(sender, owner, repo),
+                cids_early,
+            )
+            try:
+                client.remove_label(pr_number, "break-glass")
+            except Exception:
+                pass
+            has_break_glass = False  # Fall through to normal CI gate
 
     if not has_break_glass:
         for pr_dict in stack_dicts:
