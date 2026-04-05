@@ -105,7 +105,8 @@ class TestCiGateInEnqueue:
 class TestBreakGlassLabel:
     """break-glass label should bypass CI gate."""
 
-    def test_bypasses_ci_check(self, mock_client):
+    def test_bypasses_ci_check(self, mock_client, monkeypatch):
+        monkeypatch.setenv("MQ_SENDER", "admin-user")
         mock_client.get_pr.return_value = {
             "state": "open",
             "head": {"sha": "sha-1", "ref": "feat-a"},
@@ -116,6 +117,8 @@ class TestBreakGlassLabel:
         mock_client.get_pr_ci_status.return_value = (False, "")  # CI failing
         mock_client.create_comment.return_value = 100
         mock_client.create_deployment.return_value = 42
+        mock_client.get_user_permission.return_value = "admin"
+        mock_client.get_file_content.side_effect = Exception("not found")
 
         with (
             patch("merge_queue.cli.StateStore") as StoreCls,
@@ -140,7 +143,7 @@ class TestBreakGlassLabel:
 
             result = do_enqueue(mock_client, 1)
 
-        # Should NOT be ci_not_ready — break-glass bypasses
+        # Should NOT be ci_not_ready — break-glass by authorized admin bypasses CI
         assert result != "ci_not_ready"
 
 
