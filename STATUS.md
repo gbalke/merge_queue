@@ -1,9 +1,7 @@
 # Merge Queue
 
-| # | PR | Title | Status |
-|:--|:---|:------|:-------|
-| 1 | [#75](https://github.com/gbalke/merge_queue/pull/75) | Fix: auto-enqueue missed PRs from cancelled workflow runs | 🔄 merging |
+_Queue is empty — all clear._
 
-Last:  #74 complete_error (1m 29s)
+Last: ✅ #75 merged (1m 35s)
 
-<sub>Updated 2026-04-05T14:15:31 UTC</sub>
+<sub>Updated 2026-04-05T14:15:40 UTC</sub>
