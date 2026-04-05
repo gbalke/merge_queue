@@ -16,12 +16,12 @@ _STACK = [
 
 def test_mq_link_with_owner_repo() -> None:
     result = comments.queued(1, 1, _STACK, owner="myorg", repo="myrepo")
-    assert "https://github.com/myorg/myrepo/deployments/merge-queue" in result
+    assert "https://github.com/myorg/myrepo/actions" in result
 
 
 def test_mq_link_without_owner_repo() -> None:
     result = comments.queued(1, 1, _STACK)
-    assert "deployments/merge-queue" not in result
+    assert "actions" not in result
 
 
 # --- already_queued ---
@@ -35,7 +35,7 @@ def test_already_queued_contains_position() -> None:
 
 def test_already_queued_with_owner_repo() -> None:
     result = comments.already_queued(2, owner="o", repo="r")
-    assert "https://github.com/o/r/deployments/merge-queue" in result
+    assert "https://github.com/o/r/actions" in result
 
 
 # --- batch_started ---

@@ -77,3 +77,12 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           MQ_ADMIN_TOKEN: ${{ secrets.MQ_ADMIN_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Write queue status to job summary
+        if: always()
+        run: python -m merge_queue summary >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MQ_ADMIN_TOKEN: ${{ secrets.MQ_ADMIN_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
