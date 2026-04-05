@@ -513,8 +513,10 @@ class TestDoProcessApiCalls:
         total = _total_api_calls(client)
         # Budget increased by 4: v2 state has 3 put_file_content per write (state.json
         # + branch STATUS.md + root STATUS.md) vs. 2 in v1. 4 writes × +1 = +4.
-        assert total <= 30, (
-            f"do_process (1-PR, CI passes) made {total} API calls; budget is 30. "
+        # Budget increased by 3: ensure_branch_protection adds get_default_branch +
+        # get_file_content (merge-queue.yml) + list_rulesets when queue is non-empty.
+        assert total <= 33, (
+            f"do_process (1-PR, CI passes) made {total} API calls; budget is 33. "
             f"Breakdown: {_call_summary(client)}"
         )
 
@@ -588,8 +590,10 @@ class TestDoProcessApiCalls:
 
         assert result == "merged"
         total = _total_api_calls(client)
-        assert total <= 35, (
-            f"do_process (3-PR stack, CI passes) made {total} API calls; budget is 35. "
+        # +3 for ensure_branch_protection (get_default_branch + get_file_content +
+        # list_rulesets) when queue is non-empty.
+        assert total <= 38, (
+            f"do_process (3-PR stack, CI passes) made {total} API calls; budget is 38. "
             f"Breakdown: {_call_summary(client)}"
         )
 
@@ -621,8 +625,10 @@ class TestDoProcessApiCalls:
 
         assert result == "ci_failed"
         total = _total_api_calls(client)
-        assert total <= 25, (
-            f"do_process (CI fails) made {total} API calls; budget is 25. "
+        # +3 for ensure_branch_protection (get_default_branch + get_file_content +
+        # list_rulesets) when queue is non-empty.
+        assert total <= 28, (
+            f"do_process (CI fails) made {total} API calls; budget is 28. "
             f"Breakdown: {_call_summary(client)}"
         )
 

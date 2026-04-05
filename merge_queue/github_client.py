@@ -81,6 +81,7 @@ class GitHubClientProtocol(Protocol):
     def get_ruleset(self, ruleset_id: int) -> dict[str, Any]: ...
     def delete_ruleset(self, ruleset_id: int) -> None: ...
     def list_rulesets(self) -> list[dict[str, Any]]: ...
+    def create_protection_ruleset(self, name: str, branch: str) -> int: ...
     def list_mq_branches(self) -> list[str]: ...
     def delete_branch(self, ref: str) -> None: ...
     def get_branch_sha(self, branch: str) -> str: ...
@@ -308,6 +309,57 @@ class GitHubClient:
                 "enforcement": "active",
                 "conditions": {"ref_name": {"include": branch_patterns, "exclude": []}},
                 "rules": [{"type": "update"}],
+            },
+        )
+        self._track(r)
+        r.raise_for_status()
+        self._cache_rulesets = None
+        return r.json()["id"]
+
+    def create_protection_ruleset(self, name: str, branch: str) -> int:
+        """Create a branch protection ruleset requiring PRs + CI status check.
+
+        The ruleset:
+        - Requires pull requests (no direct push)
+        - Requires "Final Results" status check
+        - Admin role can bypass (for MQ fast-forward)
+        """
+        r = self._admin_session.post(
+            f"{self._base_url}/rulesets",
+            json={
+                "name": name,
+                "target": "branch",
+                "enforcement": "active",
+                "conditions": {
+                    "ref_name": {
+                        "include": [f"refs/heads/{branch}"],
+                        "exclude": [],
+                    }
+                },
+                "rules": [
+                    {
+                        "type": "pull_request",
+                        "parameters": {
+                            "required_approving_review_count": 0,
+                            "dismiss_stale_reviews_on_push": False,
+                            "require_last_push_approval": False,
+                        },
+                    },
+                    {
+                        "type": "required_status_checks",
+                        "parameters": {
+                            "strict_status_check_policy": False,
+                            "required_status_checks": [{"context": "Final Results"}],
+                        },
+                    },
+                ],
+                "bypass_actors": [
+                    {
+                        "actor_id": 5,
+                        "actor_type": "RepositoryRole",
+                        "bypass_mode": "always",
+                    }
+                ],
             },
         )
         self._track(r)
