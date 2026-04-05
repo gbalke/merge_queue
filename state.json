@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T18:44:21.816711+00:00",
+  "updated_at": "2026-04-05T18:44:31.457513+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -41,29 +41,7 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": {
-        "batch_id": "1775414575",
-        "branch": "mq/main/1775414575",
-        "ruleset_id": 14712632,
-        "started_at": "2026-04-05T18:42:52.075221+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 94,
-            "head_sha": "c6c3f9cf4afc632d9341e340d00a535589addfd7",
-            "head_ref": "greg/revup/main/fix-retry-limit",
-            "base_ref": "main",
-            "title": "Fix retry limit to 3 with clear attempt messaging"
-          }
-        ],
-        "deployment_id": 4276850877,
-        "comment_ids": {
-          "94": 4189322124
-        },
-        "queued_at": "2026-04-05T18:31:28Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T18:42:57.047040+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -226,6 +204,16 @@
         93
       ],
       "duration_seconds": 98.464353,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775414575",
+      "status": "merged",
+      "completed_at": "2026-04-05T18:44:31.457490+00:00",
+      "prs": [
+        94
+      ],
+      "duration_seconds": 99.382269,
       "target_branch": "main"
     }
   ]
