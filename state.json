@@ -1,29 +1,11 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T20:44:46.036796+00:00",
+  "updated_at": "2026-04-05T20:44:52.093241+00:00",
   "branches": {
     "main": {
       "queue": [
         {
           "position": 1,
-          "queued_at": "2026-04-05T20:39:34Z",
-          "stack": [
-            {
-              "number": 104,
-              "head_sha": "87dc030fd8e148918c8df566fb78357732cd5b60",
-              "head_ref": "greg/revup/main/enforce-no-direct-push",
-              "base_ref": "main",
-              "title": "Add rebase instructions to CLAUDE.md"
-            }
-          ],
-          "deployment_id": 4277503571,
-          "target_branch": "main",
-          "comment_ids": {
-            "104": 4189500786
-          }
-        },
-        {
-          "position": 2,
           "queued_at": "2026-04-05T20:44:43.701683+00:00",
           "stack": [
             {
@@ -41,7 +23,7 @@
           "target_branch": "main"
         },
         {
-          "position": 3,
+          "position": 2,
           "queued_at": "2026-04-05T20:44:44.719244+00:00",
           "stack": [
             {
@@ -59,7 +41,28 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": null
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T20:44:51.799866+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 104,
+            "head_sha": "87dc030fd8e148918c8df566fb78357732cd5b60",
+            "head_ref": "greg/revup/main/enforce-no-direct-push",
+            "base_ref": "main",
+            "title": "Add rebase instructions to CLAUDE.md"
+          }
+        ],
+        "deployment_id": 4277503571,
+        "comment_ids": {
+          "104": 4189500786
+        },
+        "queued_at": "2026-04-05T20:39:34Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
