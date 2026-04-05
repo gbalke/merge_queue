@@ -1,29 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T06:38:55.425511+00:00",
+  "updated_at": "2026-04-05T06:39:04.219085+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775371049",
-    "branch": "mq/1775371049",
-    "ruleset_id": 14705631,
-    "started_at": "2026-04-05T06:37:27.727809+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 61,
-        "head_sha": "bd3f2c2c29d90031cf6f78ae6b0527142579c7b2",
-        "head_ref": "greg/revup/main/comment-redesign",
-        "base_ref": "main",
-        "title": "Redesign comment UI: minimal, consistent, modern"
-      }
-    ],
-    "deployment_id": 4273726715,
-    "comment_ids": {
-      "61": 4188401209
-    },
-    "queued_at": "2026-04-05T06:37:24.874481+00:00",
-    "ci_started_at": "2026-04-05T06:37:31.316901+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775367984",
@@ -69,6 +48,15 @@
         60
       ],
       "duration_seconds": 95.509019
+    },
+    {
+      "batch_id": "1775371049",
+      "status": "merged",
+      "completed_at": "2026-04-05T06:39:04.219064+00:00",
+      "prs": [
+        61
+      ],
+      "duration_seconds": 96.491255
     }
   ]
 }
