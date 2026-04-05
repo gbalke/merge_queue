@@ -594,14 +594,14 @@ class GitHubClient:
             },
         )
 
-        # Update ref via admin token to bypass branch protection rulesets
-        # on mq/* branches. Force=True because the concurrency group ensures
-        # single-writer safety.
-        r = self._admin_session.patch(
+        # Update ref (force=False — relies on concurrency group for safety)
+        r = self._session.patch(
             f"{self._base_url}/git/refs/heads/{branch}",
-            json={"sha": new_commit["sha"], "force": True},
+            json={"sha": new_commit["sha"], "force": False},
         )
         self._track(r)
+        if not r.ok:
+            log.error("Ref update failed (%d): %s", r.status_code, r.text[:500])
         r.raise_for_status()
         log.info("Committed %d files to %s in one commit", len(files), branch)
         return new_commit["sha"]
