@@ -65,6 +65,43 @@ def get_break_glass_users(client) -> list[str]:
     return _parse_yaml_list_section(content, "break_glass_users")
 
 
+def parse_metrics_config(content: str) -> dict | None:
+    """Parse the ``metrics`` section from config file content.
+
+    Returns a dict with keys like ``backend`` and ``endpoint``, or ``None``
+    if no ``metrics:`` section is present.  An empty ``metrics:`` section
+    (immediately followed by another top-level key or EOF) returns ``{}``.
+    """
+    result: dict[str, str] = {}
+    in_section = False
+    for line in content.split("\n"):
+        stripped = line.strip()
+        if stripped == "metrics:":
+            in_section = True
+            continue
+        if in_section:
+            # A non-indented, non-empty line ends the section
+            if stripped and not line[0].isspace():
+                break
+            if ":" in stripped:
+                key, _, value = stripped.partition(":")
+                result[key.strip()] = value.strip()
+    if not in_section:
+        return None
+    return result
+
+
+def get_metrics_config(client) -> dict | None:
+    """Read the ``metrics`` section from ``merge-queue.yml``.
+
+    Returns ``None`` if the file cannot be fetched or has no metrics section.
+    """
+    content = _get_config_content(client)
+    if content is None:
+        return None
+    return parse_metrics_config(content)
+
+
 def _leading_spaces(line: str) -> int:
     """Return the number of leading spaces in a line."""
     return len(line) - len(line.lstrip(" "))
