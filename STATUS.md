@@ -2,9 +2,8 @@
 
 | # | PR | Title | Status |
 |:--|:---|:------|:-------|
-| 1 | [#82](https://github.com/gbalke/merge_queue/pull/82) | Fix error messages, hotfix text, per-branch STATUS.md with relative timestamps | 🔄 merging |
-| 2 | [#73](https://github.com/gbalke/merge_queue/pull/73) | Add release feature 2 | ⏳ waiting |
+| 1 | [#73](https://github.com/gbalke/merge_queue/pull/73) | Add release feature 2 | ⏳ waiting |
 
-Last: ✅ #81 merged (1m 36s)
+Last: ✅ #82 merged (1m 20s)
 
-<sub>Updated 2026-04-05T15:15:36 UTC</sub>
+<sub>Updated 2026-04-05T15:15:45 UTC</sub>
