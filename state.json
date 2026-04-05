@@ -1,1 +1,25 @@
-{"version":1,"updated_at":"","queue":[],"active_batch":null,"history":[]}
+{
+  "version": 1,
+  "updated_at": "2026-04-05T05:43:47.004688+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-05T05:43:46.113626+00:00",
+      "stack": [
+        {
+          "number": 57,
+          "head_sha": "48c8df6fe9b491be618efd5d52104c443385d141",
+          "head_ref": "greg/revup/main/timing-breakdown",
+          "base_ref": "main",
+          "title": "Detailed 5-phase timing breakdown in merge comments"
+        }
+      ],
+      "deployment_id": 4273531137,
+      "comment_ids": {
+        "57": 4188341261
+      }
+    }
+  ],
+  "active_batch": null,
+  "history": []
+}
