@@ -71,14 +71,16 @@ def get_target_branches(client) -> list[str]:
           - main
           - release/1.0
 
+    The default branch is always included (prepended if not already listed).
     Returns ``[client.get_default_branch()]`` if the file does not exist,
-    cannot be fetched, or contains no ``target_branches`` section.  This
-    preserves backward compatibility: repos with no config get the same
-    behaviour as before.
+    cannot be fetched, or contains no ``target_branches`` section.
     """
+    default = client.get_default_branch()
     content = _get_config_content(client)
     if content is not None:
         branches = _parse_yaml_list_section(content, "target_branches")
         if branches:
+            if default not in branches:
+                branches.insert(0, default)
             return branches
-    return [client.get_default_branch()]
+    return [default]

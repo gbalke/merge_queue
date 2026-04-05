@@ -322,3 +322,220 @@ def test_cmd_check_rules_no_exit_when_all_pass(
 
     captured = capsys.readouterr()
     assert "PASS" in captured.out
+
+
+# --- Issue 2: GITHUB_EVENT_TIME used for queued_at ---
+
+
+def test_enqueue_uses_github_event_time_for_queued_at(
+    monkeypatch: pytest.MonkeyPatch, mock_client: MagicMock, mock_store: MagicMock
+) -> None:
+    """queued_at should use GITHUB_EVENT_TIME when set, not the current time."""
+    event_time = "2026-01-01T00:00:00+00:00"
+    monkeypatch.setenv("GITHUB_EVENT_TIME", event_time)
+    mock_client.get_pr.return_value = {
+        "state": "open",
+        "head": {"sha": "sha-1", "ref": "feat-a"},
+        "base": {"ref": "main"},
+        "title": "Add feature",
+        "labels": [],
+    }
+    mock_client.create_comment.return_value = 100
+    mock_client.get_file_content.side_effect = Exception("404")
+
+    with (
+        patch("merge_queue.cli.QueueState") as QS,
+        patch("merge_queue.cli.do_process", return_value="queued_waiting"),
+    ):
+        QS.fetch.return_value = _api_state()
+        do_enqueue(mock_client, 1)
+
+    written = mock_store.write.call_args_list[0][0][0]
+    assert written["queue"][0]["queued_at"] == event_time
+
+
+def test_enqueue_falls_back_to_now_when_no_event_time(
+    monkeypatch: pytest.MonkeyPatch, mock_client: MagicMock, mock_store: MagicMock
+) -> None:
+    """Without GITHUB_EVENT_TIME, queued_at should be a recent timestamp."""
+    monkeypatch.delenv("GITHUB_EVENT_TIME", raising=False)
+    mock_client.get_pr.return_value = {
+        "state": "open",
+        "head": {"sha": "sha-1", "ref": "feat-a"},
+        "base": {"ref": "main"},
+        "title": "Add feature",
+        "labels": [],
+    }
+    mock_client.create_comment.return_value = 100
+    mock_client.get_file_content.side_effect = Exception("404")
+
+    before = datetime.datetime.now(datetime.timezone.utc)
+    with (
+        patch("merge_queue.cli.QueueState") as QS,
+        patch("merge_queue.cli.do_process", return_value="queued_waiting"),
+    ):
+        QS.fetch.return_value = _api_state()
+        do_enqueue(mock_client, 1)
+    after = datetime.datetime.now(datetime.timezone.utc)
+
+    written = mock_store.write.call_args_list[0][0][0]
+    queued_at = datetime.datetime.fromisoformat(written["queue"][0]["queued_at"])
+    assert before <= queued_at <= after
+
+
+# --- Issue 3: Live comment updates at each phase ---
+
+
+def test_do_process_comments_updated_at_locking_phase(
+    mock_client: MagicMock, mock_store: MagicMock
+) -> None:
+    """After locking, comments should show 'locking' phase with queue-wait timing."""
+    from merge_queue.types import Batch
+
+    mock_store.read.return_value = {
+        **empty_state(),
+        "queue": [
+            {
+                "position": 1,
+                "queued_at": T0.isoformat(),
+                "stack": [
+                    {
+                        "number": 1,
+                        "head_sha": "sha-1",
+                        "head_ref": "feat-a",
+                        "base_ref": "main",
+                    }
+                ],
+                "deployment_id": None,
+                "comment_ids": {1: 999},
+            }
+        ],
+    }
+
+    with (
+        patch("merge_queue.cli.QueueState") as QS,
+        patch("merge_queue.cli.batch_mod") as bm,
+    ):
+        QS.fetch.return_value = _api_state()
+        batch = Batch("123", "mq/123", Stack(prs=(), queued_at=T0))
+        bm.create_batch.return_value = batch
+        ci_result = MagicMock()
+        ci_result.passed = False
+        ci_result.run_url = ""
+        bm.run_ci.return_value = ci_result
+        bm.BatchError = Exception
+
+        do_process(mock_client)
+
+    all_comment_bodies: list[str] = []
+    for call in mock_client.update_comment.call_args_list:
+        all_comment_bodies.append(call[0][1])
+    for call in mock_client.create_comment.call_args_list:
+        all_comment_bodies.append(call[0][1])
+
+    locking_bodies = [b for b in all_comment_bodies if "Locking" in b]
+    assert locking_bodies, "Expected a comment update during locking phase"
+    assert any("Queue wait" in b for b in locking_bodies)
+
+
+def test_do_process_comments_updated_at_ci_phase(
+    mock_client: MagicMock, mock_store: MagicMock
+) -> None:
+    """When CI starts, comments should show queue-wait and lock timing."""
+    from merge_queue.types import Batch
+
+    mock_store.read.return_value = {
+        **empty_state(),
+        "queue": [
+            {
+                "position": 1,
+                "queued_at": T0.isoformat(),
+                "stack": [
+                    {
+                        "number": 1,
+                        "head_sha": "sha-1",
+                        "head_ref": "feat-a",
+                        "base_ref": "main",
+                    }
+                ],
+                "deployment_id": None,
+                "comment_ids": {1: 999},
+            }
+        ],
+    }
+
+    with (
+        patch("merge_queue.cli.QueueState") as QS,
+        patch("merge_queue.cli.batch_mod") as bm,
+    ):
+        QS.fetch.return_value = _api_state()
+        batch = Batch("123", "mq/123", Stack(prs=(), queued_at=T0))
+        bm.create_batch.return_value = batch
+        ci_result = MagicMock()
+        ci_result.passed = True
+        ci_result.run_url = ""
+        bm.run_ci.return_value = ci_result
+        bm.BatchError = Exception
+
+        do_process(mock_client)
+
+    all_comment_bodies: list[str] = []
+    for call in mock_client.update_comment.call_args_list:
+        all_comment_bodies.append(call[0][1])
+    for call in mock_client.create_comment.call_args_list:
+        all_comment_bodies.append(call[0][1])
+
+    ci_bodies = [b for b in all_comment_bodies if "CI running" in b]
+    assert ci_bodies, "Expected a comment update when CI starts"
+    assert any("Lock" in b for b in ci_bodies)
+
+
+# --- Issue 1: get_target_branches always includes default branch ---
+
+
+def test_get_target_branches_default_prepended_when_missing() -> None:
+    """If config lists branches but omits the default, it should be prepended."""
+    import base64
+
+    from merge_queue.config import get_target_branches
+
+    config = "target_branches:\n  - release/1.0\n  - staging\n"
+    encoded = base64.b64encode(config.encode()).decode()
+
+    client = MagicMock()
+    client.get_default_branch.return_value = "main"
+    client.get_file_content.return_value = {"content": encoded}
+
+    branches = get_target_branches(client)
+    assert branches[0] == "main"
+    assert "release/1.0" in branches
+    assert "staging" in branches
+
+
+def test_get_target_branches_no_duplicate_when_default_listed() -> None:
+    """Default branch listed in config should not appear twice."""
+    import base64
+
+    from merge_queue.config import get_target_branches
+
+    config = "target_branches:\n  - main\n  - release/1.0\n"
+    encoded = base64.b64encode(config.encode()).decode()
+
+    client = MagicMock()
+    client.get_default_branch.return_value = "main"
+    client.get_file_content.return_value = {"content": encoded}
+
+    branches = get_target_branches(client)
+    assert branches.count("main") == 1
+    assert branches == ["main", "release/1.0"]
+
+
+def test_get_target_branches_no_config_returns_default() -> None:
+    """Without config, returns just the default branch."""
+    from merge_queue.config import get_target_branches
+
+    client = MagicMock()
+    client.get_default_branch.return_value = "develop"
+    client.get_file_content.side_effect = Exception("404")
+
+    assert get_target_branches(client) == ["develop"]

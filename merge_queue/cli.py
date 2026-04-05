@@ -316,7 +316,9 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
 
     log.info("Enqueued stack at position %d", position)
 
-    # Trigger processing if idle
+    # Trigger processing inline if idle.
+    # NOTE: We cannot dispatch workflow_dispatch from GITHUB_TOKEN, so we
+    # must call do_process directly even though this holds the concurrency slot.
     if state.get("active_batch") is None and not api_state.has_active_batch:
         return do_process(client)
     return "queued_waiting"
@@ -451,6 +453,27 @@ def do_process(client: GitHubClientProtocol) -> str:
     state["updated_at"] = _now_iso()
     store.write(state)
 
+    # Update comments: show queue-wait duration now that processing has started
+    queue_wait = _fmt_duration(
+        (
+            datetime.datetime.fromisoformat(started_at)
+            - datetime.datetime.fromisoformat(entry["queued_at"])
+        ).total_seconds()
+    )
+    for pr in prs:
+        _comment(
+            client,
+            pr.number,
+            comments.progress(
+                "locking",
+                entry["stack"],
+                timings={"Queue wait": queue_wait},
+                owner=owner,
+                repo=repo,
+            ),
+            cids,
+        )
+
     # Create batch
     try:
         batch = batch_mod.create_batch(client, next_stack)
@@ -478,15 +501,23 @@ def do_process(client: GitHubClientProtocol) -> str:
 
     _update_deployment(client, dep_id, "in_progress", f"CI running on {batch.branch}")
 
-    # Update comments to show CI running (with link to Actions tab)
+    # Update comments: show queue-wait + lock duration now that CI has started
+    lock_duration = _fmt_duration(
+        (
+            datetime.datetime.fromisoformat(ci_started_at)
+            - datetime.datetime.fromisoformat(started_at)
+        ).total_seconds()
+    )
     actions_url = f"https://github.com/{owner}/{repo}/actions" if owner and repo else ""
     for pr in prs:
         _comment(
             client,
             pr.number,
-            comments.batch_started(
-                batch.branch,
+            comments.progress(
+                "running_ci",
                 entry["stack"],
+                timings={"Queue wait": queue_wait, "Lock": lock_duration},
+                branch=batch.branch,
                 ci_run_url=actions_url,
                 owner=owner,
                 repo=repo,
