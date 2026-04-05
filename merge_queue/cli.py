@@ -151,29 +151,57 @@ def _is_break_glass_authorized(client: GitHubClientProtocol, sender: str) -> boo
         return False
 
 
-def _matches_protected(files: list[str], patterns: list[str]) -> list[str]:
-    """Return list of protected patterns that are touched by the PR's files."""
-    matched: list[str] = []
-    for pattern in patterns:
+def _matches_protected(
+    files: list[str], patterns: list[str] | list[dict]
+) -> list[dict]:
+    """Return list of matched protected path dicts touched by the PR's files.
+
+    ``patterns`` may be a list of plain strings (legacy) or a list of dicts
+    with at least a ``"path"`` key (new format).  Always returns a list of
+    dicts so callers have uniform access to per-path approvers.
+    """
+    matched: list[dict] = []
+    for entry in patterns:
+        if isinstance(entry, str):
+            pattern = entry
+            approvers: list[str] = []
+        else:
+            pattern = entry["path"]
+            approvers = entry.get("approvers", [])
+
         for f in files:
             # Directory pattern (ends with /): any file under it matches
             if pattern.endswith("/") and f.startswith(pattern):
-                if pattern not in matched:
-                    matched.append(pattern)
+                matched.append({"path": pattern, "approvers": approvers})
                 break
             # Exact file match
             elif f == pattern:
-                matched.append(pattern)
+                matched.append({"path": pattern, "approvers": approvers})
                 break
     return matched
 
 
-def _has_authorized_approval(client: GitHubClientProtocol, pr_number: int) -> bool:
-    """Check if a break-glass authorized user has approved the PR."""
+def _has_authorized_approval(
+    client: GitHubClientProtocol,
+    pr_number: int,
+    path_approvers: list[str] | None = None,
+) -> bool:
+    """Check if an authorized user has approved the PR.
+
+    If ``path_approvers`` is provided and non-empty, those users are checked
+    first (in addition to admins/maintain-permission users).  When
+    ``path_approvers`` is empty or ``None``, falls back to the global
+    ``break_glass_users`` list plus admins.
+    """
     from merge_queue import config as config_mod
 
     reviews = client.get_pr_reviews(pr_number)
-    allowed = config_mod.get_break_glass_users(client)
+
+    # Build allowed set: path-specific approvers or global break_glass_users
+    if path_approvers:
+        allowed = set(path_approvers)
+    else:
+        allowed = set(config_mod.get_break_glass_users(client))
 
     # Reduce to latest review state per user
     latest: dict[str, str] = {}
@@ -506,7 +534,14 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
         pr_files = client.get_pr_files(pr_number)
         touched_protected = _matches_protected(pr_files, protected_paths)
         if touched_protected:
-            if not _has_authorized_approval(client, pr_number):
+            # Each touched entry may have its own approvers list; check all
+            approved = all(
+                _has_authorized_approval(
+                    client, pr_number, path_approvers=entry["approvers"]
+                )
+                for entry in touched_protected
+            )
+            if not approved:
                 _comment(
                     client,
                     pr_number,

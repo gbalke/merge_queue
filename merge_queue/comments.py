@@ -316,10 +316,28 @@ def auto_retrying(
 
 
 def protected_path_approval_required(
-    paths: list[str], owner: str = "", repo: str = ""
+    paths: list[str] | list[dict], owner: str = "", repo: str = ""
 ) -> str:
+    """Render the approval-required comment for protected paths.
+
+    ``paths`` may be a list of plain strings (legacy) or a list of dicts with
+    at least a ``"path"`` key and an optional ``"approvers"`` list.  When
+    per-path approvers are present, they are shown next to the path.
+    """
     footer = _actions_or_mq_footer(owner=owner, repo=repo)
-    path_list = "\n".join(f"- `{p}`" for p in paths)
+    lines: list[str] = []
+    for entry in paths:
+        if isinstance(entry, str):
+            lines.append(f"- `{entry}`")
+        else:
+            path = entry["path"]
+            approvers = entry.get("approvers", [])
+            if approvers:
+                approver_str = ", ".join(f"@{a}" for a in approvers)
+                lines.append(f"- `{path}` \u2014 requires approval from {approver_str}")
+            else:
+                lines.append(f"- `{path}`")
+    path_list = "\n".join(lines)
     return (
         f"\U0001f512 **Approval required** \u2014 this PR modifies protected paths:\n\n"
         f"{path_list}\n\n"

@@ -65,12 +65,131 @@ def get_break_glass_users(client) -> list[str]:
     return _parse_yaml_list_section(content, "break_glass_users")
 
 
-def get_protected_paths(client) -> list[str]:
-    """Read protected_paths from merge-queue.yml. Returns empty list if not found."""
+def _leading_spaces(line: str) -> int:
+    """Return the number of leading spaces in a line."""
+    return len(line) - len(line.lstrip(" "))
+
+
+def _parse_protected_paths_section(content: str) -> list[dict]:
+    """Parse the protected_paths section from config content.
+
+    Handles two entry formats:
+
+    Simple string::
+
+        protected_paths:
+          - merge-queue.yml
+
+    Path+approvers block::
+
+        protected_paths:
+          - path: merge-queue.yml
+            approvers:
+              - alice
+              - bob
+
+    Simple string entries get ``approvers=[]`` (falls back to break_glass_users).
+    Path+approvers blocks without an ``approvers`` key also get ``approvers=[]``.
+
+    Indentation levels are used to distinguish top-level path list items from
+    nested approver list items, avoiding a PyYAML dependency.
+    """
+    items: list[dict] = []
+    in_section = False
+    current_entry: dict | None = None
+    in_approvers = False
+    # Indentation of top-level protected_paths entries (e.g. 2 for "  - path:")
+    entry_indent: int = -1
+    # Indentation of approver list items (e.g. 6 for "      - alice")
+    approver_indent: int = -1
+
+    for line in content.split("\n"):
+        stripped = line.strip()
+
+        if not stripped:
+            continue
+
+        if stripped == "protected_paths:":
+            in_section = True
+            entry_indent = -1
+            approver_indent = -1
+            continue
+
+        if not in_section:
+            continue
+
+        # A line starting at column 0 ends the section
+        if line[0] != " ":
+            if current_entry is not None:
+                items.append(current_entry)
+                current_entry = None
+            in_section = False
+            in_approvers = False
+            continue
+
+        indent = _leading_spaces(line)
+
+        # Learn the entry indentation level from the first list item seen
+        if entry_indent == -1 and stripped.startswith("- "):
+            entry_indent = indent
+
+        # A list item at the entry-level indent = a new protected_paths entry
+        if indent == entry_indent and stripped.startswith("- "):
+            if current_entry is not None:
+                items.append(current_entry)
+                current_entry = None
+            in_approvers = False
+            approver_indent = -1
+
+            value = stripped[2:].strip()
+            if value.startswith("path:"):
+                path_val = value[len("path:") :].strip()
+                current_entry = {"path": path_val, "approvers": []}
+            else:
+                # Simple string entry — no sub-keys expected
+                items.append({"path": value, "approvers": []})
+            continue
+
+        # Deeper-indented lines are sub-keys / sub-items of the current entry
+        if current_entry is not None:
+            if stripped == "approvers:":
+                in_approvers = True
+                approver_indent = -1
+                continue
+            if in_approvers and stripped.startswith("- "):
+                # Learn the approver-item indentation from the first one
+                if approver_indent == -1:
+                    approver_indent = indent
+                if indent == approver_indent:
+                    current_entry["approvers"].append(stripped[2:].strip())
+                    continue
+            # Any unrecognised sub-key turns off approver-collection mode
+            if not (in_approvers and stripped.startswith("- ")):
+                in_approvers = False
+
+    if current_entry is not None:
+        items.append(current_entry)
+
+    return items
+
+
+def get_protected_paths(client) -> list[dict]:
+    """Read protected_paths from merge-queue.yml.
+
+    Returns a list of dicts of the form::
+
+        [{"path": "merge-queue.yml", "approvers": ["gbalke"]}, ...]
+
+    Simple string entries get ``approvers=[]``, which falls back to
+    ``break_glass_users`` + admins at approval-check time.
+
+    Returns an empty list if the file does not exist, cannot be fetched,
+    or contains no ``protected_paths`` section.
+    """
     content = _get_config_content(client)
     if content is None:
         return []
-    return _parse_yaml_list_section(content, "protected_paths")
+    return _parse_protected_paths_section(content)
 
 
 def get_target_branches(client) -> list[str]:
