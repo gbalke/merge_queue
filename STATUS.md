@@ -1,7 +1,7 @@
 # Merge Queue
 
-_Queue is empty — all clear._
+| # | PR | Title | Status |
+|:--|:---|:------|:-------|
+| 1 | [#80](https://github.com/gbalke/merge_queue/pull/80) | Fix: hotfix runs CI (only break-glass skips CI) | ⏳ waiting |
 
-Last:  #77 complete_error (1m 30s)
-
-<sub>Updated 2026-04-05T14:50:04 UTC</sub>
+<sub>Updated 2026-04-05T14:56:33 UTC</sub>
