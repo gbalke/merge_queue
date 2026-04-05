@@ -79,18 +79,22 @@ def test_merged_with_timestamps_no_ci_started() -> None:
 
 
 def test_merged_with_all_timestamps_shows_full_stats_table() -> None:
-    """merged() with all timestamps renders the three-row stats table."""
+    """merged() with all timestamps renders the five-phase stats table."""
     result = comments.merged(
         "main",
         queued_at="2026-01-01T00:00:00+00:00",
+        started_at="2026-01-01T00:00:30+00:00",
         ci_started_at="2026-01-01T00:01:00+00:00",
+        ci_completed_at="2026-01-01T00:02:30+00:00",
         completed_at="2026-01-01T00:03:00+00:00",
     )
     assert "Queue wait" in result
-    assert "CI + merge" in result
+    assert "Lock + merge" in result
+    assert "CI" in result
+    assert "Merge to main" in result
     assert "**Total**" in result
-    assert "1m 0s" in result  # queue wait = 60s
-    assert "2m 0s" in result  # CI = 120s
+    assert "30s" in result  # queue wait
+    assert "1m 30s" in result  # CI duration
 
 
 def test_merged_with_stack() -> None:
