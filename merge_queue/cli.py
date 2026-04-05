@@ -142,6 +142,98 @@ def _is_break_glass_authorized(client: GitHubClientProtocol, sender: str) -> boo
 # --- Core logic ---
 
 
+def _sync_missing_prs(client, state, store):
+    """Scan for PRs with 'queue' label not in state.json, auto-enqueue them."""
+    from merge_queue import config
+
+    owner, repo = _owner_repo(client)
+
+    # Collect known PR numbers
+    known: set[int] = set()
+    for entry in state.get("queue", []):
+        for pr in entry.get("stack", []):
+            known.add(pr["number"])
+    active = state.get("active_batch")
+    if active:
+        for pr in active.get("stack", []):
+            known.add(pr["number"])
+
+    # Find PRs with queue label not in state
+    all_prs = client.list_open_prs()
+    missing = [
+        pr
+        for pr in all_prs
+        if any(lbl["name"] == "queue" for lbl in pr.get("labels", []))
+        and pr["number"] not in known
+    ]
+
+    if not missing:
+        return state
+
+    log.info(
+        "Auto-enqueuing %d missing PRs: %s",
+        len(missing),
+        [p["number"] for p in missing],
+    )
+
+    target_branches = config.get_target_branches(client)
+
+    for pr_data in missing:
+        base = pr_data["base"]["ref"]
+        target_branch = base if base in target_branches else client.get_default_branch()
+
+        position = len(state.get("queue", [])) + 1
+        stack_dicts = [
+            {
+                "number": pr_data["number"],
+                "head_sha": pr_data["head"]["sha"],
+                "head_ref": pr_data["head"]["ref"],
+                "base_ref": pr_data["base"]["ref"],
+                "title": pr_data.get("title", ""),
+            }
+        ]
+
+        entry = {
+            "position": position,
+            "queued_at": _now_iso(),
+            "stack": stack_dicts,
+            "deployment_id": None,
+            "comment_ids": {},
+            "target_branch": target_branch,
+        }
+
+        # Create deployment + comment
+        try:
+            dep_id = client.create_deployment(
+                f"Queue position {position}: #{pr_data['number']}"
+            )
+            client.update_deployment_status(dep_id, "queued", f"Position {position}")
+            entry["deployment_id"] = dep_id
+        except Exception:
+            pass
+
+        cid = _comment(
+            client,
+            pr_data["number"],
+            comments.progress(
+                "queued",
+                stack_dicts,
+                target_branch=target_branch,
+                owner=owner,
+                repo=repo,
+            ),
+        )
+        if cid:
+            entry["comment_ids"] = {pr_data["number"]: cid}
+
+        state.setdefault("queue", []).append(entry)
+        log.info("Auto-enqueued PR #%d at position %d", pr_data["number"], position)
+
+    state["updated_at"] = _now_iso()
+    store.write(state)
+    return state
+
+
 def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
     """Enqueue a PR: update state, create deployment, trigger processing."""
     # Guard: skip if PR is already merged or closed.
@@ -388,6 +480,8 @@ def do_process(client: GitHubClientProtocol) -> str:
             except Exception:
                 log.info("Active batch in progress, skipping")
                 return "batch_active"
+
+    state = _sync_missing_prs(client, state, store)
 
     queue = state.get("queue", [])
     if not queue:
