@@ -1,7 +1,47 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T14:31:48.755948+00:00",
-  "queue": [],
-  "active_batch": null,
+  "updated_at": "2026-04-05T14:31:50.361913+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-05T14:31:28Z",
+      "stack": [
+        {
+          "number": 78,
+          "head_sha": "3db650811f0871c1fdc41704682e641f0b233c95",
+          "head_ref": "greg/revup/main/parallel-enqueue",
+          "base_ref": "main",
+          "title": "Parallel enqueue, branch in header, split concurrency groups"
+        }
+      ],
+      "deployment_id": 4275656237,
+      "target_branch": "main",
+      "comment_ids": {
+        "78": 4188978210
+      }
+    }
+  ],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-05T14:31:44.103651+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 77,
+        "head_sha": "c4869f42874183cdc1e02e4d6aa80328465629f6",
+        "head_ref": "greg/revup/main/fix-timing",
+        "base_ref": "main",
+        "title": "Fix queue timing, live progress updates, default branch always included"
+      }
+    ],
+    "deployment_id": 4275655630,
+    "comment_ids": {
+      "77": 4188978039
+    },
+    "queued_at": "2026-04-05T14:31:25Z",
+    "target_branch": "main"
+  },
   "history": []
 }
