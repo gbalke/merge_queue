@@ -103,6 +103,50 @@ Failed comments include the job name, failed step, and link to the CI run.
 - Rate limit tracking with low-remaining warnings
 - API call budget tests enforce limits (3-PR stack <= 35 calls)
 
+## Configuration
+
+### `merge-queue.yml` (repo root)
+
+Optional configuration file placed in the repository root. The merge queue reads
+this from the default branch at runtime.
+
+```yaml
+# Optional configuration file. Place in the repository root.
+
+# Users authorized to use the break-glass label (bypass CI gate).
+# In addition to these users, repository admins can always use break-glass.
+break_glass_users:
+  - gbalke
+  - deploy-bot
+
+# (Planned) Target branches for the merge queue
+# target_branches:
+#   - main
+#   - release/1.0
+```
+
+Currently the only supported key is `break_glass_users` — a list of GitHub
+usernames allowed to apply the `break-glass` label. The file is parsed without
+PyYAML (simple line-based parser in `merge_queue/config.py`), so stick to the
+exact format shown above.
+
+### Environment Variables
+
+The workflow (`.github/workflows/merge-queue.yml`) passes these environment
+variables to the merge queue CLI:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GITHUB_TOKEN` | Yes | Auto-provided by GitHub Actions. Used for PR, branch, and deployment operations. |
+| `MQ_ADMIN_TOKEN` | Yes | Fine-grained PAT with **Administration: Write**. Used for branch-locking rulesets. |
+| `MQ_CI_WORKFLOW` | No | CI workflow filename to dispatch (default: `ci.yml`). |
+| `MQ_SENDER` | Auto | Set by the workflow to `github.event.sender.login`. Used for break-glass authorization. |
+| `GITHUB_RUN_URL` | Auto | Set by the workflow to the current Actions run URL. Included in PR comments. |
+| `GITHUB_REPOSITORY` | Auto | Set by GitHub Actions (`owner/repo`). Determines target repository. |
+
+For local development / testing, you can also set `GITHUB_OWNER` and
+`GITHUB_REPO` separately instead of `GITHUB_REPOSITORY`.
+
 ## Integration with External Repos
 
 Install merge-queue in any GitHub repository:
