@@ -46,7 +46,7 @@ def _setup_do_process(
     )
 
 
-@pytest.mark.parametrize("retry_count", [0, 1])
+@pytest.mark.parametrize("retry_count", [0, 1, 2])
 def test_diverged_requeues_with_incremented_retry_count(
     mock_client: MagicMock,
     mock_store: MagicMock,
@@ -98,10 +98,10 @@ def test_diverged_fails_permanently_when_retry_count_exhausted(
     mock_client: MagicMock,
     mock_store: MagicMock,
 ) -> None:
-    """When retry_count >= 2 and diverged, fail permanently without re-queuing."""
+    """When retry_count >= 3 and diverged, fail permanently without re-queuing."""
     from merge_queue import cli
 
-    entry = _make_entry(retry_count=2)
+    entry = _make_entry(retry_count=3)
     api_state = _setup_do_process(mock_client, mock_store, entry)
 
     batch = MagicMock()
