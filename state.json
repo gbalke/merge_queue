@@ -1,32 +1,30 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T18:24:48.006899+00:00",
+  "updated_at": "2026-04-05T18:24:51.865536+00:00",
   "branches": {
     "main": {
-      "queue": [],
-      "active_batch": {
-        "batch_id": "1775413402",
-        "branch": "mq/main/1775413402",
-        "ruleset_id": 14712441,
-        "started_at": "2026-04-05T18:23:19.122328+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 92,
-            "head_sha": "2746b94766746a094273b850140bc204995b6cc1",
-            "head_ref": "greg/revup/main/test-protection",
-            "base_ref": "main",
-            "title": "Test: trigger branch protection setup"
-          }
-        ],
-        "deployment_id": 4276803512,
-        "comment_ids": {
-          "92": 4189308214
-        },
-        "queued_at": "2026-04-05T18:21:54.412679+00:00",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T18:23:23.545881+00:00"
-      }
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-05T18:21:54.412679+00:00",
+          "stack": [
+            {
+              "number": 92,
+              "head_sha": "2746b94766746a094273b850140bc204995b6cc1",
+              "head_ref": "greg/revup/main/test-protection",
+              "base_ref": "main",
+              "title": "Test: trigger branch protection setup"
+            }
+          ],
+          "deployment_id": 4276803512,
+          "comment_ids": {
+            "92": 4189308214
+          },
+          "target_branch": "main",
+          "retry_count": 2
+        }
+      ],
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [
