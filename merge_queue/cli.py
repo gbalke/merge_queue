@@ -144,7 +144,7 @@ def _resume_completion(
     was cancelled (e.g. by the concurrency group) before it finished.  We
     reconstruct the Batch and retry the merge.
     """
-    from merge_queue.types import Batch, PullRequest
+    from merge_queue.types import Batch, PullRequest, Stack
 
     prs = tuple(
         PullRequest(
@@ -156,10 +156,15 @@ def _resume_completion(
         )
         for pr in active.get("stack", [])
     )
+    started_at = active.get("started_at", "")
+    try:
+        queued_at = datetime.datetime.fromisoformat(active.get("queued_at", started_at))
+    except (ValueError, TypeError):
+        queued_at = datetime.datetime.now(datetime.timezone.utc)
     batch = Batch(
         batch_id=active["batch_id"],
         branch=active["branch"],
-        prs=prs,
+        stack=Stack(prs=prs, queued_at=queued_at),
         ruleset_id=active.get("ruleset_id"),
     )
     target = active.get("target_branch", branch_name)
