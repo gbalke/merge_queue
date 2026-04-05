@@ -1,29 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T06:58:13.529147+00:00",
+  "updated_at": "2026-04-05T06:58:21.949382+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775372208",
-    "branch": "mq/1775372208",
-    "ruleset_id": 14705768,
-    "started_at": "2026-04-05T06:56:47.163773+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 63,
-        "head_sha": "267bdfebe5c2cfab43044d1796e6a7352538a412",
-        "head_ref": "greg/revup/main/comment-layout",
-        "base_ref": "main",
-        "title": "Tweak comment layout: horizontal timing, section headers, spacing"
-      }
-    ],
-    "deployment_id": 4273796926,
-    "comment_ids": {
-      "63": 4188421618
-    },
-    "queued_at": "2026-04-05T06:56:45.042475+00:00",
-    "ci_started_at": "2026-04-05T06:56:49.868543+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775367984",
@@ -87,6 +66,15 @@
         62
       ],
       "duration_seconds": 96.104658
+    },
+    {
+      "batch_id": "1775372208",
+      "status": "merged",
+      "completed_at": "2026-04-05T06:58:21.949359+00:00",
+      "prs": [
+        63
+      ],
+      "duration_seconds": 94.785586
     }
   ]
 }
