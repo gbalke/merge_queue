@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T18:30:56.777059+00:00",
+  "updated_at": "2026-04-05T18:31:48.288323+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -20,6 +20,24 @@
           "target_branch": "main",
           "comment_ids": {
             "93": 4189320898
+          }
+        },
+        {
+          "position": 2,
+          "queued_at": "2026-04-05T18:31:28Z",
+          "stack": [
+            {
+              "number": 94,
+              "head_sha": "c6c3f9cf4afc632d9341e340d00a535589addfd7",
+              "head_ref": "greg/revup/main/fix-retry-limit",
+              "base_ref": "main",
+              "title": "Fix retry limit to 3 with clear attempt messaging"
+            }
+          ],
+          "deployment_id": 4276850877,
+          "target_branch": "main",
+          "comment_ids": {
+            "94": 4189322124
           }
         }
       ],
