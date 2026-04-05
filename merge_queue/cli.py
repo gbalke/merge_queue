@@ -177,30 +177,46 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
                 pass
             break
 
-    # Detect the stack
+    # Detect the stack and which target branch it roots at
+    from merge_queue import config as config_mod
+
     api_state = QueueState.fetch(client)
+    target_branches = config_mod.get_target_branches(client)
     stack_dicts = None
+    target_branch: str | None = None
     for pr in api_state.prs:
         if pr.number == pr_number:
-            stacks = detect_stacks(api_state.queued_prs, api_state.default_branch)
-            for s in stacks:
-                if any(p.number == pr_number for p in s.prs):
-                    stack_dicts = _stack_to_dicts(s, client)
+            for target in target_branches:
+                stacks = detect_stacks(api_state.queued_prs, target)
+                for s in stacks:
+                    if any(p.number == pr_number for p in s.prs):
+                        stack_dicts = _stack_to_dicts(s, client)
+                        target_branch = target
+                        break
+                if stack_dicts is not None:
                     break
             break
 
     if stack_dicts is None:
         # Reuse the pr_data fetched during the guard check — avoids a duplicate API call.
         pr_data = cached_pr_data or client.get_pr(pr_number)
+        pr_base_ref = pr_data["base"]["ref"]
         stack_dicts = [
             {
                 "number": pr_number,
                 "head_sha": pr_data["head"]["sha"],
                 "head_ref": pr_data["head"]["ref"],
-                "base_ref": pr_data["base"]["ref"],
+                "base_ref": pr_base_ref,
                 "title": pr_data.get("title", ""),
             }
         ]
+        # Use the PR's base_ref as target_branch if it's a configured target,
+        # otherwise fall back to the first configured target branch.
+        if target_branch is None:
+            if pr_base_ref in target_branches:
+                target_branch = pr_base_ref
+            else:
+                target_branch = target_branches[0]
 
     # CI gate: all PRs in stack must have passing CI (unless break-glass)
     pr_labels = [lbl["name"] for lbl in (cached_pr_data or {}).get("labels", [])]
@@ -251,6 +267,7 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
         "queued_at": _now_iso(),
         "stack": stack_dicts,
         "deployment_id": None,
+        "target_branch": target_branch or api_state.default_branch,
     }
 
     # Create deployment
@@ -394,6 +411,9 @@ def do_process(client: GitHubClientProtocol) -> str:
 
     dep_id = entry.get("deployment_id")
     cids = _normalize_cids(entry.get("comment_ids"))
+    # Resolve target branch: use the stored value from enqueue, or fall back to
+    # the repo default branch for backward compatibility with pre-existing entries.
+    entry_target_branch: str = entry.get("target_branch") or api_state.default_branch
 
     _update_deployment(client, dep_id, "in_progress", "Locking branches...")
 
@@ -409,6 +429,7 @@ def do_process(client: GitHubClientProtocol) -> str:
         "deployment_id": dep_id,
         "comment_ids": cids,
         "queued_at": entry["queued_at"],
+        "target_branch": entry_target_branch,
     }
     state["updated_at"] = _now_iso()
     store.write(state)
@@ -466,12 +487,12 @@ def do_process(client: GitHubClientProtocol) -> str:
         store.write(state)
 
         try:
-            batch_mod.complete_batch(client, batch)
+            batch_mod.complete_batch(client, batch, target_branch=entry_target_branch)
             merge_completed_at = _now_iso()
             log.info("Batch merged!")
             status = "merged"
             _update_deployment(
-                client, dep_id, "success", f"Merged to {api_state.default_branch}"
+                client, dep_id, "success", f"Merged to {entry_target_branch}"
             )
             # Update comments with full timing breakdown
             for pr in prs:
@@ -479,7 +500,7 @@ def do_process(client: GitHubClientProtocol) -> str:
                     client,
                     pr.number,
                     comments.merged(
-                        api_state.default_branch,
+                        entry_target_branch,
                         stack=entry["stack"],
                         queued_at=entry["queued_at"],
                         started_at=started_at,

@@ -259,35 +259,46 @@ def run_ci(
     return CIResult(passed, run_url)
 
 
-def complete_batch(client: GitHubClientProtocol, batch: Batch) -> None:
-    """Merge completed batch: retarget PRs, fast-forward main, clean up.
+def complete_batch(
+    client: GitHubClientProtocol,
+    batch: Batch,
+    target_branch: str | None = None,
+) -> None:
+    """Merge completed batch: retarget PRs, fast-forward target branch, clean up.
 
     Since branches are locked via ruleset, we skip SHA re-verification
     (nobody can push). After fast-forward, labels on merged PRs are inert
     so we skip label removal. Cleanup (unlock, delete, comment) runs in
     parallel to minimize API round-trips.
+
+    Args:
+        client: GitHub API client.
+        batch: The batch to complete.
+        target_branch: The branch to fast-forward. Defaults to the repo's
+            default branch for backward compatibility.
     """
-    default_branch = client.get_default_branch()
+    if target_branch is None:
+        target_branch = client.get_default_branch()
     batch_sha = client.get_branch_sha(batch.branch)
 
-    # Verify main hasn't diverged
-    status = client.compare_commits(default_branch, batch_sha)
+    # Verify target branch hasn't diverged
+    status = client.compare_commits(target_branch, batch_sha)
     if status != "ahead":
-        raise BatchError(f"Main has diverged (status: {status})")
+        raise BatchError(f"{target_branch} has diverged (status: {status})")
 
-    # Retarget PRs to main BEFORE fast-forward
+    # Retarget PRs to target_branch BEFORE fast-forward
     for pr in batch.stack.prs:
         try:
-            client.update_pr_base(pr.number, default_branch)
+            client.update_pr_base(pr.number, target_branch)
         except Exception as e:
             log.warning("Could not retarget PR #%d: %s", pr.number, e)
 
-    # Fast-forward main
-    client.update_ref(default_branch, batch_sha)
-    log.info("Fast-forwarded %s to %s", default_branch, batch_sha)
+    # Fast-forward target branch
+    client.update_ref(target_branch, batch_sha)
+    log.info("Fast-forwarded %s to %s", target_branch, batch_sha)
 
-    # Set commit status on new main HEAD so CI badge reflects the merge
-    # (GITHUB_TOKEN pushes don't trigger workflows, so CI won't re-run on main)
+    # Set commit status on new HEAD so CI badge reflects the merge
+    # (GITHUB_TOKEN pushes don't trigger workflows, so CI won't re-run)
     try:
         client.create_commit_status(batch_sha, "success", "Merged via merge queue")
     except Exception as e:
@@ -298,7 +309,7 @@ def complete_batch(client: GitHubClientProtocol, batch: Batch) -> None:
     # --- Parallel cleanup: unlock + delete branches + post comments ---
     # All independent — no ordering constraints after fast-forward.
     # Labels on merged PRs are inert, so we skip remove_label entirely.
-    _parallel_cleanup(client, batch, default_branch)
+    _parallel_cleanup(client, batch, target_branch)
 
     batch.status = BatchStatus.PASSED
 
