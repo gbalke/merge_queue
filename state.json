@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T20:54:48.142066+00:00",
+  "updated_at": "2026-04-05T21:02:26.972239+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -38,6 +38,24 @@
           "target_branch": "main",
           "comment_ids": {
             "107": 4189513916
+          }
+        },
+        {
+          "position": 3,
+          "queued_at": "2026-04-05T21:02:00Z",
+          "stack": [
+            {
+              "number": 108,
+              "head_sha": "b65ab92d17b9cf3667acd45dbdb4a87a5fe99610",
+              "head_ref": "greg/revup/main/resume-completing",
+              "base_ref": "main",
+              "title": "Resume stuck batches in 'completing' state"
+            }
+          ],
+          "deployment_id": 4277586819,
+          "target_branch": "main",
+          "comment_ids": {
+            "108": 4189523861
           }
         }
       ],
