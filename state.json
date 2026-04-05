@@ -1,29 +1,11 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T21:43:13.659449+00:00",
+  "updated_at": "2026-04-05T21:55:07.948758+00:00",
   "branches": {
     "main": {
       "queue": [
         {
           "position": 1,
-          "queued_at": "2026-04-05T20:54:32Z",
-          "stack": [
-            {
-              "number": 107,
-              "head_sha": "600599dc14a7e96d0dfb93746f99dcad003d6e59",
-              "head_ref": "greg/revup/main/ci-scripts",
-              "base_ref": "main",
-              "title": "Add ci/ scripts: single source of truth for CI checks"
-            }
-          ],
-          "deployment_id": 4277551343,
-          "target_branch": "main",
-          "comment_ids": {
-            "107": 4189513916
-          }
-        },
-        {
-          "position": 2,
           "queued_at": "2026-04-05T21:02:00Z",
           "stack": [
             {
@@ -41,7 +23,7 @@
           }
         },
         {
-          "position": 3,
+          "position": 2,
           "queued_at": "2026-04-05T21:07:28.920763+00:00",
           "stack": [
             {
@@ -59,7 +41,7 @@
           "target_branch": "main"
         },
         {
-          "position": 4,
+          "position": 3,
           "queued_at": "2026-04-05T21:14:39Z",
           "stack": [
             {
@@ -77,7 +59,7 @@
           }
         },
         {
-          "position": 5,
+          "position": 4,
           "queued_at": "2026-04-05T21:33:32.402013+00:00",
           "stack": [
             {
@@ -95,7 +77,7 @@
           "target_branch": "main"
         },
         {
-          "position": 6,
+          "position": 5,
           "queued_at": "2026-04-05T21:39:24Z",
           "stack": [
             {
@@ -113,7 +95,7 @@
           }
         },
         {
-          "position": 7,
+          "position": 6,
           "queued_at": "2026-04-05T21:42:54Z",
           "stack": [
             {
@@ -131,7 +113,28 @@
           }
         }
       ],
-      "active_batch": null
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T21:55:07.817255+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 107,
+            "head_sha": "600599dc14a7e96d0dfb93746f99dcad003d6e59",
+            "head_ref": "greg/revup/main/ci-scripts",
+            "base_ref": "main",
+            "title": "Add ci/ scripts: single source of truth for CI checks"
+          }
+        ],
+        "deployment_id": 4277551343,
+        "comment_ids": {
+          "107": 4189513916
+        },
+        "queued_at": "2026-04-05T20:54:32Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
