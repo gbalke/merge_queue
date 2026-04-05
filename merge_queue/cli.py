@@ -129,6 +129,92 @@ def _clear_active_batch(
     log.error("Could not clear active_batch after 3 attempts")
 
 
+def _resume_completion(
+    client: GitHubClientProtocol,
+    state: dict,
+    store: StateStore,
+    branch_name: str,
+    active: dict,
+    owner: str,
+    repo: str,
+) -> None:
+    """Resume a batch stuck in 'completing' state.
+
+    A previous run set progress='completing' and started complete_batch() but
+    was cancelled (e.g. by the concurrency group) before it finished.  We
+    reconstruct the Batch and retry the merge.
+    """
+    from merge_queue.types import Batch, PullRequest
+
+    prs = tuple(
+        PullRequest(
+            number=pr["number"],
+            head_sha=pr["head_sha"],
+            head_ref=pr["head_ref"],
+            base_ref=pr.get("base_ref", branch_name),
+            labels=("queue",),
+        )
+        for pr in active.get("stack", [])
+    )
+    batch = Batch(
+        batch_id=active["batch_id"],
+        branch=active["branch"],
+        prs=prs,
+        ruleset_id=active.get("ruleset_id"),
+    )
+    target = active.get("target_branch", branch_name)
+    entry = active
+    cids = entry.get("comment_ids", {})
+    dep_id = entry.get("deployment_id")
+
+    try:
+        batch_mod.complete_batch(client, batch, target_branch=target)
+        log.info("Resumed completion succeeded — batch merged to %s", target)
+        _update_deployment(client, dep_id, "success", f"Merged to {target}")
+        for pr in prs:
+            _comment(
+                client,
+                pr.number,
+                comments.merged(
+                    target,
+                    stack=entry.get("stack"),
+                    queued_at=entry.get("queued_at", ""),
+                    started_at=entry.get("started_at", ""),
+                    ci_started_at=entry.get("ci_started_at", ""),
+                    completed_at=_now_iso(),
+                    owner=owner,
+                    repo=repo,
+                ),
+                cids,
+            )
+        # Record in history
+        completed_at = _now_iso()
+        state.setdefault("history", []).append(
+            {
+                "batch_id": active["batch_id"],
+                "status": "merged",
+                "completed_at": completed_at,
+                "prs": [pr.number for pr in prs],
+                "target_branch": target,
+            }
+        )
+    except batch_mod.BatchError as e:
+        log.error("Resumed completion failed: %s", e)
+        batch_mod.fail_batch(client, batch, str(e))
+        _update_deployment(client, dep_id, "failure", str(e)[:140])
+        state.setdefault("history", []).append(
+            {
+                "batch_id": active["batch_id"],
+                "status": "complete_error",
+                "completed_at": _now_iso(),
+                "prs": [pr.number for pr in prs],
+                "target_branch": target,
+            }
+        )
+
+    _clear_active_batch(state, store, branch_name)
+
+
 def _is_break_glass_authorized(client: GitHubClientProtocol, sender: str) -> bool:
     """Return True if sender is allowed to use the break-glass label.
 
@@ -698,6 +784,17 @@ def do_process(client: GitHubClientProtocol) -> str:
                     )
                     batch_mod.abort_batch(client)
                     _clear_active_batch(state, store, branch_name)
+                elif active.get("progress") == "completing":
+                    # A previous run wrote "completing" but was cancelled before
+                    # finishing the merge.  Resume the completion.
+                    log.info(
+                        "Resuming stuck completion for %s (%.0fs old)",
+                        branch_name,
+                        age,
+                    )
+                    _resume_completion(
+                        client, state, store, branch_name, active, owner, repo
+                    )
                 else:
                     log.info(
                         "Active batch for %s in progress (%.0fs), skipping",
