@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T23:47:58.321304+00:00",
+  "updated_at": "2026-04-05T23:48:07.457922+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775432792",
-        "branch": "mq/main/1775432792",
-        "ruleset_id": 14717142,
-        "started_at": "2026-04-05T23:46:30.623394+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 120,
-            "head_sha": "dc4750778518654151c80821f54dae3bc6c41dd8",
-            "head_ref": "greg/revup/main/metrics-backend",
-            "base_ref": "main",
-            "title": "Add optional backend-agnostic metrics/analytics subsystem"
-          }
-        ],
-        "deployment_id": 4278298245,
-        "comment_ids": {
-          "120": 4189739912
-        },
-        "queued_at": "2026-04-05T23:46:08Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T23:46:34.124506+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -459,6 +437,16 @@
         119
       ],
       "duration_seconds": 82.903829,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775432792",
+      "status": "merged",
+      "completed_at": "2026-04-05T23:48:07.326565+00:00",
+      "prs": [
+        120
+      ],
+      "duration_seconds": 96.703171,
       "target_branch": "main"
     }
   ]
