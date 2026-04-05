@@ -337,18 +337,10 @@ class GitHubClient:
                     }
                 },
                 "rules": [
-                    {
-                        "type": "pull_request",
-                        "parameters": {
-                            "required_approving_review_count": 0,
-                            "dismiss_stale_reviews_on_push": False,
-                            "require_last_push_approval": False,
-                        },
-                    },
+                    {"type": "pull_request"},
                     {
                         "type": "required_status_checks",
                         "parameters": {
-                            "strict_status_check_policy": False,
                             "required_status_checks": [{"context": "Final Results"}],
                         },
                     },
