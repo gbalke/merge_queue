@@ -1,29 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T07:07:05.611229+00:00",
+  "updated_at": "2026-04-05T07:07:14.472990+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775372755",
-    "branch": "mq/1775372755",
-    "ruleset_id": 14705816,
-    "started_at": "2026-04-05T07:05:53.877615+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 64,
-        "head_sha": "f4f5451c3415626d8f9b0d3f1aaca7e13e3dd503",
-        "head_ref": "greg/revup/main/break-glass-auth",
-        "base_ref": "main",
-        "title": "Restrict break-glass to admins and explicit allow list"
-      }
-    ],
-    "deployment_id": 4273830419,
-    "comment_ids": {
-      "64": 4188431475
-    },
-    "queued_at": "2026-04-05T07:05:51.470476+00:00",
-    "ci_started_at": "2026-04-05T07:05:56.906519+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775367984",
@@ -105,6 +84,15 @@
         65
       ],
       "duration_seconds": 81.657234
+    },
+    {
+      "batch_id": "1775372755",
+      "status": "merged",
+      "completed_at": "2026-04-05T07:07:14.472968+00:00",
+      "prs": [
+        64
+      ],
+      "duration_seconds": 80.595353
     }
   ]
 }
