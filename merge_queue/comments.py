@@ -300,11 +300,17 @@ def merge_conflict(target_branch: str, owner: str = "", repo: str = "") -> str:
     )
 
 
-def auto_retrying(target_branch: str, owner: str = "", repo: str = "") -> str:
+def auto_retrying(
+    target_branch: str,
+    owner: str = "",
+    repo: str = "",
+    retry_info: str | None = None,
+) -> str:
     footer = _actions_or_mq_footer(owner=owner, repo=repo)
+    suffix = f" {retry_info}" if retry_info else ""
     return (
         f"\U0001f504 **Retrying** \u2014 Target branch moved during CI \u2014 "
-        f"retrying with latest `{target_branch}`."
+        f"retrying with latest `{target_branch}`{suffix}."
         f"{footer}"
     )
 

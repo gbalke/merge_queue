@@ -765,23 +765,38 @@ def do_process(client: GitHubClientProtocol) -> str:
             batch_mod.fail_batch(client, batch, error_str)
             if "diverged" in error_str.lower():
                 retry_count = entry.get("retry_count", 0)
-                if retry_count < 2:
+                max_retries = 3
+                total_attempts = max_retries + 1
+                if retry_count < max_retries:
+                    attempt_num = retry_count + 2  # next attempt number (1-indexed)
                     log.info(
-                        "Target branch diverged, auto-retrying (retry_count=%d)",
-                        retry_count,
+                        "Target branch diverged, auto-retrying (attempt %d/%d)",
+                        attempt_num,
+                        total_attempts,
+                    )
+                    retry_info = (
+                        f"(attempt {attempt_num}/{total_attempts})"
+                        if retry_count > 0
+                        else None
                     )
                     for pr in prs:
                         _comment(
                             client,
                             pr.number,
-                            comments.auto_retrying(entry_target_branch, owner, repo),
+                            comments.auto_retrying(
+                                entry_target_branch, owner, repo, retry_info=retry_info
+                            ),
                             cids,
                         )
                     entry["retry_count"] = retry_count + 1
                     branch_state.setdefault("queue", []).insert(0, entry)
                     _clear_active_batch(state, store, entry_target_branch)
                     return do_process(client)
-                log.info("retry_count >= 2, failing permanently")
+                log.info("Giving up after %d retries", max_retries)
+                error_str = (
+                    f"Failed after {total_attempts} attempts"
+                    " \u2014 target branch keeps moving"
+                )
             status = "complete_error"
             _update_deployment(client, dep_id, "failure", error_str[:140])
             for pr in prs:
