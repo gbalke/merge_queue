@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T15:34:51.365650+00:00",
+  "updated_at": "2026-04-05T15:34:54.131171+00:00",
   "queue": [
     {
       "position": 1,
@@ -19,6 +19,24 @@
       "comment_ids": {
         "73": 4189067642
       }
+    },
+    {
+      "position": 2,
+      "queued_at": "2026-04-05T15:34:53.108264+00:00",
+      "stack": [
+        {
+          "number": 74,
+          "head_sha": "731f66f2dd93afde19e600bc40d856e691a12303",
+          "head_ref": "greg/revup/release/1.0/rel-test-3",
+          "base_ref": "release/1.0",
+          "title": "Add release feature 3"
+        }
+      ],
+      "deployment_id": 4275970273,
+      "comment_ids": {
+        "74": 4189067700
+      },
+      "target_branch": "release/1.0"
     }
   ],
   "active_batch": null,
