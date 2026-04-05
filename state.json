@@ -1,26 +1,28 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T06:21:39.060376+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-05T06:21:38.115693+00:00",
-      "stack": [
-        {
-          "number": 59,
-          "head_sha": "dab0d18bc98a8b6c9575e6a40dd06c945e4031fb",
-          "head_ref": "greg/revup/main/security-audit",
-          "base_ref": "main",
-          "title": "Add security audit report"
-        }
-      ],
-      "deployment_id": 4273661426,
-      "comment_ids": {
-        "59": 4188382510
+  "updated_at": "2026-04-05T06:21:40.567228+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-05T06:21:40.567214+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 59,
+        "head_sha": "dab0d18bc98a8b6c9575e6a40dd06c945e4031fb",
+        "head_ref": "greg/revup/main/security-audit",
+        "base_ref": "main",
+        "title": "Add security audit report"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4273661426,
+    "comment_ids": {
+      "59": 4188382510
+    },
+    "queued_at": "2026-04-05T06:21:38.115693+00:00"
+  },
   "history": [
     {
       "batch_id": "1775367984",
