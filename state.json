@@ -1,29 +1,11 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:20:02.285386+00:00",
+  "updated_at": "2026-04-05T22:20:07.087978+00:00",
   "branches": {
     "main": {
       "queue": [
         {
           "position": 1,
-          "queued_at": "2026-04-05T22:15:06.849516+00:00",
-          "stack": [
-            {
-              "number": 108,
-              "head_sha": "b65ab92d17b9cf3667acd45dbdb4a87a5fe99610",
-              "head_ref": "greg/revup/main/resume-completing",
-              "base_ref": "main",
-              "title": "Resume stuck batches in 'completing' state"
-            }
-          ],
-          "deployment_id": 4277924269,
-          "comment_ids": {
-            "108": 4189618288
-          },
-          "target_branch": "main"
-        },
-        {
-          "position": 2,
           "queued_at": "2026-04-05T22:15:08.008079+00:00",
           "stack": [
             {
@@ -41,7 +23,7 @@
           "target_branch": "main"
         },
         {
-          "position": 3,
+          "position": 2,
           "queued_at": "2026-04-05T22:15:09.268158+00:00",
           "stack": [
             {
@@ -59,7 +41,28 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": null
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T22:20:06.779735+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 108,
+            "head_sha": "b65ab92d17b9cf3667acd45dbdb4a87a5fe99610",
+            "head_ref": "greg/revup/main/resume-completing",
+            "base_ref": "main",
+            "title": "Resume stuck batches in 'completing' state"
+          }
+        ],
+        "deployment_id": 4277924269,
+        "comment_ids": {
+          "108": 4189618288
+        },
+        "queued_at": "2026-04-05T22:15:06.849516+00:00",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
