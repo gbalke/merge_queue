@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T20:46:44.951665+00:00",
+  "updated_at": "2026-04-05T20:48:10.781557+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -28,7 +28,7 @@
         "branch": "mq/main/1775422002",
         "ruleset_id": 14715400,
         "started_at": "2026-04-05T20:46:39.156296+00:00",
-        "progress": "running_ci",
+        "progress": "completing",
         "stack": [
           {
             "number": 101,
