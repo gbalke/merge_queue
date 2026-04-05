@@ -81,7 +81,7 @@ class TestDoEnqueueCIGate:
         # A comment should have been posted to the PR
         client.create_comment.assert_called_once()
         body = client.create_comment.call_args[0][1]
-        assert "CI Required" in body
+        assert "CI required" in body
         assert "#1" in body
         assert "re-test" in body
         # The queue label should have been removed
@@ -207,7 +207,7 @@ class TestCICommentTemplates:
     def test_ci_not_ready_contains_pr_number(self, owner: str, repo: str) -> None:
         msg = comments.ci_not_ready(99, owner, repo)
         assert "99" in msg
-        assert "CI Required" in msg
+        assert "CI required" in msg
         assert "re-test" in msg
 
     def test_ci_not_ready_includes_mq_link_when_owner_repo_set(self) -> None:
