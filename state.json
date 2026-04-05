@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T20:46:23.474794+00:00",
+  "updated_at": "2026-04-05T20:46:34.410543+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -41,29 +41,7 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": {
-        "batch_id": "1775421894",
-        "branch": "mq/main/1775421894",
-        "ruleset_id": 14715386,
-        "started_at": "2026-04-05T20:44:51.799866+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 104,
-            "head_sha": "87dc030fd8e148918c8df566fb78357732cd5b60",
-            "head_ref": "greg/revup/main/enforce-no-direct-push",
-            "base_ref": "main",
-            "title": "Add rebase instructions to CLAUDE.md"
-          }
-        ],
-        "deployment_id": 4277503571,
-        "comment_ids": {
-          "104": 4189500786
-        },
-        "queued_at": "2026-04-05T20:39:34Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T20:44:57.142223+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -366,6 +344,16 @@
         101
       ],
       "duration_seconds": 90.373057,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775421894",
+      "status": "merged",
+      "completed_at": "2026-04-05T20:46:34.027867+00:00",
+      "prs": [
+        104
+      ],
+      "duration_seconds": 102.228001,
       "target_branch": "main"
     }
   ]
