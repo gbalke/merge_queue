@@ -264,17 +264,16 @@ def ensure_branch_protection(client, target_branches: list[str]) -> None:
             log.info("Creating protection ruleset for %s", branch)
             _create_branch_protection(client, branch)
 
-    state_branches = ["mq/state"]
-    for sb in state_branches:
-        if sb not in state_protected:
-            log.info("Creating state branch protection for %s", sb)
+    # Clean up legacy mq-state-protect rulesets — they block the atomic
+    # commit_files writes via Git Data API.  The mq/state branch does not
+    # need protection because the MQ concurrency group ensures single-writer.
+    for rs in existing:
+        if rs.get("name", "").startswith("mq-state-protect"):
             try:
-                client.create_ruleset(
-                    f"mq-state-protect-{sb.replace('/', '-')}",
-                    [f"refs/heads/{sb}"],
-                )
-            except Exception as e:
-                log.warning("Could not protect state branch %s: %s", sb, e)
+                client.delete_ruleset(rs["id"])
+                log.info("Removed legacy state protection ruleset %s", rs["name"])
+            except Exception:
+                pass
 
 
 def _create_branch_protection(client, branch: str) -> None:
