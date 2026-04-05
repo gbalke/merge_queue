@@ -72,7 +72,9 @@ def merged(
     default_branch: str,
     stack: list[dict] | None = None,
     queued_at: str = "",
+    started_at: str = "",
     ci_started_at: str = "",
+    ci_completed_at: str = "",
     completed_at: str = "",
     ci_run_url: str = "",
     owner: str = "",
@@ -88,12 +90,31 @@ def merged(
             t_completed = datetime.fromisoformat(completed_at)
             total = (t_completed - t_queued).total_seconds()
             rows = []
-            if ci_started_at:
-                t_ci = datetime.fromisoformat(ci_started_at)
-                wait = (t_ci - t_queued).total_seconds()
-                ci_dur = (t_completed - t_ci).total_seconds()
-                rows.append(f"| Queue wait | {_fmt_duration(wait)} |")
-                rows.append(f"| CI + merge | {_fmt_duration(ci_dur)} |")
+
+            if started_at:
+                t_started = datetime.fromisoformat(started_at)
+                rows.append(
+                    f"| Queue wait | {_fmt_duration((t_started - t_queued).total_seconds())} |"
+                )
+
+                if ci_started_at:
+                    t_ci_start = datetime.fromisoformat(ci_started_at)
+                    rows.append(
+                        f"| Lock + merge | {_fmt_duration((t_ci_start - t_started).total_seconds())} |"
+                    )
+
+                    if ci_completed_at:
+                        t_ci_end = datetime.fromisoformat(ci_completed_at)
+                        rows.append(
+                            f"| CI | {_fmt_duration((t_ci_end - t_ci_start).total_seconds())} |"
+                        )
+                        rows.append(
+                            f"| Merge to {default_branch} | {_fmt_duration((t_completed - t_ci_end).total_seconds())} |"
+                        )
+                    else:
+                        rows.append(
+                            f"| CI + merge | {_fmt_duration((t_completed - t_ci_start).total_seconds())} |"
+                        )
             rows.append(f"| **Total** | **{_fmt_duration(total)}** |")
             stats = "\n\n| Phase | Duration |\n|:------|:---------|\n" + "\n".join(rows)
         except Exception:

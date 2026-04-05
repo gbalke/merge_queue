@@ -417,7 +417,7 @@ def do_process(client: GitHubClientProtocol) -> str:
 
     # Run CI
     ci_result = batch_mod.run_ci(client, batch)
-    completed_at = _now_iso()
+    ci_completed_at = _now_iso()
 
     if ci_result.passed:
         state["active_batch"]["progress"] = "completing"
@@ -426,6 +426,7 @@ def do_process(client: GitHubClientProtocol) -> str:
 
         try:
             batch_mod.complete_batch(client, batch)
+            merge_completed_at = _now_iso()
             log.info("Batch merged!")
             status = "merged"
             if dep_id:
@@ -435,7 +436,7 @@ def do_process(client: GitHubClientProtocol) -> str:
                     )
                 except Exception:
                     pass
-            # Update comments with final merged status + stats + CI link
+            # Update comments with full timing breakdown
             for pr in prs:
                 _comment(
                     client,
@@ -444,8 +445,10 @@ def do_process(client: GitHubClientProtocol) -> str:
                         api_state.default_branch,
                         stack=entry["stack"],
                         queued_at=entry["queued_at"],
+                        started_at=started_at,
                         ci_started_at=ci_started_at,
-                        completed_at=completed_at,
+                        ci_completed_at=ci_completed_at,
+                        completed_at=merge_completed_at,
                         ci_run_url=ci_result.run_url,
                         owner=owner,
                         repo=repo,
