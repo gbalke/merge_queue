@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:00:02.757178+00:00",
+  "updated_at": "2026-04-05T22:00:07.616123+00:00",
   "branches": {
     "main": {
       "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-05T21:07:28.920763+00:00",
+          "stack": [
+            {
+              "number": 101,
+              "head_sha": "fb5b5ea39afd3e3becc3582475aa7bad63aad728",
+              "head_ref": "greg/revup/main/protect-mq-branches",
+              "base_ref": "main",
+              "title": "Protect all mq/* branches: only admin token can write"
+            }
+          ],
+          "deployment_id": 4277611258,
+          "comment_ids": {
+            "101": 4189530649
+          },
+          "target_branch": "main",
+          "retry_count": 1
+        },
         {
           "position": 1,
           "queued_at": "2026-04-05T21:14:39Z",
@@ -77,29 +96,7 @@
           }
         }
       ],
-      "active_batch": {
-        "batch_id": "1775426332",
-        "branch": "mq/main/1775426332",
-        "ruleset_id": 14715998,
-        "started_at": "2026-04-05T21:58:50.608140+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 101,
-            "head_sha": "fb5b5ea39afd3e3becc3582475aa7bad63aad728",
-            "head_ref": "greg/revup/main/protect-mq-branches",
-            "base_ref": "main",
-            "title": "Protect all mq/* branches: only admin token can write"
-          }
-        ],
-        "deployment_id": 4277611258,
-        "comment_ids": {
-          "101": 4189530649
-        },
-        "queued_at": "2026-04-05T21:07:28.920763+00:00",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T21:58:53.983733+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
