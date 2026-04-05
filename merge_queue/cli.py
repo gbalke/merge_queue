@@ -62,6 +62,35 @@ def _comment(
         return None
 
 
+def _update_progress(
+    client: GitHubClientProtocol,
+    phase: str,
+    stack: list[dict],
+    cids: dict,
+    timings: dict[str, str],
+    owner: str = "",
+    repo: str = "",
+    ci_run_url: str = "",
+    branch: str = "",
+) -> None:
+    """Update all PR comments with current phase and timing."""
+    for pr in stack:
+        _comment(
+            client,
+            pr["number"],
+            comments.progress(
+                phase,
+                stack,
+                timings=timings,
+                ci_run_url=ci_run_url,
+                branch=branch,
+                owner=owner,
+                repo=repo,
+            ),
+            cids,
+        )
+
+
 def _clear_active_batch(state: dict, store: StateStore) -> None:
     """Clear active_batch from state with retry on conflict."""
     for attempt in range(3):
@@ -117,15 +146,15 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
             )
             return "already_queued"
 
-    # Guard: recently processed? (check history for this PR in last 5 minutes)
+    # Guard: recently merged? (skip if successfully merged in last 5 minutes)
     now = datetime.datetime.now(datetime.timezone.utc)
     for h in reversed(state.get("history", [])):
-        if pr_number in h.get("prs", []):
+        if pr_number in h.get("prs", []) and h.get("status") == "merged":
             try:
                 completed = datetime.datetime.fromisoformat(h["completed_at"])
                 if (now - completed).total_seconds() < 300:
                     log.info(
-                        "PR #%d was processed %ds ago, skipping duplicate",
+                        "PR #%d was merged %ds ago, skipping duplicate",
                         pr_number,
                         int((now - completed).total_seconds()),
                     )
@@ -186,7 +215,6 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
                 return "ci_not_ready"
 
     position = len(state.get("queue", [])) + 1
-    total = position
     entry = {
         "position": position,
         "queued_at": _now_iso(),
@@ -211,7 +239,7 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
         cid = _comment(
             client,
             pr["number"],
-            comments.queued(position, total, stack_dicts, owner, repo),
+            comments.progress("queued", stack_dicts, owner=owner, repo=repo),
         )
         if cid:
             cids[pr["number"]] = cid

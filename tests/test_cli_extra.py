@@ -151,7 +151,7 @@ def test_enqueue_recently_processed_within_5_minutes(
     ).isoformat()
     mock_store.read.return_value = {
         **empty_state(),
-        "history": [{"prs": [7], "completed_at": recent}],
+        "history": [{"prs": [7], "completed_at": recent, "status": "merged"}],
     }
     result = do_enqueue(mock_client, 7)
     assert result == "recently_processed"
