@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T19:01:18.914802+00:00",
+  "updated_at": "2026-04-05T19:01:28.474269+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775415592",
-        "branch": "mq/main/1775415592",
-        "ruleset_id": 14712775,
-        "started_at": "2026-04-05T18:59:50.162391+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 98,
-            "head_sha": "10033ef4487f2712bc918848bd9ec6accc852ee0",
-            "head_ref": "greg/revup/main/fix-auto-rulesets",
-            "base_ref": "main",
-            "title": "Fix auto-ruleset creation + delete on config change"
-          }
-        ],
-        "deployment_id": 4276985237,
-        "comment_ids": {
-          "98": 4189360544
-        },
-        "queued_at": "2026-04-05T18:59:15Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T18:59:54.287405+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -249,6 +227,16 @@
         96
       ],
       "duration_seconds": 91.0036,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775415592",
+      "status": "merged",
+      "completed_at": "2026-04-05T19:01:28.474246+00:00",
+      "prs": [
+        98
+      ],
+      "duration_seconds": 98.311855,
       "target_branch": "main"
     }
   ]
