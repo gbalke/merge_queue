@@ -1,29 +1,31 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T18:53:13.226801+00:00",
+  "updated_at": "2026-04-05T18:53:17.557985+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-05T18:51:49Z",
-          "stack": [
-            {
-              "number": 97,
-              "head_sha": "9c522b1b4e8da478cfc07b90bf41cac908a4d26c",
-              "head_ref": "greg/revup/main/cleanup-stale-entries",
-              "base_ref": "main",
-              "title": "Fix: remove stale queue entries when queue label is gone"
-            }
-          ],
-          "deployment_id": 4276955044,
-          "target_branch": "main",
-          "comment_ids": {
-            "97": 4189351959
+      "queue": [],
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T18:53:17.557970+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 97,
+            "head_sha": "9c522b1b4e8da478cfc07b90bf41cac908a4d26c",
+            "head_ref": "greg/revup/main/cleanup-stale-entries",
+            "base_ref": "main",
+            "title": "Fix: remove stale queue entries when queue label is gone"
           }
-        }
-      ],
-      "active_batch": null
+        ],
+        "deployment_id": 4276955044,
+        "comment_ids": {
+          "97": 4189351959
+        },
+        "queued_at": "2026-04-05T18:51:49Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
