@@ -22,6 +22,13 @@ def _footer(*links: str) -> str:
     return "\n\n" + " \u00b7 ".join(parts)
 
 
+def _sanitize(text: str) -> str:
+    """Escape markdown special characters in user-provided text."""
+    for char in ["|", "`", "*", "_", "~", "[", "]", "<", ">", "#"]:
+        text = text.replace(char, f"\\{char}")
+    return text
+
+
 def _pr_table(stack: list[dict]) -> str:
     """Render stack as a compact PR table."""
     if not stack:
@@ -29,7 +36,7 @@ def _pr_table(stack: list[dict]) -> str:
     rows = []
     for pr in stack:
         num = pr.get("number", "?")
-        title = pr.get("title", "")
+        title = _sanitize(pr.get("title", ""))
         rows.append(f"| #{num} | {title} |")
     return "\n\n#### Commits\n\n| PR | Title |\n|:---|:------|\n" + "\n".join(rows)
 
@@ -123,10 +130,10 @@ def progress(
 
     # Show target branch in brackets
     if target_branch:
-        header += f" `[{target_branch}]`"
+        header += f" `[{_sanitize(target_branch)}]`"
 
     if branch and phase in ("running_ci", "completing"):
-        header += f" on `{branch}`"
+        header += f" on `{_sanitize(branch)}`"
 
     active_label = ""
     if phase not in ("merged", "failed", "aborted"):
@@ -174,7 +181,7 @@ def merged(
     owner: str = "",
     repo: str = "",
 ) -> str:
-    header = f"\u2705 **Merged** to `{default_branch}`"
+    header = f"\u2705 **Merged** to `{_sanitize(default_branch)}`"
 
     stats = ""
     if queued_at and completed_at:
@@ -294,7 +301,7 @@ def ci_retriggered(owner: str = "", repo: str = "") -> str:
 def merge_conflict(target_branch: str, owner: str = "", repo: str = "") -> str:
     footer = _actions_or_mq_footer(owner=owner, repo=repo)
     return (
-        f"\u274c **Merge conflict** \u2014 Your PR has merge conflicts with `{target_branch}`. "
+        f"\u274c **Merge conflict** \u2014 Your PR has merge conflicts with `{_sanitize(target_branch)}`. "
         f"Resolve conflicts locally and re-add the `queue` label."
         f"{footer}"
     )
