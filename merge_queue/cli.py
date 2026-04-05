@@ -654,6 +654,72 @@ def do_retest(client: GitHubClientProtocol, pr_number: int) -> str:
     return "retriggered"
 
 
+def do_hotfix(client: GitHubClientProtocol, pr_number: int) -> str:
+    """Emergency merge — skip queue, skip CI gate, merge immediately.
+
+    Only authorized users (admins or break_glass_users) can use this.
+    Use when the MQ itself is broken and needs a fix on main.
+    """
+    owner, repo = _owner_repo(client)
+    sender = os.environ.get("MQ_SENDER", "")
+
+    # Auth check (same as break-glass)
+    if not _is_break_glass_authorized(client, sender):
+        log.warning("hotfix rejected: %s is not authorized", sender)
+        _comment(
+            client,
+            pr_number,
+            comments.break_glass_denied(sender, owner, repo),
+        )
+        client.remove_label(pr_number, "hotfix")
+        return "denied"
+
+    log.warning("HOTFIX by %s on PR #%d — skipping queue and CI", sender, pr_number)
+
+    # Get PR info
+    pr_data = client.get_pr(pr_number)
+    from merge_queue.types import PullRequest, Stack
+    from merge_queue import config
+
+    target_branch = pr_data["base"]["ref"]
+    target_branches = config.get_target_branches(client)
+    if target_branch not in target_branches:
+        target_branch = client.get_default_branch()
+
+    pr_obj = PullRequest(
+        number=pr_number,
+        head_sha=pr_data["head"]["sha"],
+        head_ref=pr_data["head"]["ref"],
+        base_ref=pr_data["base"]["ref"],
+        labels=("hotfix",),
+    )
+    stack = Stack(prs=(pr_obj,), queued_at=datetime.datetime.now(datetime.timezone.utc))
+
+    _comment(
+        client,
+        pr_number,
+        f"🚨 **Hotfix** `[{target_branch}]` — merging immediately (by `{sender}`)",
+    )
+
+    # Create batch and merge (skip CI)
+    try:
+        batch = batch_mod.create_batch(client, stack)
+        batch_mod.complete_batch(client, batch, target_branch=target_branch)
+        _comment(client, pr_number, f"✅ **Hotfix merged** to `{target_branch}`")
+        client.remove_label(pr_number, "hotfix")
+        log.info("Hotfix merged PR #%d to %s", pr_number, target_branch)
+        return "merged"
+    except Exception as e:
+        log.error("Hotfix failed: %s", e)
+        _comment(client, pr_number, f"❌ **Hotfix failed** — {e}")
+        try:
+            batch_mod.abort_batch(client)
+        except Exception:
+            pass
+        client.remove_label(pr_number, "hotfix")
+        return "failed"
+
+
 def do_check_rules(client: GitHubClientProtocol) -> list[rules_mod.RuleResult]:
     state = QueueState.fetch(client)
     return rules_mod.check_all(state)
@@ -697,6 +763,14 @@ def cmd_retest(args: argparse.Namespace) -> None:
     client = _make_client()
     do_retest(client, args.pr_number)
     _log_rate_limit(client)
+
+
+def cmd_hotfix(args: argparse.Namespace) -> None:
+    client = _make_client()
+    result = do_hotfix(client, args.pr_number)
+    _log_rate_limit(client)
+    if result == "failed":
+        sys.exit(1)
 
 
 def cmd_check_rules(args: argparse.Namespace) -> None:
@@ -748,6 +822,10 @@ def main() -> None:
     p = sub.add_parser("retest")
     p.add_argument("pr_number", type=int)
     p.set_defaults(func=cmd_retest)
+
+    p = sub.add_parser("hotfix")
+    p.add_argument("pr_number", type=int)
+    p.set_defaults(func=cmd_hotfix)
 
     sub.add_parser("check-rules").set_defaults(func=cmd_check_rules)
     sub.add_parser("status").set_defaults(func=cmd_status)
