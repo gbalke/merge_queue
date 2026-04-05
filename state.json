@@ -1,26 +1,28 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T06:43:45.353629+00:00",
-  "queue": [
-    {
-      "position": 1,
-      "queued_at": "2026-04-05T06:43:44.381081+00:00",
-      "stack": [
-        {
-          "number": 62,
-          "head_sha": "8da21f8bc44a89123d94823ec8474f34c9b334ec",
-          "head_ref": "greg/revup/main/code-cleanup",
-          "base_ref": "main",
-          "title": "Code cleanup: remove dead code, consolidate duplication, simplify"
-        }
-      ],
-      "deployment_id": 4273749720,
-      "comment_ids": {
-        "62": 4188407760
+  "updated_at": "2026-04-05T06:43:49.397742+00:00",
+  "queue": [],
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-05T06:43:49.397728+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 62,
+        "head_sha": "8da21f8bc44a89123d94823ec8474f34c9b334ec",
+        "head_ref": "greg/revup/main/code-cleanup",
+        "base_ref": "main",
+        "title": "Code cleanup: remove dead code, consolidate duplication, simplify"
       }
-    }
-  ],
-  "active_batch": null,
+    ],
+    "deployment_id": 4273749720,
+    "comment_ids": {
+      "62": 4188407760
+    },
+    "queued_at": "2026-04-05T06:43:44.381081+00:00"
+  },
   "history": [
     {
       "batch_id": "1775367984",
