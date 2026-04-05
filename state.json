@@ -1,29 +1,31 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T16:45:51.931144+00:00",
+  "updated_at": "2026-04-05T16:45:53.853516+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-05T16:45:36Z",
-          "stack": [
-            {
-              "number": 85,
-              "head_sha": "03c0900986aeac59a6474b8df40f3697e4f8ca00",
-              "head_ref": "greg/revup/main/auto-rebase",
-              "base_ref": "main",
-              "title": "Add auto-rebase on conflict: rebase and retry instead of failing"
-            }
-          ],
-          "deployment_id": 4276326732,
-          "target_branch": "main",
-          "comment_ids": {
-            "85": 4189173086
+      "queue": [],
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T16:45:53.853500+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 85,
+            "head_sha": "03c0900986aeac59a6474b8df40f3697e4f8ca00",
+            "head_ref": "greg/revup/main/auto-rebase",
+            "base_ref": "main",
+            "title": "Add auto-rebase on conflict: rebase and retry instead of failing"
           }
-        }
-      ],
-      "active_batch": null
+        ],
+        "deployment_id": 4276326732,
+        "comment_ids": {
+          "85": 4189173086
+        },
+        "queued_at": "2026-04-05T16:45:36Z",
+        "target_branch": "main"
+      }
     }
   },
   "history": [
