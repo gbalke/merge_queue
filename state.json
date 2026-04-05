@@ -1,7 +1,25 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T06:25:39.283932+00:00",
-  "queue": [],
+  "updated_at": "2026-04-05T06:37:25.958228+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-05T06:37:24.874481+00:00",
+      "stack": [
+        {
+          "number": 61,
+          "head_sha": "bd3f2c2c29d90031cf6f78ae6b0527142579c7b2",
+          "head_ref": "greg/revup/main/comment-redesign",
+          "base_ref": "main",
+          "title": "Redesign comment UI: minimal, consistent, modern"
+        }
+      ],
+      "deployment_id": 4273726715,
+      "comment_ids": {
+        "61": 4188401209
+      }
+    }
+  ],
   "active_batch": null,
   "history": [
     {
