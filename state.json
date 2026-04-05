@@ -1,30 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T14:09:19.187911+00:00",
+  "updated_at": "2026-04-05T14:09:22.599961+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775398074",
-    "branch": "mq/1775398074",
-    "ruleset_id": 14710142,
-    "started_at": "2026-04-05T14:07:53.314884+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 74,
-        "head_sha": "731f66f2dd93afde19e600bc40d856e691a12303",
-        "head_ref": "greg/revup/release/1.0/rel-test-3",
-        "base_ref": "release/1.0",
-        "title": "Add release feature 3"
-      }
-    ],
-    "deployment_id": 4275540430,
-    "comment_ids": {
-      "74": 4188944617
-    },
-    "queued_at": "2026-04-05T14:07:51.270411+00:00",
-    "target_branch": "release/1.0",
-    "ci_started_at": "2026-04-05T14:07:55.729632+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775367984",
@@ -170,6 +148,15 @@
         72
       ],
       "duration_seconds": 94.75535
+    },
+    {
+      "batch_id": "1775398074",
+      "status": "complete_error",
+      "completed_at": "2026-04-05T14:09:22.599936+00:00",
+      "prs": [
+        74
+      ],
+      "duration_seconds": 89.285052
     }
   ]
 }
