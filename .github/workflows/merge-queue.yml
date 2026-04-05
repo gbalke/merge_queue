@@ -10,15 +10,11 @@ on:
         options: [process, check-rules, status]
         default: process
 
-# Concurrency: enqueue runs get their own group (per-PR, parallel).
-# Process/abort/retest share a group (serialized).
+# Single concurrency group — all MQ operations are serialized.
+# This prevents double-processing when multiple PRs are labeled simultaneously.
+# _sync_missing_prs picks up any PRs whose enqueue was cancelled.
 concurrency:
-  group: >-
-    ${{
-      github.event.action == 'labeled' && github.event.label.name == 'queue'
-      && format('mq-enqueue-{0}', github.event.pull_request.number)
-      || 'mq-process'
-    }}
+  group: merge-queue
   cancel-in-progress: false
 
 jobs:
