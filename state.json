@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T18:46:03.277514+00:00",
+  "updated_at": "2026-04-05T18:46:12.867748+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -23,29 +23,7 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": {
-        "batch_id": "1775414677",
-        "branch": "mq/main/1775414677",
-        "ruleset_id": 14712648,
-        "started_at": "2026-04-05T18:44:34.462138+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 95,
-            "head_sha": "69752d0808c26e8cd2692ee4be5641178c8a2742",
-            "head_ref": "greg/revup/main/docs-refresh",
-            "base_ref": "main",
-            "title": "Update docs: README, ARCHITECTURE, SECURITY_AUDIT to current state"
-          }
-        ],
-        "deployment_id": 4276895305,
-        "comment_ids": {
-          "95": 4189335226
-        },
-        "queued_at": "2026-04-05T18:41:03.733770+00:00",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T18:44:38.872727+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -218,6 +196,16 @@
         94
       ],
       "duration_seconds": 99.382269,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775414677",
+      "status": "merged",
+      "completed_at": "2026-04-05T18:46:12.867728+00:00",
+      "prs": [
+        95
+      ],
+      "duration_seconds": 98.40559,
       "target_branch": "main"
     }
   ]
