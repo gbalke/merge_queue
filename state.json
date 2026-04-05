@@ -1,30 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T14:15:31.580310+00:00",
+  "updated_at": "2026-04-05T14:15:40.146549+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775398446",
-    "branch": "mq/1775398446",
-    "ruleset_id": 14710232,
-    "started_at": "2026-04-05T14:14:05.125874+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 75,
-        "head_sha": "f2d260f8b39bda2a8e90478bafa1c2598825efd7",
-        "head_ref": "greg/revup/main/sync-missing-prs",
-        "base_ref": "main",
-        "title": "Fix: auto-enqueue missed PRs from cancelled workflow runs"
-      }
-    ],
-    "deployment_id": 4275571402,
-    "comment_ids": {
-      "75": 4188953203
-    },
-    "queued_at": "2026-04-05T14:14:02.832587+00:00",
-    "target_branch": "main",
-    "ci_started_at": "2026-04-05T14:14:07.830779+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775367984",
@@ -179,6 +157,15 @@
         74
       ],
       "duration_seconds": 89.285052
+    },
+    {
+      "batch_id": "1775398446",
+      "status": "merged",
+      "completed_at": "2026-04-05T14:15:40.146527+00:00",
+      "prs": [
+        75
+      ],
+      "duration_seconds": 95.020653
     }
   ]
 }
