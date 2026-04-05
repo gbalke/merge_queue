@@ -714,3 +714,184 @@ class TestCreateProtectionRulesetApiCall:
 
         with pytest.raises(requests.HTTPError):
             gh.create_protection_ruleset(name="mq-protect-main", branch="main")
+
+
+# ---------------------------------------------------------------------------
+# _ensure_mq_branches_protected — unit tests
+# ---------------------------------------------------------------------------
+
+
+def _mq_branches_client(existing_rulesets: list[dict] | None = None) -> MagicMock:
+    """Build a minimal mock client for _ensure_mq_branches_protected tests."""
+    client = MagicMock()
+    client._base_url = "https://api.github.com/repos/owner/repo"
+    client.list_rulesets.return_value = existing_rulesets or []
+    return client
+
+
+def _ok_post_response(ruleset_id: int = 200) -> MagicMock:
+    """Return a mock requests.Response for a successful POST."""
+    resp = MagicMock()
+    resp.raise_for_status.return_value = None
+    resp.json.return_value = {"id": ruleset_id}
+    return resp
+
+
+class TestEnsureMqBranchesProtected:
+    """Tests for _ensure_mq_branches_protected in config.py."""
+
+    def test_creates_ruleset_when_absent(self):
+        """Creates mq-branches-protect when no existing rulesets cover mq/*."""
+        from merge_queue.config import _ensure_mq_branches_protected
+
+        client = _mq_branches_client(existing_rulesets=[])
+        client._admin_session.post.return_value = _ok_post_response(201)
+
+        _ensure_mq_branches_protected(client)
+
+        client._admin_session.post.assert_called_once()
+        _, kwargs = client._admin_session.post.call_args
+        payload = kwargs["json"]
+        assert payload["name"] == "mq-branches-protect"
+        assert payload["target"] == "branch"
+        assert payload["enforcement"] == "active"
+        assert "refs/heads/mq/*" in payload["conditions"]["ref_name"]["include"]
+        # mq/state must be excluded — protecting it blocks atomic writes
+        assert "refs/heads/mq/state" in payload["conditions"]["ref_name"]["exclude"]
+        rule_types = {r["type"] for r in payload["rules"]}
+        assert rule_types == {"update", "deletion"}
+        assert payload["bypass_actors"][0]["actor_type"] == "RepositoryRole"
+        assert payload["bypass_actors"][0]["bypass_mode"] == "always"
+
+    def test_skips_creation_when_already_exists(self):
+        """Does not POST when mq-branches-protect already exists."""
+        from merge_queue.config import _ensure_mq_branches_protected
+
+        existing = [{"name": "mq-branches-protect", "id": 99}]
+        client = _mq_branches_client(existing_rulesets=existing)
+
+        _ensure_mq_branches_protected(client)
+
+        client._admin_session.post.assert_not_called()
+
+    def test_deletes_legacy_mq_state_protect_rulesets_when_creating_new(self):
+        """Old mq-state-protect-* rulesets are deleted after new ruleset is created."""
+        from merge_queue.config import _ensure_mq_branches_protected
+
+        existing = [
+            {"name": "mq-state-protect-mq-state", "id": 11},
+            {"name": "mq-state-protect-mq-lock", "id": 22},
+        ]
+        client = _mq_branches_client(existing_rulesets=existing)
+        client._admin_session.post.return_value = _ok_post_response(201)
+
+        _ensure_mq_branches_protected(client)
+
+        # Both legacy rulesets should be deleted
+        deleted_ids = {call.args[0] for call in client.delete_ruleset.call_args_list}
+        assert deleted_ids == {11, 22}
+
+    def test_deletes_legacy_rulesets_when_new_already_exists(self):
+        """Legacy mq-state-protect-* rulesets are deleted even if mq-branches-protect exists."""
+        from merge_queue.config import _ensure_mq_branches_protected
+
+        existing = [
+            {"name": "mq-branches-protect", "id": 99},
+            {"name": "mq-state-protect-mq-state", "id": 11},
+        ]
+        client = _mq_branches_client(existing_rulesets=existing)
+
+        _ensure_mq_branches_protected(client)
+
+        # Should still clean up the legacy one
+        client.delete_ruleset.assert_called_once_with(11)
+        # No new POST needed
+        client._admin_session.post.assert_not_called()
+
+    def test_creation_failure_is_swallowed(self):
+        """If the POST fails, no exception propagates and legacy rulesets remain."""
+        from merge_queue.config import _ensure_mq_branches_protected
+
+        existing = [{"name": "mq-state-protect-mq-state", "id": 11}]
+        client = _mq_branches_client(existing_rulesets=existing)
+        err_resp = MagicMock()
+        err_resp.raise_for_status.side_effect = RuntimeError("forbidden")
+        client._admin_session.post.return_value = err_resp
+
+        # Should not raise
+        _ensure_mq_branches_protected(client)
+
+        # Legacy ruleset should NOT be deleted when creation failed
+        client.delete_ruleset.assert_not_called()
+
+    def test_legacy_deletion_failure_is_swallowed(self):
+        """If delete of a legacy ruleset fails, no exception propagates."""
+        from merge_queue.config import _ensure_mq_branches_protected
+
+        existing = [{"name": "mq-state-protect-mq-state", "id": 11}]
+        client = _mq_branches_client(existing_rulesets=existing)
+        client._admin_session.post.return_value = _ok_post_response(201)
+        client.delete_ruleset.side_effect = RuntimeError("network error")
+
+        # Should not raise
+        _ensure_mq_branches_protected(client)
+
+    def test_no_legacy_rulesets_no_delete_calls(self):
+        """When no legacy rulesets exist, delete_ruleset is never called."""
+        from merge_queue.config import _ensure_mq_branches_protected
+
+        client = _mq_branches_client(existing_rulesets=[])
+        client._admin_session.post.return_value = _ok_post_response(201)
+
+        _ensure_mq_branches_protected(client)
+
+        client.delete_ruleset.assert_not_called()
+
+
+class TestEnsureBranchProtectionCallsMqProtect:
+    """ensure_branch_protection should call _ensure_mq_branches_protected."""
+
+    def test_mq_branches_protected_called(self):
+        """ensure_branch_protection delegates to _ensure_mq_branches_protected."""
+        from unittest.mock import patch
+
+        from merge_queue.config import ensure_branch_protection
+
+        client = _make_client(existing_rulesets=[])
+
+        with patch("merge_queue.config._ensure_mq_branches_protected") as mock_fn:
+            ensure_branch_protection(client, ["main"])
+
+        mock_fn.assert_called_once_with(client)
+
+    def test_mq_branches_protected_called_with_empty_target_list(self):
+        """_ensure_mq_branches_protected is called even with an empty target list."""
+        from unittest.mock import patch
+
+        from merge_queue.config import ensure_branch_protection
+
+        client = _make_client(existing_rulesets=[])
+
+        with patch("merge_queue.config._ensure_mq_branches_protected") as mock_fn:
+            ensure_branch_protection(client, [])
+
+        mock_fn.assert_called_once_with(client)
+
+    def test_no_longer_creates_mq_state_protect_ruleset(self):
+        """ensure_branch_protection no longer calls create_ruleset for mq/state."""
+        from merge_queue.config import ensure_branch_protection
+
+        client = _make_client(existing_rulesets=[])
+        # Silence _ensure_mq_branches_protected so it doesn't need _admin_session
+        client._admin_session = MagicMock()
+        client._admin_session.post.return_value = _ok_post_response(201)
+
+        ensure_branch_protection(client, ["main"])
+
+        # The old path called client.create_ruleset("mq-state-protect-mq-state", ...)
+        # That must no longer happen.
+        for call in client.create_ruleset.call_args_list:
+            name = call.args[0] if call.args else call.kwargs.get("name", "")
+            assert not name.startswith("mq-state-protect"), (
+                f"Unexpected create_ruleset call: {call}"
+            )
