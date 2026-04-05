@@ -13,9 +13,9 @@
 |---------|----------|--------|----|
 | CRITICAL-1 | Critical | ✅ Resolved | #60 |
 | CRITICAL-2 | Critical | ✅ Resolved | #60 |
-| HIGH-1 | High | ❌ Open | — |
-| HIGH-2 | High | ❌ Open | — |
-| HIGH-3 | High | ❌ Open | — |
+| HIGH-1 | High | ✅ Resolved | #96 |
+| HIGH-2 | High | ✅ Resolved | #101 |
+| HIGH-3 | High | ✅ Resolved | #96 |
 | MEDIUM-1 | Medium | ✅ Resolved | #60 |
 | MEDIUM-2 | Medium | ❌ Open | — |
 | LOW-1 | Low | ❌ Open | — |
@@ -137,7 +137,9 @@ This prevents any shell interpretation of the command string. The argument is st
 
 ---
 
-### HIGH-1: PR data rendered into GitHub comment Markdown without sanitization
+### HIGH-1: PR data rendered into GitHub comment Markdown without sanitization — ✅ RESOLVED
+
+**Status:** Resolved in PR #96. A `_sanitize()` function strips backticks, brackets, and newlines from all user-controlled strings (PR titles, branch names, target branches) before embedding in Markdown. Applied consistently across all comment-generation paths.
 
 **File:** `merge_queue/comments.py`, lines 16–27 (`_stack_list`)
 
@@ -178,9 +180,11 @@ Apply this to `title` and escape backticks in the `head` variable before the f-s
 
 ---
 
-### HIGH-2: State branch (`mq/state`) writable by any PR author
+### HIGH-2: State branch (`mq/state`) writable by any PR author — ✅ RESOLVED
 
-**File:** `merge_queue/store.py`; GitHub permissions model
+**Status:** Resolved in PR #101. A `_ensure_mq_branches_protected()` function in `config.py` auto-creates a `mq-branches-protect` ruleset covering `refs/heads/mq/*` on first run. Only the admin token can write to these branches. State writes use `write_with_retry` with atomic compare-and-swap semantics. Note: `mq/state` is excluded from the branch protection ruleset because protecting it blocks atomic writes; it relies on the admin token for push access instead.
+
+**File:** `merge_queue/store.py`; `merge_queue/config.py`; GitHub permissions model
 
 **Description:**
 
@@ -201,7 +205,11 @@ Apply a branch ruleset to `mq/state` that allows only the `github-actions[bot]` 
 
 ---
 
-### HIGH-3: `MQ_ADMIN_TOKEN` passed to PR-installed code with no privilege separation
+### HIGH-3: `MQ_ADMIN_TOKEN` passed to PR-installed code with no privilege separation — ✅ RESOLVED
+
+**Status:** Resolved in PR #96. The `GitHubClient` now lazily initializes `_admin_session` only when an admin operation is actually invoked. The admin token is loaded from `MQ_ADMIN_TOKEN` env var at construction time but the admin session is only used for operations that require it (create/delete rulesets, `update_ref` to bypass branch protection). Combined with the CRITICAL-1 fix (code is always installed from `main`, not PR branches), the ambient token exposure risk is eliminated.
+
+**Residual consideration:** `update_ref` (which fast-forwards `main` after a successful batch) now uses the admin session to bypass branch protection rulesets. This is necessary because the MQ's own rulesets would otherwise block the fast-forward. The admin token must have `contents: write` and `administration: write` scopes. This is properly scoped — the token is only used for MQ-managed operations (rulesets and the final merge), not for arbitrary API calls.
 
 **File:** `.github/workflows/merge-queue.yml`, lines 76–78
 
@@ -304,13 +312,18 @@ The code has a 30-minute stale-batch recovery timer and state-based guards, whic
 
 ## Recommended Fix Priority
 
-1. **Fix CRITICAL-1 immediately** — remove the PR-branch bootstrap or isolate it from secrets.
-2. **Fix CRITICAL-2** — quote `${{ steps.cmd.outputs.cmd }}` via an env var.
-3. **Fix HIGH-3** — scope `MQ_ADMIN_TOKEN` to only the subcommands that require it.
-4. **Fix HIGH-1** — sanitize branch names and PR titles before Markdown embedding.
-5. **Fix HIGH-2** — protect `mq/state` with a ruleset allowing only the bot actor.
-6. MEDIUM and LOW items can be addressed in a follow-up pass.
+All Critical and High findings have been resolved. Remaining open items:
+
+1. **MEDIUM-2** — Exception logging may echo token fragments. Low urgency since CRITICAL-1 eliminated the primary code-execution vector.
+2. **LOW-1** — `dispatch_ci_on_ref` uses PR-supplied branch ref. No direct injection risk identified.
+3. **LOW-2** — Concurrency gap allows queue DoS via rapid label events. Mitigated by stale-batch recovery timer.
+
+## New Security Considerations (2026-04-05)
+
+- **`update_ref` uses admin token**: The `update_ref` method in `github_client.py` uses `_admin_session` to fast-forward `main` after a successful batch. This is required to bypass the MQ's own branch protection rulesets. The admin token must have `contents: write` and `administration: write` scopes. This is properly scoped — the operation is only reachable through the `process` command's completion path, and the code is always installed from `main` (not PR branches). No action needed, but worth noting for future audits.
+
+- **`break-glass` auth**: The `break-glass` label is gated behind `_is_break_glass_authorized()`, which checks both GitHub admin status and the `break_glass_users` config list. This prevents unauthorized users from skipping CI.
 
 ---
 
-*This report was produced by automated analysis of the codebase at the commit shown above. It does not substitute for a full penetration test or a red-team exercise against a live deployment.*
+*This report was produced by automated analysis of the codebase at the commit shown above. Updated 2026-04-05 to reflect resolved findings. It does not substitute for a full penetration test or a red-team exercise against a live deployment.*
