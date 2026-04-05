@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:58:22.877544+00:00",
+  "updated_at": "2026-04-05T22:59:19.811723+00:00",
   "branches": {
     "main": {
-      "queue": [],
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-05T22:59:01Z",
+          "stack": [
+            {
+              "number": 118,
+              "head_sha": "8dffcdb17200a415ad97a38c9e651dbf04c28a4b",
+              "head_ref": "greg/revup/main/retry-5xx",
+              "base_ref": "main",
+              "title": "fix: retry write_with_retry on transient 5xx server errors"
+            }
+          ],
+          "deployment_id": 4278106172,
+          "target_branch": "main",
+          "comment_ids": {
+            "118": 4189673328
+          }
+        }
+      ],
       "active_batch": null
     },
     "release/1.0": {
