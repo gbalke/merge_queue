@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T16:04:51.525422+00:00",
+  "updated_at": "2026-04-05T16:05:00.304573+00:00",
   "queue": [
     {
       "position": 1,
@@ -39,29 +39,7 @@
       "target_branch": "main"
     }
   ],
-  "active_batch": {
-    "batch_id": "1775405021",
-    "branch": "mq/1775405021",
-    "ruleset_id": 14711136,
-    "started_at": "2026-04-05T16:03:39.971056+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 88,
-        "head_sha": "87959604dc5906db1bf37901d3c9dd4f6b6a9668",
-        "head_ref": "greg/revup/release/1.0/rel-batch-c",
-        "base_ref": "release/1.0",
-        "title": "Add batch test C"
-      }
-    ],
-    "deployment_id": 4276105737,
-    "comment_ids": {
-      "88": 4189110201
-    },
-    "queued_at": "2026-04-05T16:01:58.587703+00:00",
-    "target_branch": "release/1.0",
-    "ci_started_at": "2026-04-05T16:03:43.057838+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775400996",
@@ -152,6 +130,15 @@
         86
       ],
       "duration_seconds": 95.835655
+    },
+    {
+      "batch_id": "1775405021",
+      "status": "merged",
+      "completed_at": "2026-04-05T16:05:00.304551+00:00",
+      "prs": [
+        88
+      ],
+      "duration_seconds": 80.333495
     }
   ]
 }
