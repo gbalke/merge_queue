@@ -1,29 +1,11 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T18:42:48.121891+00:00",
+  "updated_at": "2026-04-05T18:42:52.075234+00:00",
   "branches": {
     "main": {
       "queue": [
         {
           "position": 1,
-          "queued_at": "2026-04-05T18:31:28Z",
-          "stack": [
-            {
-              "number": 94,
-              "head_sha": "c6c3f9cf4afc632d9341e340d00a535589addfd7",
-              "head_ref": "greg/revup/main/fix-retry-limit",
-              "base_ref": "main",
-              "title": "Fix retry limit to 3 with clear attempt messaging"
-            }
-          ],
-          "deployment_id": 4276850877,
-          "target_branch": "main",
-          "comment_ids": {
-            "94": 4189322124
-          }
-        },
-        {
-          "position": 2,
           "queued_at": "2026-04-05T18:41:03.733770+00:00",
           "stack": [
             {
@@ -41,7 +23,7 @@
           "target_branch": "main"
         },
         {
-          "position": 3,
+          "position": 2,
           "queued_at": "2026-04-05T18:41:04.554653+00:00",
           "stack": [
             {
@@ -59,7 +41,28 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": null
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T18:42:52.075221+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 94,
+            "head_sha": "c6c3f9cf4afc632d9341e340d00a535589addfd7",
+            "head_ref": "greg/revup/main/fix-retry-limit",
+            "base_ref": "main",
+            "title": "Fix retry limit to 3 with clear attempt messaging"
+          }
+        ],
+        "deployment_id": 4276850877,
+        "comment_ids": {
+          "94": 4189322124
+        },
+        "queued_at": "2026-04-05T18:31:28Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
