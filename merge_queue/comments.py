@@ -291,6 +291,24 @@ def ci_retriggered(owner: str = "", repo: str = "") -> str:
     return f"\U0001f504 **CI retriggered** via `re-test` label{_actions_or_mq_footer(owner, repo)}"
 
 
+def auto_rebased(target_branch: str, owner: str = "", repo: str = "") -> str:
+    footer = _actions_or_mq_footer(owner=owner, repo=repo)
+    return (
+        f"\U0001f504 **Auto-rebased** onto `{target_branch}` \u2014 retrying merge queue.\n"
+        f"{footer}"
+    )
+
+
+def rebase_failed(conflict_details: str, owner: str = "", repo: str = "") -> str:
+    footer = _actions_or_mq_footer(owner=owner, repo=repo)
+    return (
+        f"\u274c **Auto-rebase failed** \u2014 manual rebase required.\n\n"
+        f"```\n{conflict_details}\n```\n\n"
+        f"Rebase locally and re-add the `queue` label.\n"
+        f"{footer}"
+    )
+
+
 def break_glass_denied(sender: str, owner: str = "", repo: str = "") -> str:
     link = _mq_link(owner, repo)
     footer = _footer(link) if link else ""

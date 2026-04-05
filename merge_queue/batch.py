@@ -380,6 +380,37 @@ def fail_batch(
     batch.status = BatchStatus.FAILED
 
 
+def auto_rebase(
+    client: GitHubClientProtocol,
+    pr_data: dict,
+    target_branch: str,
+    git: GitRunner = run_git,
+) -> bool:
+    """Attempt to rebase a PR branch onto the target branch.
+
+    Returns True if rebase succeeded and the branch was force-pushed.
+    Returns False if rebase failed due to real conflicts.
+    """
+    head_ref = pr_data["head"]["ref"]
+
+    try:
+        git("fetch", "origin", target_branch)
+        git("fetch", "origin", head_ref)
+        git("checkout", f"origin/{head_ref}")
+        git("checkout", "-b", f"rebase-{head_ref}")
+        git("rebase", f"origin/{target_branch}")
+        git("push", "origin", f"HEAD:refs/heads/{head_ref}", "--force")
+        return True
+    except BatchError as e:
+        if "CONFLICT" in str(e) or "conflict" in str(e):
+            return False
+        try:
+            git("rebase", "--abort")
+        except Exception:
+            pass
+        return False
+
+
 def abort_batch(client: GitHubClientProtocol) -> None:
     """Abort any active batch: delete rulesets, remove locked labels, delete mq branches."""
     for rs in client.list_rulesets():
