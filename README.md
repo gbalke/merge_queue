@@ -35,6 +35,23 @@ A lightweight, Python-based merge queue for GitHub that understands stacked/chai
 4. After each batch, automatically processes the next queued stack
 5. To abort: remove the `queue` label
 
+## Comparison with Other Merge Queues
+
+| Feature | [GitHub MQ](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) | [Graphite](https://graphite.com/docs/graphite-merge-queue) | [Mergify](https://docs.mergify.com/merge-queue/) | [Aviator](https://docs.aviator.co/mergequeue) | [Bors-ng](https://bors.tech/documentation/) ⚠️ | **This MQ** |
+|---|---|---|---|---|---|---|
+| **Open source** | No | No | [On-premise (paid)](https://mergify.com/pricing) | [Enterprise only](https://aviator.co/pricing) | [Yes (Apache 2.0)](https://github.com/bors-ng/bors-ng) | **Yes (MIT)** |
+| **Stacked PRs** | No | [Yes](https://graphite.com/docs/graphite-merge-queue) | — | [Yes](https://docs.aviator.co/mergequeue/how-to-guides/merging-stacked-prs) | No | **Yes** |
+| **Multi-branch queues** | [Yes](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) | — | — | — | No | **Yes** |
+| **CI gating** | [Yes](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) | [Yes](https://graphite.com/features/merge-queue) | [Yes](https://docs.mergify.com/merge-queue/) | [Yes](https://docs.aviator.co/mergequeue) | [Yes](https://bors.tech/documentation/) | **Yes** |
+| **Priority merges** | [Limited](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) | Partial | [Yes](https://docs.mergify.com/merge-queue/priority/) | [Yes](https://docs.aviator.co/mergequeue/concepts/priority-merges) | [Yes](https://bors.tech/documentation/) | **Yes** (hotfix + break-glass) |
+| **Protected paths** | No | — | [Scoped queues](https://docs.mergify.com/merge-queue/) | [Affected targets](https://docs.aviator.co/mergequeue/concepts/affected-targets) | [CODEOWNERS](https://bors.tech/documentation/) | **Yes** (per-path approvers) |
+| **Auto-retry** | [No](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) | [Partial](https://graphite.com/docs/graphite-merge-queue) | [Yes](https://docs.mergify.com/merge-queue/batches/) | [Partial](https://docs.aviator.co/mergequeue/concepts/parallel-mode) | [Manual](https://bors.tech/documentation/) | **Yes** (up to 3 retries) |
+| **Self-hosted** | No | No | [Paid plans](https://mergify.com/pricing) | [Enterprise](https://aviator.co/pricing) | [Yes](https://github.com/bors-ng/bors-ng) | **Yes** (GitHub Actions) |
+| **Pricing** | [Free (public) / $21/user](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/merging-a-pull-request-with-a-merge-queue) | [$40/user/mo](https://graphite.com/pricing) | [Free (5 users) / $21/seat](https://mergify.com/pricing) | [Free (<15) / $12/user](https://aviator.co/pricing) | [Free](https://github.com/bors-ng/bors-ng) | **Free** |
+
+⚠️ Bors-ng was [archived April 2024](https://github.com/bors-ng/bors-ng) and is no longer maintained.
+— = not documented / unverified
+
 ## Setup
 
 ### 1. Install the Workflow
