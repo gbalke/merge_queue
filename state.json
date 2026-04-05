@@ -1,29 +1,31 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T23:42:14.904324+00:00",
+  "updated_at": "2026-04-05T23:42:18.219372+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-05T23:41:57Z",
-          "stack": [
-            {
-              "number": 119,
-              "head_sha": "63b8787a590b791d85bc50bb0788f95f33e1509e",
-              "head_ref": "greg/revup/main/update-readme",
-              "base_ref": "main",
-              "title": "Update README and example workflow to reflect current features"
-            }
-          ],
-          "deployment_id": 4278280296,
-          "target_branch": "main",
-          "comment_ids": {
-            "119": 4189734574
+      "queue": [],
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T23:42:18.057762+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 119,
+            "head_sha": "63b8787a590b791d85bc50bb0788f95f33e1509e",
+            "head_ref": "greg/revup/main/update-readme",
+            "base_ref": "main",
+            "title": "Update README and example workflow to reflect current features"
           }
-        }
-      ],
-      "active_batch": null
+        ],
+        "deployment_id": 4278280296,
+        "comment_ids": {
+          "119": 4189734574
+        },
+        "queued_at": "2026-04-05T23:41:57Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
