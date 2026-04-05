@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T20:19:51.468669+00:00",
+  "updated_at": "2026-04-05T20:19:55.063416+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -21,6 +21,42 @@
           "comment_ids": {
             "96": 4189469042
           }
+        },
+        {
+          "position": 2,
+          "queued_at": "2026-04-05T20:19:53.280244+00:00",
+          "stack": [
+            {
+              "number": 104,
+              "head_sha": "337909ac96868bc59605955637dfbc947946520b",
+              "head_ref": "greg/revup/main/enforce-no-direct-push",
+              "base_ref": "main",
+              "title": "Enforce never-push-to-main rule in CLAUDE.md"
+            }
+          ],
+          "deployment_id": 4277372727,
+          "comment_ids": {
+            "104": 4189469100
+          },
+          "target_branch": "main"
+        },
+        {
+          "position": 3,
+          "queued_at": "2026-04-05T20:19:54.080402+00:00",
+          "stack": [
+            {
+              "number": 101,
+              "head_sha": "45a5e5e2786bdeaea9a87a0efc3df0b050e2e401",
+              "head_ref": "greg/revup/main/protect-mq-branches",
+              "base_ref": "main",
+              "title": "Protect all mq/* branches: only admin token can write"
+            }
+          ],
+          "deployment_id": 4277372803,
+          "comment_ids": {
+            "101": 4189469116
+          },
+          "target_branch": "main"
         }
       ],
       "active_batch": null
