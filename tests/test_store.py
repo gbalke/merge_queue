@@ -1,4 +1,4 @@
-"""Tests for store.py — state read/write on mq/state branch."""
+"""Tests for store.py -- state read/write on mq/state branch."""
 
 from __future__ import annotations
 
@@ -10,6 +10,15 @@ import pytest
 
 from merge_queue.store import ConflictError, StateStore
 from merge_queue.types import empty_state
+
+
+def _encoded(state: dict) -> str:
+    return base64.b64encode(json.dumps(state).encode()).decode()
+
+
+def _state_response(state: dict, sha: str = "abc123") -> dict:
+    """Build a get_file_content response for the given state dict."""
+    return {"sha": sha, "content": _encoded(state)}
 
 
 @pytest.fixture
@@ -45,11 +54,9 @@ class TestRead:
         assert result == empty_state()
 
     def test_caches_file_sha(self, store, mock_client):
-        encoded = base64.b64encode(json.dumps(empty_state()).encode()).decode()
-        mock_client.get_file_content.return_value = {
-            "sha": "abc123",
-            "content": encoded,
-        }
+        mock_client.get_file_content.return_value = _state_response(
+            empty_state(), "abc123"
+        )
 
         store.read()
 
@@ -58,7 +65,12 @@ class TestRead:
 
 class TestWrite:
     def test_writes_state_and_status(self, store, mock_client):
-        store._state_sha = "old-sha"
+        # write_with_retry always calls read() first, then put_file_content.
+        # _ensure_branch and read() both call get_file_content; a single
+        # return_value covers all calls.
+        mock_client.get_file_content.return_value = _state_response(
+            empty_state(), "old-sha"
+        )
         mock_client.put_file_content.return_value = {"content": {"sha": "new-sha"}}
 
         state = empty_state()
@@ -72,7 +84,7 @@ class TestWrite:
         ):
             store.write(state)
 
-        # v2 empty state has no branches, so only state.json + root STATUS.md
+        # v2 empty state has no branches, so: state.json + root STATUS.md = 2 put calls
         assert mock_client.put_file_content.call_count == 2
         call1 = mock_client.put_file_content.call_args_list[0]
         assert call1[0][0] == "state.json"
@@ -82,15 +94,23 @@ class TestWrite:
         assert call2[0][0] == "STATUS.md"
 
     def test_conflict_raises(self, store, mock_client):
-        store._state_sha = "old-sha"
+        # Each attempt re-reads state to get a fresh SHA.
+        mock_client.get_file_content.return_value = _state_response(
+            empty_state(), "sha-x"
+        )
         mock_client.put_file_content.side_effect = RuntimeError("409 Conflict")
 
         with patch("merge_queue.store.time.sleep"), pytest.raises(ConflictError):
             store.write(empty_state())
 
     def test_ensures_branch_first(self, store, mock_client):
+        # _ensure_branch raises 404 on the first call -> creates orphan branch.
+        # The subsequent read() call inside write_with_retry returns a valid state.
         mock_client.get_file_content.side_effect = [
             RuntimeError("404"),  # _ensure_branch check
+            _state_response(
+                empty_state(), "init-sha"
+            ),  # read() inside write_with_retry
         ]
         mock_client.put_file_content.return_value = {"content": {"sha": "new"}}
 
@@ -105,7 +125,9 @@ class TestWrite:
         mock_client.create_orphan_branch.assert_called_once()
 
     def test_status_md_failure_does_not_block(self, store, mock_client):
-        store._state_sha = "old-sha"
+        mock_client.get_file_content.return_value = _state_response(
+            empty_state(), "old-sha"
+        )
         mock_client.put_file_content.side_effect = [
             {"content": {"sha": "new"}},  # state.json succeeds
             RuntimeError("500 Server Error"),  # root STATUS.md fails

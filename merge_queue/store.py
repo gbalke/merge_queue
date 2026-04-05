@@ -8,8 +8,10 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import datetime
 import random
 import time
+from collections.abc import Callable
 
 from merge_queue.github_client import GitHubClientProtocol
 from merge_queue.status import render_branch_status_md, render_root_status_md
@@ -78,16 +80,41 @@ class StateStore:
                 return empty_state()
             raise
 
-    def write(self, state: dict, max_retries: int = 7) -> None:
-        """Write state.json and per-branch STATUS.md files to the mq/state branch.
+    def write_with_retry(
+        self,
+        mutate_fn: Callable[[dict], None],
+        max_retries: int = 5,
+    ) -> dict:
+        """Read state, apply mutation, write -- retrying on 409 by re-reading first.
 
-        Auto-retries on conflict (409) by re-reading the current SHA.
+        On each conflict the full state is re-read from the branch so that the
+        next attempt applies our changes on top of whatever another writer
+        committed, rather than blindly overwriting with a stale snapshot.
+
+        Args:
+            mutate_fn: Called with the current state dict to modify it in place.
+                       Called once per attempt (including retries after conflict).
+            max_retries: Maximum number of write attempts before raising.
+
+        Returns:
+            The final state dict that was successfully written.
+
+        Raises:
+            ConflictError: If all attempts fail with a 409 conflict.
         """
         self._ensure_branch()
 
-        content_b64 = base64.b64encode(json.dumps(state, indent=2).encode()).decode()
-
         for attempt in range(1, max_retries + 1):
+            state = self.read()
+            mutate_fn(state)
+            state["updated_at"] = datetime.datetime.now(
+                datetime.timezone.utc
+            ).isoformat()
+
+            content_b64 = base64.b64encode(
+                json.dumps(state, indent=2).encode()
+            ).decode()
+
             try:
                 result = self.client.put_file_content(
                     STATE_PATH,
@@ -97,25 +124,18 @@ class StateStore:
                     sha=self._state_sha,
                 )
                 self._state_sha = result["content"]["sha"]
-                break
+                self._flush_status(state)
+                return state
             except Exception as e:
                 if (
                     "409" in str(e) or "conflict" in str(e).lower()
                 ) and attempt < max_retries:
                     log.warning(
-                        "State write conflict (attempt %d), retrying...", attempt
+                        "State write conflict (attempt %d/%d), re-reading and retrying...",
+                        attempt,
+                        max_retries,
                     )
-                    time.sleep(random.uniform(0.5, 1.5) * attempt)
-                    if hasattr(self.client, "invalidate_cache"):
-                        self.client.invalidate_cache()
-                    try:
-                        data = self.client.get_file_content(STATE_PATH, STATE_BRANCH)
-                        self._state_sha = data["sha"]
-                    except Exception:
-                        pass
-                    content_b64 = base64.b64encode(
-                        json.dumps(state, indent=2).encode()
-                    ).decode()
+                    time.sleep(random.uniform(0.5, 2.0))
                     continue
                 if "409" in str(e) or "conflict" in str(e).lower():
                     raise ConflictError(
@@ -123,7 +143,27 @@ class StateStore:
                     ) from e
                 raise
 
-        # Write per-branch STATUS.md files (best-effort)
+        raise ConflictError("Unreachable")  # pragma: no cover
+
+    def write(self, state: dict, max_retries: int = 5) -> None:
+        """Write state.json and per-branch STATUS.md files to the mq/state branch.
+
+        Delegates to write_with_retry with a mutation that replaces the remote
+        state with our intended state. On a 409, the remote state is re-read
+        and our version is applied on top, ensuring the SHA is always fresh.
+        """
+        # Capture the intended state up front. The closure always installs
+        # exactly this version -- last-writer-wins on conflict.
+        intended = state
+
+        def _overwrite(remote: dict) -> None:
+            remote.clear()
+            remote.update(intended)
+
+        self.write_with_retry(_overwrite, max_retries=max_retries)
+
+    def _flush_status(self, state: dict) -> None:
+        """Write per-branch and root STATUS.md files (best-effort)."""
         for branch_name, branch_state in state.get("branches", {}).items():
             self._write_status_file(
                 _branch_status_path(branch_name),
@@ -131,7 +171,6 @@ class StateStore:
                 f"Update merge queue status for {branch_name}",
             )
 
-        # Write root STATUS.md (best-effort)
         self._write_status_file(
             ROOT_STATUS_PATH,
             render_root_status_md(state, self.client),

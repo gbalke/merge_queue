@@ -525,8 +525,10 @@ class TestDoProcessApiCalls:
         # + branch STATUS.md + root STATUS.md) vs. 2 in v1. 4 writes × +1 = +4.
         # Budget increased by 3: ensure_branch_protection adds get_default_branch +
         # get_file_content (merge-queue.yml) + list_rulesets when queue is non-empty.
-        assert total <= 33, (
-            f"do_process (1-PR, CI passes) made {total} API calls; budget is 33. "
+        # Budget +2: write_with_retry re-reads state on every write attempt;
+        # 2 writes x 1 extra get_file_content each = +2.
+        assert total <= 35, (
+            f"do_process (1-PR, CI passes) made {total} API calls; budget is 35. "
             f"Breakdown: {_call_summary(client)}"
         )
 
@@ -613,8 +615,10 @@ class TestDoProcessApiCalls:
         total = _total_api_calls(client)
         # +3 for ensure_branch_protection (get_default_branch + get_file_content +
         # list_rulesets) when queue is non-empty.
-        assert total <= 38, (
-            f"do_process (3-PR stack, CI passes) made {total} API calls; budget is 38. "
+        # Budget +3: write_with_retry re-reads state on every write attempt;
+        # 3 writes x 1 extra get_file_content each = +3.
+        assert total <= 41, (
+            f"do_process (3-PR stack, CI passes) made {total} API calls; budget is 41. "
             f"Breakdown: {_call_summary(client)}"
         )
 
@@ -659,8 +663,10 @@ class TestDoProcessApiCalls:
         total = _total_api_calls(client)
         # +3 for ensure_branch_protection (get_default_branch + get_file_content +
         # list_rulesets) when queue is non-empty.
-        assert total <= 28, (
-            f"do_process (CI fails) made {total} API calls; budget is 28. "
+        # Budget +3: write_with_retry re-reads state on every write attempt;
+        # 3 writes x 1 extra get_file_content each = +3.
+        assert total <= 31, (
+            f"do_process (CI fails) made {total} API calls; budget is 31. "
             f"Breakdown: {_call_summary(client)}"
         )
 
