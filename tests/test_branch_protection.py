@@ -484,3 +484,162 @@ class TestDoProcessEnsureProtection:
         assert captured, "ensure_branch_protection was not called"
         assert "main" in captured[0]
         assert "release/1.0" in captured[0]
+
+
+# ---------------------------------------------------------------------------
+# ensure_branch_protection — deletion of stale rulesets
+# ---------------------------------------------------------------------------
+
+
+class TestEnsureBranchProtectionDeletion:
+    def test_deletes_ruleset_for_removed_branch(self):
+        """A ruleset for a branch no longer in target_branches is deleted."""
+        existing = [
+            {
+                "id": 55,
+                **_ruleset_fixture("mq-protect-old-branch", "old-branch"),
+            }
+        ]
+        client = _make_client(existing_rulesets=existing)
+        # old-branch is not in target_branches
+        ensure_branch_protection(client, ["main"])
+        client.delete_ruleset.assert_called_once_with(55)
+
+    def test_does_not_delete_ruleset_for_current_branch(self):
+        """A ruleset for a branch still in target_branches is not deleted."""
+        existing = [
+            {
+                "id": 10,
+                **_ruleset_fixture("mq-protect-main", "main"),
+            }
+        ]
+        client = _make_client(existing_rulesets=existing)
+        ensure_branch_protection(client, ["main"])
+        client.delete_ruleset.assert_not_called()
+
+    def test_deletes_only_stale_rulesets(self):
+        """Only rulesets for branches no longer in config are deleted."""
+        existing = [
+            {"id": 10, **_ruleset_fixture("mq-protect-main", "main")},
+            {"id": 20, **_ruleset_fixture("mq-protect-old", "old")},
+        ]
+        client = _make_client(existing_rulesets=existing)
+        ensure_branch_protection(client, ["main"])
+        client.delete_ruleset.assert_called_once_with(20)
+        client.create_protection_ruleset.assert_not_called()
+
+    def test_deletion_failure_is_swallowed(self):
+        """If delete_ruleset raises, no exception propagates."""
+        existing = [
+            {"id": 99, **_ruleset_fixture("mq-protect-gone", "gone")},
+        ]
+        client = _make_client(existing_rulesets=existing)
+        client.delete_ruleset.side_effect = RuntimeError("network error")
+        # Should not raise
+        ensure_branch_protection(client, ["main"])
+
+    def test_no_existing_rulesets_no_deletion(self):
+        """With no existing rulesets, no deletion is attempted."""
+        client = _make_client(existing_rulesets=[])
+        ensure_branch_protection(client, ["main"])
+        client.delete_ruleset.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# ensure_branch_protection — creation logging
+# ---------------------------------------------------------------------------
+
+
+class TestEnsureBranchProtectionLogging:
+    def test_logs_before_and_after_creation(self, caplog):
+        """Creation is logged before and after the API call."""
+        import logging
+
+        client = _make_client(existing_rulesets=[])
+        with caplog.at_level(logging.INFO, logger="merge_queue.config"):
+            ensure_branch_protection(client, ["main"])
+
+        messages = [r.message for r in caplog.records]
+        # Should have a message about creating and one about success
+        assert any("main" in m for m in messages)
+        assert any("Creating" in m or "created" in m.lower() for m in messages)
+
+    def test_logs_error_with_response_body_on_failure(self, caplog):
+        """When creation fails with an HTTP error, the response body is logged."""
+        import logging
+
+        client = _make_client(existing_rulesets=[])
+        exc = RuntimeError("422 Unprocessable Entity")
+        exc.response = MagicMock()
+        exc.response.text = '{"message":"Validation Failed"}'
+        client.create_protection_ruleset.side_effect = exc
+
+        with caplog.at_level(logging.WARNING, logger="merge_queue.config"):
+            ensure_branch_protection(client, ["main"])
+
+        messages = [r.message for r in caplog.records]
+        # The response body should appear in at least one warning
+        combined = " ".join(messages)
+        assert "Validation Failed" in combined or '{"message"' in combined
+
+    def test_logs_ruleset_id_after_successful_creation(self, caplog):
+        """After a successful creation, the new ruleset ID is logged."""
+        import logging
+
+        client = _make_client(existing_rulesets=[])
+        client.create_protection_ruleset.return_value = 777
+
+        with caplog.at_level(logging.INFO, logger="merge_queue.config"):
+            ensure_branch_protection(client, ["main"])
+
+        combined = " ".join(r.message for r in caplog.records)
+        assert "777" in combined
+
+
+# ---------------------------------------------------------------------------
+# create_protection_ruleset — API call verification
+# ---------------------------------------------------------------------------
+
+
+class TestCreateProtectionRulesetApiCall:
+    def test_uses_admin_session_for_post(self):
+        """create_protection_ruleset posts via _admin_session, not the regular session."""
+        import requests
+
+        mock_resp = MagicMock(spec=requests.Response)
+        mock_resp.status_code = 201
+        mock_resp.headers = {}
+        mock_resp.json.return_value = {"id": 42}
+
+        from merge_queue.github_client import GitHubClient
+
+        gh = GitHubClient("owner", "repo", token="tok", admin_token="admin-tok")
+        gh._admin_session = MagicMock()
+        gh._admin_session.post.return_value = mock_resp
+
+        # Patch the regular session to detect any accidental use
+        regular_session = MagicMock()
+        gh._session = regular_session
+
+        gh.create_protection_ruleset(name="mq-protect-main", branch="main")
+
+        gh._admin_session.post.assert_called_once()
+        regular_session.post.assert_not_called()
+
+    def test_raises_on_non_201_response(self):
+        """create_protection_ruleset raises for non-2xx status codes."""
+        import requests
+
+        mock_resp = MagicMock(spec=requests.Response)
+        mock_resp.status_code = 403
+        mock_resp.headers = {}
+        mock_resp.raise_for_status.side_effect = requests.HTTPError("403 Forbidden")
+
+        from merge_queue.github_client import GitHubClient
+
+        gh = GitHubClient("owner", "repo", token="tok", admin_token="admin-tok")
+        gh._admin_session = MagicMock()
+        gh._admin_session.post.return_value = mock_resp
+
+        with pytest.raises(requests.HTTPError):
+            gh.create_protection_ruleset(name="mq-protect-main", branch="main")

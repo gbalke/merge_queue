@@ -90,36 +90,80 @@ def get_target_branches(client) -> list[str]:
 
 
 def ensure_branch_protection(client, target_branches: list[str]) -> None:
-    """Ensure all target branches have protection rulesets.
+    """Ensure all target branches and the mq/state branch have protection rulesets.
 
     Creates rulesets for any unprotected branches using MQ_ADMIN_TOKEN.
+    Deletes rulesets for branches that are no longer in ``target_branches``.
     Ruleset name format: ``mq-protect-{branch_name}`` (``/`` replaced with ``-``).
+    The ``mq/state`` branch gets a simpler ruleset (no CI required, just blocks
+    non-admin pushes) via the existing ``create_ruleset`` update-block mechanism.
 
-    If creation fails (e.g. no admin token, private repo without Pro), logs a
-    warning but does not block the caller.
+    If creation or deletion fails (e.g. no admin token, private repo without Pro),
+    logs a warning but does not block the caller.
     """
     existing = client.list_rulesets()
     protected: set[str] = set()
+    state_protected: set[str] = set()
+    # Map branch -> ruleset dict for existing mq-protect-* rulesets
+    protected_rulesets: dict[str, dict] = {}
     for rs in existing:
-        if rs.get("name", "").startswith("mq-protect-"):
-            conditions = rs.get("conditions", {}).get("ref_name", {})
+        name = rs.get("name", "")
+        conditions = rs.get("conditions", {}).get("ref_name", {})
+        if name.startswith("mq-protect-"):
             for pattern in conditions.get("include", []):
                 # pattern is like "refs/heads/main"
                 branch = pattern.removeprefix("refs/heads/")
                 protected.add(branch)
+                protected_rulesets[branch] = rs
+        if name.startswith("mq-state-protect"):
+            for pattern in conditions.get("include", []):
+                branch = pattern.removeprefix("refs/heads/")
+                state_protected.add(branch)
+
+    target_set = set(target_branches)
+
+    # Delete rulesets for branches no longer in config
+    for branch in list(protected):
+        if branch not in target_set:
+            rs = protected_rulesets[branch]
+            try:
+                client.delete_ruleset(rs["id"])
+                log.info("Removed protection for %s (no longer in config)", branch)
+            except Exception as e:
+                log.warning("Could not remove protection for %s: %s", branch, e)
 
     for branch in target_branches:
         if branch not in protected:
             log.info("Creating protection ruleset for %s", branch)
             _create_branch_protection(client, branch)
 
+    state_branches = ["mq/state"]
+    for sb in state_branches:
+        if sb not in state_protected:
+            log.info("Creating state branch protection for %s", sb)
+            try:
+                client.create_ruleset(
+                    f"mq-state-protect-{sb.replace('/', '-')}",
+                    [f"refs/heads/{sb}"],
+                )
+            except Exception as e:
+                log.warning("Could not protect state branch %s: %s", sb, e)
+
 
 def _create_branch_protection(client, branch: str) -> None:
     """Create a protection ruleset for a target branch."""
     try:
-        client.create_protection_ruleset(
+        log.info("Calling create_protection_ruleset for %s", branch)
+        ruleset_id = client.create_protection_ruleset(
             name=f"mq-protect-{branch.replace('/', '-')}",
             branch=branch,
         )
+        log.info("Created protection ruleset for %s (id=%s)", branch, ruleset_id)
     except Exception as e:
-        log.warning("Could not create protection for %s: %s", branch, e)
+        detail = ""
+        if hasattr(e, "response") and e.response is not None:
+            try:
+                detail = e.response.text
+            except Exception:
+                pass
+        log.warning("Could not create protection for %s: %s %s", branch, e, detail)
