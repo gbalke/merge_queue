@@ -198,9 +198,12 @@ def _resume_completion(
                 "target_branch": target,
             }
         )
-    except batch_mod.BatchError as e:
+    except Exception as e:
         log.error("Resumed completion failed: %s", e)
-        batch_mod.fail_batch(client, batch, str(e))
+        try:
+            batch_mod.fail_batch(client, batch, str(e))
+        except Exception:
+            pass
         _update_deployment(client, dep_id, "failure", str(e)[:140])
         state.setdefault("history", []).append(
             {
@@ -211,8 +214,8 @@ def _resume_completion(
                 "target_branch": target,
             }
         )
-
-    _clear_active_batch(state, store, branch_name)
+    finally:
+        _clear_active_batch(state, store, branch_name)
 
 
 def _is_break_glass_authorized(client: GitHubClientProtocol, sender: str) -> bool:
