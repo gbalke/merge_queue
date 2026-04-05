@@ -1,29 +1,9 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:06:38.091308+00:00",
+  "updated_at": "2026-04-05T22:06:39.890982+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-05T21:42:54Z",
-          "stack": [
-            {
-              "number": 112,
-              "head_sha": "1456a1f5abd1b82953179f310bb2a477d7f5df1e",
-              "head_ref": "greg/revup/main/break-glass-immediate-merge",
-              "base_ref": "main",
-              "title": "Add break-glass immediate merge: skip CI entirely"
-            }
-          ],
-          "deployment_id": 4277779186,
-          "target_branch": "main",
-          "comment_ids": {
-            "112": 4189576254
-          },
-          "retry_count": 1
-        }
-      ],
+      "queue": [],
       "active_batch": null
     },
     "release/1.0": {
