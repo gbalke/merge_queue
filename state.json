@@ -1,29 +1,31 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T23:46:27.976637+00:00",
+  "updated_at": "2026-04-05T23:46:30.729804+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-05T23:46:08Z",
-          "stack": [
-            {
-              "number": 120,
-              "head_sha": "dc4750778518654151c80821f54dae3bc6c41dd8",
-              "head_ref": "greg/revup/main/metrics-backend",
-              "base_ref": "main",
-              "title": "Add optional backend-agnostic metrics/analytics subsystem"
-            }
-          ],
-          "deployment_id": 4278298245,
-          "target_branch": "main",
-          "comment_ids": {
-            "120": 4189739912
+      "queue": [],
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T23:46:30.623394+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 120,
+            "head_sha": "dc4750778518654151c80821f54dae3bc6c41dd8",
+            "head_ref": "greg/revup/main/metrics-backend",
+            "base_ref": "main",
+            "title": "Add optional backend-agnostic metrics/analytics subsystem"
           }
-        }
-      ],
-      "active_batch": null
+        ],
+        "deployment_id": 4278298245,
+        "comment_ids": {
+          "120": 4189739912
+        },
+        "queued_at": "2026-04-05T23:46:08Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
