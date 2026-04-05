@@ -1,7 +1,26 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T14:15:40.146549+00:00",
-  "queue": [],
+  "updated_at": "2026-04-05T14:19:40.213792+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-05T14:19:24Z",
+      "stack": [
+        {
+          "number": 78,
+          "head_sha": "3db650811f0871c1fdc41704682e641f0b233c95",
+          "head_ref": "greg/revup/main/parallel-enqueue",
+          "base_ref": "main",
+          "title": "Parallel enqueue, branch in header, split concurrency groups"
+        }
+      ],
+      "deployment_id": 4275598803,
+      "target_branch": "main",
+      "comment_ids": {
+        "78": 4188960945
+      }
+    }
+  ],
   "active_batch": null,
   "history": [
     {
