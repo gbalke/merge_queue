@@ -1,30 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T14:50:00.595994+00:00",
+  "updated_at": "2026-04-05T14:50:04.432906+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775400515",
-    "branch": "mq/1775400515",
-    "ruleset_id": 14710463,
-    "started_at": "2026-04-05T14:48:33.916442+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 77,
-        "head_sha": "364d814801a314bd56d049bc26bf4e08b491a5d2",
-        "head_ref": "greg/revup/main/fix-timing",
-        "base_ref": "main",
-        "title": "Fix queue timing, live progress updates, default branch always included"
-      }
-    ],
-    "deployment_id": 4275734890,
-    "comment_ids": {
-      "77": 4189002120
-    },
-    "queued_at": "2026-04-05T14:48:14Z",
-    "target_branch": "main",
-    "ci_started_at": "2026-04-05T14:48:36.851576+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775399840",
@@ -34,6 +12,15 @@
         76
       ],
       "duration_seconds": 81.635469
+    },
+    {
+      "batch_id": "1775400515",
+      "status": "complete_error",
+      "completed_at": "2026-04-05T14:50:04.432881+00:00",
+      "prs": [
+        77
+      ],
+      "duration_seconds": 90.516439
     }
   ]
 }
