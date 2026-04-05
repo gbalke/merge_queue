@@ -305,3 +305,26 @@ def test_write_with_retry_raises_conflict_after_exhausting_retries(
         store.write_with_retry(lambda s: None, max_retries=3)
 
     assert mock_client.commit_files.call_count == 3
+
+
+def test_write_retries_on_5xx_server_error(
+    store: StateStore, mock_client: MagicMock
+) -> None:
+    """A 504 Gateway Timeout from GitHub API should be retried, not crash the MQ."""
+    mock_client.get_file_content.return_value = _state_response(empty_state(), "sha-1")
+
+    # First call raises 504, second succeeds
+    mock_client.commit_files.side_effect = [
+        RuntimeError("504 Gateway Timeout"),
+        "new-commit-sha",
+    ]
+
+    with (
+        patch("merge_queue.store.time.sleep"),
+        patch("merge_queue.store.render_branch_status_md", return_value="# b\n"),
+        patch("merge_queue.store.render_root_status_md", return_value="# r\n"),
+    ):
+        result = store.write_with_retry(lambda s: None)
+
+    assert mock_client.commit_files.call_count == 2
+    assert result is not None

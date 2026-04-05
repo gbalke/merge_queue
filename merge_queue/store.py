@@ -112,17 +112,25 @@ class StateStore:
                     self._legacy_write(state)
                 return state
             except Exception as e:
-                if (
-                    "409" in str(e) or "conflict" in str(e).lower() or "422" in str(e)
-                ) and attempt < max_retries:
+                err_str = str(e)
+                is_conflict = (
+                    "409" in err_str
+                    or "conflict" in err_str.lower()
+                    or "422" in err_str
+                )
+                is_server_error = any(
+                    f"5{d}" in err_str for d in ("00", "02", "03", "04")
+                )
+                if (is_conflict or is_server_error) and attempt < max_retries:
                     log.warning(
-                        "State write conflict (attempt %d/%d), retrying...",
+                        "State write %s (attempt %d/%d), retrying...",
+                        "conflict" if is_conflict else "server error",
                         attempt,
                         max_retries,
                     )
                     time.sleep(random.uniform(0.5, 1.5) * attempt)
                     continue
-                if "409" in str(e) or "conflict" in str(e).lower():
+                if is_conflict:
                     raise ConflictError(
                         f"State write failed after {max_retries} attempts: {e}"
                     ) from e
