@@ -294,6 +294,61 @@ class TestCreateProtectionRulesetPayload:
         gh.create_protection_ruleset("mq-protect-main", "main")
         assert gh._cache_rulesets is None
 
+    def test_falls_back_to_pr_only_on_422(self):
+        """If the full ruleset POST returns 422, a second PR-only POST is attempted."""
+        import requests
+
+        from merge_queue.github_client import GitHubClient
+
+        err_resp = MagicMock(spec=requests.Response)
+        err_resp.status_code = 422
+        err_resp.headers = {}
+        err_resp.raise_for_status.side_effect = requests.HTTPError(
+            "422", response=err_resp
+        )
+
+        ok_resp = MagicMock(spec=requests.Response)
+        ok_resp.status_code = 201
+        ok_resp.headers = {}
+        ok_resp.raise_for_status.return_value = None
+        ok_resp.json.return_value = {"id": 55}
+
+        gh = GitHubClient("owner", "repo", token="tok", admin_token="admin-tok")
+        gh._admin_session = MagicMock()
+        gh._admin_session.post.side_effect = [err_resp, ok_resp]
+
+        ruleset_id = gh.create_protection_ruleset("mq-protect-main", "main")
+
+        assert ruleset_id == 55
+        assert gh._admin_session.post.call_count == 2
+
+        # Second call must use only the pull_request rule
+        _, kwargs = gh._admin_session.post.call_args
+        rule_types = {r["type"] for r in kwargs["json"]["rules"]}
+        assert rule_types == {"pull_request"}
+
+    def test_raises_if_both_attempts_fail(self):
+        """If both the full and minimal ruleset POST fail, the exception propagates."""
+        import requests
+
+        from merge_queue.github_client import GitHubClient
+
+        def _error_resp() -> MagicMock:
+            r = MagicMock(spec=requests.Response)
+            r.status_code = 422
+            r.headers = {}
+            r.raise_for_status.side_effect = requests.HTTPError("422", response=r)
+            return r
+
+        gh = GitHubClient("owner", "repo", token="tok", admin_token="admin-tok")
+        gh._admin_session = MagicMock()
+        gh._admin_session.post.side_effect = [_error_resp(), _error_resp()]
+
+        with pytest.raises(requests.HTTPError):
+            gh.create_protection_ruleset("mq-protect-main", "main")
+
+        assert gh._admin_session.post.call_count == 2
+
 
 # ---------------------------------------------------------------------------
 # do_enqueue — invalid target branch rejection

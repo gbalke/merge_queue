@@ -8,6 +8,8 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import random
+import time
 
 from merge_queue.github_client import GitHubClientProtocol
 from merge_queue.status import render_branch_status_md, render_root_status_md
@@ -76,7 +78,7 @@ class StateStore:
                 return empty_state()
             raise
 
-    def write(self, state: dict, max_retries: int = 3) -> None:
+    def write(self, state: dict, max_retries: int = 5) -> None:
         """Write state.json and per-branch STATUS.md files to the mq/state branch.
 
         Auto-retries on conflict (409) by re-reading the current SHA.
@@ -103,6 +105,7 @@ class StateStore:
                     log.warning(
                         "State write conflict (attempt %d), retrying...", attempt
                     )
+                    time.sleep(random.uniform(0.5, 2.0))
                     try:
                         data = self.client.get_file_content(STATE_PATH, STATE_BRANCH)
                         self._state_sha = data["sha"]

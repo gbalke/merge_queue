@@ -85,7 +85,7 @@ class TestWrite:
         store._state_sha = "old-sha"
         mock_client.put_file_content.side_effect = RuntimeError("409 Conflict")
 
-        with pytest.raises(ConflictError):
+        with patch("merge_queue.store.time.sleep"), pytest.raises(ConflictError):
             store.write(empty_state())
 
     def test_ensures_branch_first(self, store, mock_client):

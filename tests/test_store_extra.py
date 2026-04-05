@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from merge_queue.store import StateStore
+from merge_queue.store import ConflictError, StateStore
 from merge_queue.types import empty_state
 
 
@@ -128,6 +128,64 @@ def test_write_status_md_404_is_silently_ignored(
         store.write(empty_state())  # must not raise
 
     assert mock_client.put_file_content.call_count == 2
+
+
+# --- _ensure_branch() 422 race condition ---
+
+
+# --- write() state.json retry with backoff ---
+
+
+def test_write_conflict_retries_with_backoff(
+    store: StateStore, mock_client: MagicMock
+) -> None:
+    """On 409 conflicts, write retries up to max_retries=5 and sleeps between attempts."""
+    store._state_sha = "old-sha"
+
+    # First 4 attempts conflict; 5th succeeds
+    conflict = RuntimeError("409 Conflict")
+    mock_client.put_file_content.side_effect = [
+        conflict,
+        conflict,
+        conflict,
+        conflict,
+        {"content": {"sha": "final-sha"}},
+    ]
+    mock_client.get_file_content.return_value = {
+        "sha": "refreshed-sha",
+        "content": base64.b64encode(json.dumps(empty_state()).encode()).decode(),
+    }
+
+    with (
+        patch("merge_queue.store.time.sleep") as mock_sleep,
+        patch("merge_queue.store.render_branch_status_md", return_value="# b\n"),
+        patch("merge_queue.store.render_root_status_md", return_value="# r\n"),
+    ):
+        store.write(empty_state())
+
+    # 4 conflicts → 4 sleeps before the 5th (successful) attempt
+    assert mock_sleep.call_count == 4
+    assert store._state_sha == "final-sha"
+
+
+def test_write_exhausts_five_retries_then_raises(
+    store: StateStore, mock_client: MagicMock
+) -> None:
+    """After 5 failed attempts, ConflictError is raised."""
+    store._state_sha = "old-sha"
+    mock_client.put_file_content.side_effect = RuntimeError("409 Conflict")
+    mock_client.get_file_content.return_value = {
+        "sha": "rx",
+        "content": base64.b64encode(json.dumps(empty_state()).encode()).decode(),
+    }
+
+    with (
+        patch("merge_queue.store.time.sleep"),
+        pytest.raises(ConflictError),
+    ):
+        store.write(empty_state())
+
+    assert mock_client.put_file_content.call_count == 5
 
 
 # --- _ensure_branch() 422 race condition ---

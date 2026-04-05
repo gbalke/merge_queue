@@ -321,43 +321,58 @@ class GitHubClient:
 
         The ruleset:
         - Requires pull requests (no direct push)
-        - Requires "Final Results" status check
+        - Requires "Final Results" status check (falls back to PR-only if the
+          MQ_ADMIN_TOKEN PAT lacks permission to create status check rules)
         - Admin role can bypass (for MQ fast-forward)
         """
-        r = self._admin_session.post(
-            f"{self._base_url}/rulesets",
-            json={
-                "name": name,
-                "target": "branch",
-                "enforcement": "active",
-                "conditions": {
-                    "ref_name": {
-                        "include": [f"refs/heads/{branch}"],
-                        "exclude": [],
-                    }
+        rules_full = [
+            {"type": "pull_request"},
+            {
+                "type": "required_status_checks",
+                "parameters": {
+                    "required_status_checks": [{"context": "Final Results"}],
                 },
-                "rules": [
-                    {"type": "pull_request"},
-                    {
-                        "type": "required_status_checks",
-                        "parameters": {
-                            "required_status_checks": [{"context": "Final Results"}],
-                        },
-                    },
-                ],
-                "bypass_actors": [
-                    {
-                        "actor_id": 5,
-                        "actor_type": "RepositoryRole",
-                        "bypass_mode": "always",
-                    }
-                ],
             },
-        )
-        self._track(r)
-        r.raise_for_status()
-        self._cache_rulesets = None
-        return r.json()["id"]
+        ]
+        rules_minimal = [
+            {"type": "pull_request"},
+        ]
+
+        body = {
+            "name": name,
+            "target": "branch",
+            "enforcement": "active",
+            "conditions": {
+                "ref_name": {
+                    "include": [f"refs/heads/{branch}"],
+                    "exclude": [],
+                }
+            },
+            "bypass_actors": [
+                {
+                    "actor_id": 5,
+                    "actor_type": "RepositoryRole",
+                    "bypass_mode": "always",
+                }
+            ],
+        }
+
+        for rules in [rules_full, rules_minimal]:
+            try:
+                body["rules"] = rules
+                r = self._admin_session.post(f"{self._base_url}/rulesets", json=body)
+                self._track(r)
+                r.raise_for_status()
+                self._cache_rulesets = None
+                return r.json()["id"]
+            except Exception:
+                if rules is rules_minimal:
+                    raise
+                log.warning(
+                    "Full ruleset failed, trying PR-only fallback for %s", branch
+                )
+                continue
+        raise RuntimeError("unreachable")
 
     def get_ruleset(self, ruleset_id: int) -> dict[str, Any]:
         r = self._admin_session.get(f"{self._base_url}/rulesets/{ruleset_id}")
