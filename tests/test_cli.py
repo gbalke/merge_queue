@@ -244,9 +244,8 @@ class TestDoProcess:
 
 
 class TestDoEnqueue:
-    @patch("merge_queue.cli.do_process", return_value="merged")
     @patch("merge_queue.cli.QueueState")
-    def test_adds_to_queue(self, QS, do_proc, mock_client, mock_store):
+    def test_adds_to_queue(self, QS, mock_client, mock_store):
         QS.fetch.return_value = _api_state()
         mock_client.get_pr.return_value = {
             "state": "open",
@@ -257,14 +256,14 @@ class TestDoEnqueue:
         mock_client.create_deployment.return_value = 42
         mock_client.create_comment.return_value = 100
 
-        do_enqueue(mock_client, 1)
+        result = do_enqueue(mock_client, 1)
 
         written = mock_store.write.call_args_list[0][0][0]
         assert len(written["queue"]) == 1
         assert written["queue"][0]["position"] == 1
         mock_client.create_deployment.assert_called_once()
         mock_client.create_comment.assert_called()
-        do_proc.assert_called_once_with(mock_client)
+        assert result == "queued_waiting"
 
     @patch("merge_queue.cli.QueueState")
     def test_already_queued(self, QS, mock_client, mock_store):
