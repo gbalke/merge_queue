@@ -1,29 +1,11 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T20:31:29.673772+00:00",
+  "updated_at": "2026-04-05T20:31:32.375038+00:00",
   "branches": {
     "main": {
       "queue": [
         {
           "position": 1,
-          "queued_at": "2026-04-05T20:31:07Z",
-          "stack": [
-            {
-              "number": 96,
-              "head_sha": "6b0f8a50ac46000b53ecf078ae8b0d223b3e9b27",
-              "head_ref": "greg/revup/main/fix-high-security",
-              "base_ref": "main",
-              "title": "Fix HIGH security issues: markdown injection, state protection, lazy admin token"
-            }
-          ],
-          "deployment_id": 4277442212,
-          "target_branch": "main",
-          "comment_ids": {
-            "96": 4189483762
-          }
-        },
-        {
-          "position": 2,
           "queued_at": "2026-04-05T20:31:28.043330+00:00",
           "stack": [
             {
@@ -41,7 +23,7 @@
           "target_branch": "main"
         },
         {
-          "position": 3,
+          "position": 2,
           "queued_at": "2026-04-05T20:31:28.793330+00:00",
           "stack": [
             {
@@ -59,7 +41,28 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": null
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-05T20:31:32.252642+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 96,
+            "head_sha": "6b0f8a50ac46000b53ecf078ae8b0d223b3e9b27",
+            "head_ref": "greg/revup/main/fix-high-security",
+            "base_ref": "main",
+            "title": "Fix HIGH security issues: markdown injection, state protection, lazy admin token"
+          }
+        ],
+        "deployment_id": 4277442212,
+        "comment_ids": {
+          "96": 4189483762
+        },
+        "queued_at": "2026-04-05T20:31:07Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
