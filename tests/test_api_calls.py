@@ -35,6 +35,7 @@ from unittest.mock import MagicMock, patch
 
 from merge_queue.cli import do_abort, do_check_rules, do_enqueue, do_process
 from merge_queue.types import Batch, BatchStatus, PullRequest, Stack, empty_state
+from tests.conftest import make_v2_state
 
 
 # ---------------------------------------------------------------------------
@@ -52,8 +53,24 @@ def _b64(obj: dict) -> str:
     return base64.b64encode(json.dumps(obj).encode()).decode()
 
 
-def _make_state(**overrides) -> dict:
-    s = empty_state()
+def _make_state(
+    queue: list | None = None,
+    active_batch: dict | None = None,
+    history: list | None = None,
+    **overrides,
+) -> dict:
+    """Build a v2 state dict for test setup."""
+    if queue is not None or active_batch is not None:
+        s = make_v2_state(
+            branch="main",
+            queue=queue,
+            active_batch=active_batch,
+            history=history,
+        )
+    else:
+        s = empty_state()
+        if history is not None:
+            s["history"] = history
     s.update(overrides)
     return s
 
@@ -251,10 +268,9 @@ class TestDoAbortApiCalls:
         # One comment (update existing)
         assert client.update_comment.call_count == 1
         assert client.create_comment.call_count == 0
-        # State written exactly once
+        # State written once: state.json + branch STATUS.md + root STATUS.md = up to 3
         write_count = client.put_file_content.call_count
-        # At least 1 (state.json), at most 2 (state.json + STATUS.md)
-        assert 1 <= write_count <= 2
+        assert 1 <= write_count <= 3
 
     def test_abort_active_batch_call_budget(self):
         """Aborting the active batch: batch_mod.abort_batch + 1 write + comment."""
@@ -495,8 +511,10 @@ class TestDoProcessApiCalls:
 
         assert result == "merged"
         total = _total_api_calls(client)
-        assert total <= 25, (
-            f"do_process (1-PR, CI passes) made {total} API calls; budget is 25. "
+        # Budget increased by 4: v2 state has 3 put_file_content per write (state.json
+        # + branch STATUS.md + root STATUS.md) vs. 2 in v1. 4 writes × +1 = +4.
+        assert total <= 30, (
+            f"do_process (1-PR, CI passes) made {total} API calls; budget is 30. "
             f"Breakdown: {_call_summary(client)}"
         )
 

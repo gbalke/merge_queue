@@ -10,7 +10,7 @@ import pytest
 from merge_queue import comments
 from merge_queue.batch import BatchError, auto_rebase
 
-from tests.conftest import make_queue_entry, make_state
+from tests.conftest import make_queue_entry, make_v2_state
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ def _setup_process(mock_client: MagicMock, mock_store: MagicMock, entry: dict) -
     """Configure mocks so do_process picks up entry from the queue."""
     from merge_queue.state import QueueState
 
-    state = make_state(queue=[entry])
+    state = make_v2_state(queue=[entry])
     mock_store.read.return_value = state
 
     api_state = QueueState(
@@ -116,7 +116,7 @@ def test_do_process_auto_rebase_on_conflict(
     from merge_queue.state import QueueState
 
     entry = _make_entry()
-    state = make_state(queue=[entry])
+    state = make_v2_state(queue=[entry])
     mock_store.read.return_value = state
 
     mock_client.get_pr.return_value = {
@@ -177,7 +177,7 @@ def test_do_process_no_rebase_loop(
     from merge_queue.state import QueueState
 
     entry = _make_entry(rebase_attempted=True)
-    state = make_state(queue=[entry])
+    state = make_v2_state(queue=[entry])
     mock_store.read.return_value = state
 
     mock_client.get_pr.return_value = {

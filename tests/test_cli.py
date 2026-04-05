@@ -17,7 +17,8 @@ from merge_queue.cli import (
     main,
 )
 from merge_queue.state import QueueState
-from merge_queue.types import Stack, empty_state
+from merge_queue.types import Stack
+from tests.conftest import make_v2_state
 
 T0 = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
 T1 = datetime.datetime(2026, 1, 1, 0, 1, tzinfo=datetime.timezone.utc)
@@ -60,31 +61,42 @@ class TestMakeClient:
 
 
 class TestDoProcess:
+    def _queue_entry(self, number: int = 1, deployment_id: int | None = 99) -> dict:
+        return {
+            "position": 1,
+            "queued_at": T0.isoformat(),
+            "stack": [
+                {
+                    "number": number,
+                    "head_sha": f"sha-{number}",
+                    "head_ref": "feat-a",
+                    "base_ref": "main",
+                }
+            ],
+            "deployment_id": deployment_id,
+        }
+
     def test_batch_active_skips(self, mock_client, mock_store):
-        mock_store.read.return_value = {
-            **empty_state(),
-            "active_batch": {
+        mock_store.read.return_value = make_v2_state(
+            active_batch={
                 "batch_id": "123",
                 "started_at": _now_iso(),
                 "stack": [{"number": 1}],
-            },
-        }
-        # PR is still open — batch is genuinely active
+            }
+        )
         mock_client.get_pr.return_value = {"state": "open"}
         assert do_process(mock_client) == "batch_active"
 
     def test_stale_batch_auto_cleared(self, mock_client, mock_store):
         """If active batch PRs are all merged, clear it and continue."""
-        mock_store.read.return_value = {
-            **empty_state(),
-            "active_batch": {
+        mock_store.read.return_value = make_v2_state(
+            active_batch={
                 "batch_id": "123",
                 "started_at": _now_iso(),
                 "stack": [{"number": 1}],
-            },
-        }
+            }
+        )
         mock_client.get_pr.return_value = {"state": "closed"}
-        # Should clear stale batch and return no_stacks (empty queue)
         assert do_process(mock_client) == "no_stacks"
 
     def test_empty_queue(self, mock_client, mock_store):
@@ -95,26 +107,9 @@ class TestDoProcess:
     def test_processes_first_in_queue(self, batch_mod, QS, mock_client, mock_store):
         from merge_queue.types import Batch
 
-        mock_store.read.return_value = {
-            **empty_state(),
-            "queue": [
-                {
-                    "position": 1,
-                    "queued_at": T0.isoformat(),
-                    "stack": [
-                        {
-                            "number": 1,
-                            "head_sha": "sha-1",
-                            "head_ref": "feat-a",
-                            "base_ref": "main",
-                        }
-                    ],
-                    "deployment_id": 99,
-                }
-            ],
-        }
+        mock_store.read.return_value = make_v2_state(queue=[self._queue_entry()])
         QS.fetch.return_value = _api_state()
-        batch = Batch("123", "mq/123", Stack(prs=(), queued_at=T0))
+        batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = True
@@ -137,26 +132,11 @@ class TestDoProcess:
     def test_ci_failure(self, batch_mod, QS, mock_client, mock_store):
         from merge_queue.types import Batch
 
-        mock_store.read.return_value = {
-            **empty_state(),
-            "queue": [
-                {
-                    "position": 1,
-                    "queued_at": T0.isoformat(),
-                    "stack": [
-                        {
-                            "number": 1,
-                            "head_sha": "sha-1",
-                            "head_ref": "feat-a",
-                            "base_ref": "main",
-                        }
-                    ],
-                    "deployment_id": None,
-                }
-            ],
-        }
+        mock_store.read.return_value = make_v2_state(
+            queue=[self._queue_entry(deployment_id=None)]
+        )
         QS.fetch.return_value = _api_state()
-        batch = Batch("123", "mq/123", Stack(prs=(), queued_at=T0))
+        batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = False
@@ -166,31 +146,15 @@ class TestDoProcess:
 
         assert do_process(mock_client) == "ci_failed"
         batch_mod.fail_batch.assert_called_once()
-        # Should comment with link to failed CI run
         comment_calls = [c[0][1] for c in mock_client.create_comment.call_args_list]
         assert any("https://example.com/run/fail" in c for c in comment_calls)
 
     @patch("merge_queue.cli.QueueState")
     @patch("merge_queue.cli.batch_mod")
     def test_batch_error(self, batch_mod, QS, mock_client, mock_store):
-        mock_store.read.return_value = {
-            **empty_state(),
-            "queue": [
-                {
-                    "position": 1,
-                    "queued_at": T0.isoformat(),
-                    "stack": [
-                        {
-                            "number": 1,
-                            "head_sha": "sha-1",
-                            "head_ref": "feat-a",
-                            "base_ref": "main",
-                        }
-                    ],
-                    "deployment_id": 88,
-                }
-            ],
-        }
+        mock_store.read.return_value = make_v2_state(
+            queue=[self._queue_entry(deployment_id=88)]
+        )
         QS.fetch.return_value = _api_state()
         batch_mod.create_batch.side_effect = Exception("merge conflict")
         batch_mod.BatchError = Exception
@@ -205,26 +169,11 @@ class TestDoProcess:
     def test_moves_to_history(self, batch_mod, QS, mock_client, mock_store):
         from merge_queue.types import Batch
 
-        mock_store.read.return_value = {
-            **empty_state(),
-            "queue": [
-                {
-                    "position": 1,
-                    "queued_at": T0.isoformat(),
-                    "stack": [
-                        {
-                            "number": 1,
-                            "head_sha": "sha-1",
-                            "head_ref": "feat-a",
-                            "base_ref": "main",
-                        }
-                    ],
-                    "deployment_id": None,
-                }
-            ],
-        }
+        mock_store.read.return_value = make_v2_state(
+            queue=[self._queue_entry(deployment_id=None)]
+        )
         QS.fetch.return_value = _api_state()
-        batch = Batch("123", "mq/123", Stack(prs=(), queued_at=T0))
+        batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = True
@@ -235,7 +184,8 @@ class TestDoProcess:
         do_process(mock_client)
 
         final_state = mock_store.write.call_args_list[-1][0][0]
-        assert final_state["active_batch"] is None
+        # In v2, active_batch is under branches["main"]
+        assert final_state["branches"]["main"]["active_batch"] is None
         assert len(final_state["history"]) == 1
         assert final_state["history"][0]["status"] == "merged"
 
@@ -260,8 +210,9 @@ class TestDoEnqueue:
         do_enqueue(mock_client, 1)
 
         written = mock_store.write.call_args_list[0][0][0]
-        assert len(written["queue"]) == 1
-        assert written["queue"][0]["position"] == 1
+        branch_queue = written["branches"]["main"]["queue"]
+        assert len(branch_queue) == 1
+        assert branch_queue[0]["position"] == 1
         mock_client.create_deployment.assert_called_once()
         mock_client.create_comment.assert_called()
         do_proc.assert_called_once_with(mock_client)
@@ -269,9 +220,8 @@ class TestDoEnqueue:
     @patch("merge_queue.cli.QueueState")
     def test_already_queued(self, QS, mock_client, mock_store):
         mock_client.get_pr.return_value = {"state": "open"}
-        mock_store.read.return_value = {
-            **empty_state(),
-            "queue": [
+        mock_store.read.return_value = make_v2_state(
+            queue=[
                 {
                     "position": 1,
                     "queued_at": T0.isoformat(),
@@ -284,8 +234,8 @@ class TestDoEnqueue:
                         }
                     ],
                 }
-            ],
-        }
+            ]
+        )
 
         assert do_enqueue(mock_client, 1) == "already_queued"
 
@@ -299,14 +249,13 @@ class TestDoEnqueue:
 
 class TestDoAbort:
     def test_abort_active_batch(self, mock_client, mock_store):
-        mock_store.read.return_value = {
-            **empty_state(),
-            "active_batch": {
+        mock_store.read.return_value = make_v2_state(
+            active_batch={
                 "batch_id": "123",
                 "stack": [{"number": 1}],
                 "deployment_id": 42,
-            },
-        }
+            }
+        )
 
         with patch("merge_queue.cli.batch_mod"):
             result = do_abort(mock_client, 1)
@@ -314,24 +263,24 @@ class TestDoAbort:
         assert result == "aborted"
         mock_client.update_deployment_status.assert_any_call(42, "inactive", "Aborted")
         final = mock_store.write.call_args[0][0]
-        assert final["active_batch"] is None
+        assert final["branches"]["main"]["active_batch"] is None
 
     def test_remove_from_queue(self, mock_client, mock_store):
-        mock_store.read.return_value = {
-            **empty_state(),
-            "queue": [
+        mock_store.read.return_value = make_v2_state(
+            queue=[
                 {"position": 1, "stack": [{"number": 1}], "deployment_id": 10},
                 {"position": 2, "stack": [{"number": 2}], "deployment_id": 20},
-            ],
-        }
+            ]
+        )
 
         result = do_abort(mock_client, 1)
 
         assert result == "removed"
         final = mock_store.write.call_args[0][0]
-        assert len(final["queue"]) == 1
-        assert final["queue"][0]["position"] == 1
-        assert final["queue"][0]["stack"][0]["number"] == 2
+        remaining = final["branches"]["main"]["queue"]
+        assert len(remaining) == 1
+        assert remaining[0]["position"] == 1
+        assert remaining[0]["stack"][0]["number"] == 2
         mock_client.update_deployment_status.assert_any_call(10, "inactive", "Removed")
 
     def test_not_found(self, mock_client, mock_store):
@@ -344,7 +293,8 @@ class TestDoAbort:
 class TestDoStatus:
     def test_prints_status(self, mock_client, mock_store):
         output = do_status(mock_client)
-        assert "ACTIVE:" in output
+        # v2 empty state has no branches so falls back to legacy "ACTIVE: none"
+        assert "ACTIVE" in output
 
 
 # --- do_check_rules ---

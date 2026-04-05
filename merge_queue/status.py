@@ -7,79 +7,96 @@ from typing import Any
 from merge_queue.comments import _fmt_duration
 
 
-def render_status_md(state: dict, client: Any = None) -> str:
-    """Render state as a clean queue-focused STATUS.md grouped by target branch.
+def render_branch_status_md(
+    branch_name: str, branch_state: dict, client: Any = None
+) -> str:
+    """Render a single branch's queue as a STATUS.md page.
 
-    Groups items by target_branch. Within each branch:
+    Shows everything for this branch in order:
     1. Active batch (currently processing) at the top
     2. Waiting stacks below in FIFO order
-
-    Uses GitHub's <relative-time> custom element for queue times so they
-    auto-update in the browser.
+    3. Empty message when idle
     """
-    lines = ["# Merge Queue", ""]
+    lines = [f"# Merge Queue — `{branch_name}`", ""]
 
     owner_repo = ""
     if client and hasattr(client, "owner") and hasattr(client, "repo"):
         owner_repo = f"{client.owner}/{client.repo}"
 
-    batch = state.get("active_batch")
-    queue = state.get("queue", [])
+    batch = branch_state.get("active_batch")
+    queue = branch_state.get("queue", [])
 
-    # Collect all items grouped by target_branch.
-    # Each item is a dict with keys: pr_dicts, status_label, queued_at (ISO str | None)
-    branch_items: dict[str, list[dict]] = {}
-
-    if batch:
-        target = batch.get("target_branch") or "main"
-        progress = batch.get("progress", "processing")
-        status_label = {
-            "locking": "\U0001f512 locking",
-            "running_ci": "\U0001f504 CI running",
-            "completing": "\U0001f504 merging",
-        }.get(progress, f"\U0001f504 {progress}")
-        branch_items.setdefault(target, []).append(
-            {
-                "pr_dicts": batch.get("stack", []),
-                "status_label": status_label,
-                "queued_at": batch.get("queued_at"),
-            }
-        )
-
-    for entry in queue:
-        target = entry.get("target_branch") or "main"
-        branch_items.setdefault(target, []).append(
-            {
-                "pr_dicts": entry.get("stack", []),
-                "status_label": "\u23f3 waiting",
-                "queued_at": entry.get("queued_at"),
-            }
-        )
-
-    if branch_items:
-        for branch, items in branch_items.items():
-            lines.append(f"## {branch}")
-            lines.append("")
-            lines.append("| # | PR | Title | Status | Queued |")
-            lines.append("|:--|:---|:------|:-------|:------|")
-
-            pos = 1
-            for item in items:
-                queued_cell = _relative_time(item.get("queued_at"))
-                for pr in item["pr_dicts"]:
-                    pr_link = _pr_link(pr, owner_repo)
-                    lines.append(
-                        f"| {pos} | {pr_link} | {pr.get('title', '')} "
-                        f"| {item['status_label']} | {queued_cell} |"
-                    )
-                pos += 1
-
-            lines.append("")
+    if batch or queue:
+        lines.append("| # | PR | Title | Status | Queued |")
+        lines.append("|:--|:---|:------|:-------|:------|")
+        pos = 1
+        if batch:
+            progress = batch.get("progress", "processing")
+            status_label = {
+                "locking": "\U0001f512 locking",
+                "running_ci": "\U0001f504 CI running",
+                "completing": "\U0001f504 merging",
+            }.get(progress, f"\U0001f504 {progress}")
+            queued_cell = _relative_time(batch.get("queued_at"))
+            for pr in batch.get("stack", []):
+                pr_link = _pr_link(pr, owner_repo)
+                lines.append(
+                    f"| {pos} | {pr_link} | {pr.get('title', '')} "
+                    f"| {status_label} | {queued_cell} |"
+                )
+            pos += 1
+        for entry in queue:
+            queued_cell = _relative_time(entry.get("queued_at"))
+            for pr in entry.get("stack", []):
+                pr_link = _pr_link(pr, owner_repo)
+                lines.append(
+                    f"| {pos} | {pr_link} | {pr.get('title', '')} "
+                    f"| \u23f3 waiting | {queued_cell} |"
+                )
+            pos += 1
+        lines.append("")
     else:
         lines.append("_Queue is empty — all clear._")
         lines.append("")
 
-    # Last completed
+    return "\n".join(lines) + "\n"
+
+
+def render_root_status_md(state: dict, client: Any = None) -> str:
+    """Render the root STATUS.md linking to all per-branch status pages.
+
+    Also shows recent history from the global history list.
+    """
+    lines = ["# Merge Queue Status", ""]
+
+    owner_repo = ""
+    if client and hasattr(client, "owner") and hasattr(client, "repo"):
+        owner_repo = f"{client.owner}/{client.repo}"
+
+    branches = state.get("branches", {})
+    if branches:
+        lines.append("## Branches")
+        lines.append("")
+        for branch_name in sorted(branches):
+            branch_state = branches[branch_name]
+            batch = branch_state.get("active_batch")
+            queue_len = len(branch_state.get("queue", []))
+            if batch:
+                indicator = "\U0001f504 processing"
+            elif queue_len:
+                indicator = f"\u23f3 {queue_len} waiting"
+            else:
+                indicator = "\u2705 idle"
+            if owner_repo:
+                status_url = (
+                    f"https://github.com/{owner_repo}/blob/mq/state"
+                    f"/{branch_name}/STATUS.md"
+                )
+                lines.append(f"- [`{branch_name}`]({status_url}) — {indicator}")
+            else:
+                lines.append(f"- `{branch_name}` — {indicator}")
+        lines.append("")
+
     history = state.get("history", [])
     if history:
         last = history[-1]
@@ -92,13 +109,23 @@ def render_status_md(state: dict, client: Any = None) -> str:
         lines.append(f"Last: {emoji} {prs} {status} ({dur})")
         lines.append("")
 
-    # Footer
     updated = state.get("updated_at", "")
     if updated and len(updated) > 19:
         updated = updated[:19]
     lines.append(f"<sub>Updated {updated or 'never'} UTC</sub>")
 
     return "\n".join(lines) + "\n"
+
+
+def render_status_md(state: dict, client: Any = None) -> str:
+    """Render state as a STATUS.md.
+
+    For v2 state (has 'branches' key), renders the root status page.
+    For legacy flat state passed directly, renders a flat single-branch view.
+    """
+    if "branches" in state:
+        return render_root_status_md(state, client)
+    return render_branch_status_md("main", state, client)
 
 
 def _relative_time(iso: str | None) -> str:
@@ -134,23 +161,44 @@ def render_status_terminal(state: dict) -> str:
     """Render state as a compact terminal-friendly string."""
     lines = []
 
-    batch = state.get("active_batch")
-    if batch:
-        prs = ", ".join(f"#{pr['number']}" for pr in batch.get("stack", []))
-        lines.append(
-            f"ACTIVE: {prs} [{batch.get('progress', '?')}] on {batch.get('branch', '?')}"
-        )
+    branches = state.get("branches")
+    if branches:
+        for branch_name, branch_state in branches.items():
+            batch = branch_state.get("active_batch")
+            queue = branch_state.get("queue", [])
+            if batch:
+                prs = ", ".join(f"#{pr['number']}" for pr in batch.get("stack", []))
+                lines.append(
+                    f"ACTIVE [{branch_name}]: {prs} [{batch.get('progress', '?')}]"
+                    f" on {batch.get('branch', '?')}"
+                )
+            else:
+                lines.append(f"ACTIVE [{branch_name}]: none")
+            if queue:
+                lines.append(f"QUEUE  [{branch_name}]: {len(queue)} stack(s) waiting")
+                for entry in queue:
+                    prs = ", ".join(f"#{pr['number']}" for pr in entry.get("stack", []))
+                    lines.append(f"  #{entry.get('position', '?')}: {prs}")
+            else:
+                lines.append(f"QUEUE  [{branch_name}]: empty")
     else:
-        lines.append("ACTIVE: none")
-
-    queue = state.get("queue", [])
-    if queue:
-        lines.append(f"QUEUE:  {len(queue)} stack(s) waiting")
-        for entry in queue:
-            prs = ", ".join(f"#{pr['number']}" for pr in entry.get("stack", []))
-            lines.append(f"  #{entry.get('position', '?')}: {prs}")
-    else:
-        lines.append("QUEUE:  empty")
+        # Legacy v1 flat state
+        batch = state.get("active_batch")
+        if batch:
+            prs = ", ".join(f"#{pr['number']}" for pr in batch.get("stack", []))
+            lines.append(
+                f"ACTIVE: {prs} [{batch.get('progress', '?')}] on {batch.get('branch', '?')}"
+            )
+        else:
+            lines.append("ACTIVE: none")
+        queue = state.get("queue", [])
+        if queue:
+            lines.append(f"QUEUE:  {len(queue)} stack(s) waiting")
+            for entry in queue:
+                prs = ", ".join(f"#{pr['number']}" for pr in entry.get("stack", []))
+                lines.append(f"  #{entry.get('position', '?')}: {prs}")
+        else:
+            lines.append("QUEUE:  empty")
 
     history = state.get("history", [])
     if history:

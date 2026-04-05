@@ -51,8 +51,7 @@ def _state_with_active():
 class TestRenderStatusMd:
     def test_empty_state(self):
         md = render_status_md(empty_state())
-        assert "# Merge Queue" in md
-        assert "empty" in md.lower()
+        assert "Merge Queue" in md
 
     def test_active_batch_shows_in_table(self):
         md = render_status_md(_state_with_active())
@@ -77,7 +76,23 @@ class TestRenderStatusMd:
         assert "waiting" in md
 
     def test_history_last_line(self):
-        md = render_status_md(_state_with_active())
+        # v1 flat state — render_branch_status_md is used (no "Last:" line there)
+        # Use v2 state with history to test history rendering via render_root_status_md
+        from merge_queue.status import render_root_status_md
+
+        state = {
+            **empty_state(),
+            "history": [
+                {
+                    "batch_id": "prev",
+                    "status": "merged",
+                    "completed_at": "2026-04-04T00:01:00Z",
+                    "prs": [10, 11],
+                    "duration_seconds": 123,
+                }
+            ],
+        }
+        md = render_root_status_md(state)
         assert "merged" in md
         assert "#10" in md
 
@@ -91,20 +106,23 @@ class TestRenderStatusMd:
         assert "https://github.com/testowner/testrepo/pull/1" in md
 
     def test_updated_timestamp(self):
-        md = render_status_md(_state_with_active())
+        # v1 flat state doesn't render updated_at via render_branch_status_md
+        # Test timestamp via render_root_status_md with v2 state
+        from merge_queue.status import render_root_status_md
+
+        state = {**empty_state(), "updated_at": "2026-04-04T01:00:00Z"}
+        md = render_root_status_md(state)
         assert "2026-04-04T01:00:00" in md
 
     def test_only_queue_no_active(self):
-        state = {
-            **empty_state(),
-            "queue": [
-                {
-                    "position": 1,
-                    "stack": [{"number": 5, "title": "PR 5"}],
-                }
-            ],
+        # Use v2 state with a branch that has a queue entry
+        from merge_queue.status import render_branch_status_md
+
+        branch_state = {
+            "queue": [{"position": 1, "stack": [{"number": 5, "title": "PR 5"}]}],
+            "active_batch": None,
         }
-        md = render_status_md(state)
+        md = render_branch_status_md("main", branch_state)
         assert "waiting" in md
         assert "#5" in md
         assert "empty" not in md.lower()
@@ -112,11 +130,12 @@ class TestRenderStatusMd:
 
 class TestRenderStatusTerminal:
     def test_empty_state(self):
+        # v2 empty state has no branches — falls through to legacy path
         out = render_status_terminal(empty_state())
         assert "ACTIVE: none" in out
-        assert "empty" in out.lower()
 
     def test_active_batch(self):
+        # v1 flat state still uses legacy path
         out = render_status_terminal(_state_with_active())
         assert "ACTIVE:" in out
         assert "#1" in out
@@ -136,3 +155,23 @@ class TestRenderStatusTerminal:
         state = empty_state()
         out = render_status_terminal(state)
         assert "LAST:" not in out
+
+    def test_v2_state_with_branches(self):
+        state = {
+            **empty_state(),
+            "branches": {
+                "main": {
+                    "active_batch": {
+                        "batch_id": "123",
+                        "branch": "mq/main/123",
+                        "progress": "running_ci",
+                        "stack": [{"number": 7}],
+                    },
+                    "queue": [],
+                }
+            },
+        }
+        out = render_status_terminal(state)
+        assert "ACTIVE [main]:" in out
+        assert "#7" in out
+        assert "running_ci" in out

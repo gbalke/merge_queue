@@ -16,6 +16,7 @@ from merge_queue.queue import detect_stacks
 from merge_queue.state import QueueState
 from merge_queue.status import render_status_md, render_status_terminal
 from merge_queue.store import StateStore
+from merge_queue.types import empty_branch_state
 
 log = logging.getLogger("merge_queue")
 
@@ -100,11 +101,22 @@ def _update_deployment(
             pass
 
 
-def _clear_active_batch(state: dict, store: StateStore) -> None:
-    """Clear active_batch from state with retry on conflict."""
+def _clear_active_batch(
+    state: dict, store: StateStore, target_branch: str = ""
+) -> None:
+    """Clear active_batch for target_branch from state with retry on conflict."""
     for attempt in range(3):
         try:
-            state["active_batch"] = None
+            if target_branch:
+                state.setdefault("branches", {}).setdefault(
+                    target_branch, empty_branch_state()
+                )["active_batch"] = None
+            else:
+                # Fallback: clear first branch with an active_batch
+                for branch_state in state.get("branches", {}).values():
+                    if branch_state.get("active_batch") is not None:
+                        branch_state["active_batch"] = None
+                        break
             state["updated_at"] = _now_iso()
             store.write(state)
             return
@@ -148,17 +160,17 @@ def _sync_missing_prs(client, state, store):
 
     owner, repo = _owner_repo(client)
 
-    # Collect known PR numbers
+    # Collect known PR numbers across all branches
     known: set[int] = set()
-    for entry in state.get("queue", []):
-        for pr in entry.get("stack", []):
-            known.add(pr["number"])
-    active = state.get("active_batch")
-    if active:
-        for pr in active.get("stack", []):
-            known.add(pr["number"])
+    for branch_state in state.get("branches", {}).values():
+        for entry in branch_state.get("queue", []):
+            for pr in entry.get("stack", []):
+                known.add(pr["number"])
+        active = branch_state.get("active_batch")
+        if active:
+            for pr in active.get("stack", []):
+                known.add(pr["number"])
 
-    # Find PRs with queue label not in state
     all_prs = client.list_open_prs()
     missing = [
         pr
@@ -182,7 +194,10 @@ def _sync_missing_prs(client, state, store):
         base = pr_data["base"]["ref"]
         target_branch = base if base in target_branches else client.get_default_branch()
 
-        position = len(state.get("queue", [])) + 1
+        branch_state = state.setdefault("branches", {}).setdefault(
+            target_branch, empty_branch_state()
+        )
+        position = len(branch_state.get("queue", [])) + 1
         stack_dicts = [
             {
                 "number": pr_data["number"],
@@ -202,7 +217,6 @@ def _sync_missing_prs(client, state, store):
             "target_branch": target_branch,
         }
 
-        # Create deployment + comment
         try:
             dep_id = client.create_deployment(
                 f"Queue position {position}: #{pr_data['number']}"
@@ -226,7 +240,7 @@ def _sync_missing_prs(client, state, store):
         if cid:
             entry["comment_ids"] = {pr_data["number"]: cid}
 
-        state.setdefault("queue", []).append(entry)
+        branch_state.setdefault("queue", []).append(entry)
         log.info("Auto-enqueued PR #%d at position %d", pr_data["number"], position)
 
     state["updated_at"] = _now_iso()
@@ -253,21 +267,23 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
     state = store.read()
     owner, repo = _owner_repo(client)
 
-    # Guard: already in active batch?
-    active = state.get("active_batch")
-    if active and any(pr["number"] == pr_number for pr in active.get("stack", [])):
-        log.info("PR #%d is already in the active batch, skipping", pr_number)
-        return "already_active"
+    # Guard: already in active batch (any branch)?
+    for branch_state in state.get("branches", {}).values():
+        active = branch_state.get("active_batch")
+        if active and any(pr["number"] == pr_number for pr in active.get("stack", [])):
+            log.info("PR #%d is already in the active batch, skipping", pr_number)
+            return "already_active"
 
-    # Guard: already queued?
-    for entry in state.get("queue", []):
-        if any(pr["number"] == pr_number for pr in entry.get("stack", [])):
-            log.info(
-                "PR #%d is already queued at position %d",
-                pr_number,
-                entry.get("position", 0),
-            )
-            return "already_queued"
+    # Guard: already queued (any branch)?
+    for branch_state in state.get("branches", {}).values():
+        for entry in branch_state.get("queue", []):
+            if any(pr["number"] == pr_number for pr in entry.get("stack", [])):
+                log.info(
+                    "PR #%d is already queued at position %d",
+                    pr_number,
+                    entry.get("position", 0),
+                )
+                return "already_queued"
 
     # Guard: recently merged? (skip if successfully merged in last 5 minutes)
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -370,13 +386,17 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
                     pass
                 return "ci_not_ready"
 
-    position = len(state.get("queue", [])) + 1
+    resolved_target = target_branch or api_state.default_branch
+    branch_state = state.setdefault("branches", {}).setdefault(
+        resolved_target, empty_branch_state()
+    )
+    position = len(branch_state.get("queue", [])) + 1
     entry = {
         "position": position,
         "queued_at": _event_time_or_now(),
         "stack": stack_dicts,
         "deployment_id": None,
-        "target_branch": target_branch or api_state.default_branch,
+        "target_branch": resolved_target,
     }
 
     # Create deployment
@@ -402,16 +422,17 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
             cids[pr["number"]] = cid
     entry["comment_ids"] = cids
 
-    state.setdefault("queue", []).append(entry)
+    branch_state.setdefault("queue", []).append(entry)
     state["updated_at"] = _now_iso()
     store.write(state)
 
-    log.info("Enqueued stack at position %d", position)
+    log.info("Enqueued stack at position %d for branch %s", position, resolved_target)
 
-    # Trigger processing inline if idle.
-    # NOTE: We cannot dispatch workflow_dispatch from GITHUB_TOKEN, so we
-    # must call do_process directly even though this holds the concurrency slot.
-    if state.get("active_batch") is None and not api_state.has_active_batch:
+    # Trigger processing inline if the target branch is idle.
+    has_active = (
+        branch_state.get("active_batch") is not None or api_state.has_active_batch
+    )
+    if not has_active:
         return do_process(client)
     return "queued_waiting"
 
@@ -439,14 +460,18 @@ def _stack_to_dicts(stack, client) -> list[dict]:
 
 
 def do_process(client: GitHubClientProtocol) -> str:
-    """Process the next batch from the queue."""
+    """Process the next batch from the queue across all branches."""
     store = StateStore(client)
     state = store.read()
     owner, repo = _owner_repo(client)
 
-    active = state.get("active_batch")
-    if active is not None:
-        # Check if the active batch's PRs are already merged (stale from race condition)
+    # Clear any stale active batches across all branches; track genuinely-active ones.
+    has_active_batch = False
+    for branch_name, branch_state in list(state.get("branches", {}).items()):
+        active = branch_state.get("active_batch")
+        if active is None:
+            continue
+
         all_merged = True
         for pr_info in active.get("stack", []):
             try:
@@ -459,34 +484,56 @@ def do_process(client: GitHubClientProtocol) -> str:
                 break
 
         if all_merged:
-            log.warning("Active batch PRs are all merged/closed, clearing stale state")
-            _clear_active_batch(state, store)
-            # Fall through to process next
+            log.warning(
+                "Active batch for %s PRs are merged/closed, clearing stale state",
+                branch_name,
+            )
+            _clear_active_batch(state, store, branch_name)
         else:
-            # Check for stale batch (crashed worker) — auto-recover after 30 minutes
             try:
                 started = datetime.datetime.fromisoformat(active["started_at"])
                 age = (
                     datetime.datetime.now(datetime.timezone.utc) - started
                 ).total_seconds()
                 if age > 30 * 60:
-                    log.warning("Active batch is stale (%.0fs old), clearing it", age)
+                    log.warning(
+                        "Active batch for %s is stale (%.0fs old), clearing it",
+                        branch_name,
+                        age,
+                    )
                     batch_mod.abort_batch(client)
-                    _clear_active_batch(state, store)
-                    # Fall through to process next
+                    _clear_active_batch(state, store, branch_name)
                 else:
-                    log.info("Active batch in progress (%.0fs), skipping", age)
-                    return "batch_active"
+                    log.info(
+                        "Active batch for %s in progress (%.0fs), skipping",
+                        branch_name,
+                        age,
+                    )
+                    has_active_batch = True
             except Exception:
-                log.info("Active batch in progress, skipping")
-                return "batch_active"
+                log.info("Active batch for %s in progress, skipping", branch_name)
+                has_active_batch = True
 
-    state = _sync_missing_prs(client, state, store)
+    # Skip the sync scan when all branches are already busy — avoids an extra API call.
+    if not has_active_batch:
+        state = _sync_missing_prs(client, state, store)
 
-    queue = state.get("queue", [])
-    if not queue:
-        log.info("Queue empty, nothing to do")
+    # Find first branch with a non-empty queue and no active_batch
+    target_branch_to_process: str | None = None
+    for branch_name, branch_state in state.get("branches", {}).items():
+        if branch_state.get("active_batch") is None and branch_state.get("queue"):
+            target_branch_to_process = branch_name
+            break
+
+    if target_branch_to_process is None:
+        if has_active_batch:
+            log.info("Active batch in progress, skipping")
+            return "batch_active"
+        log.info("All branch queues are empty or busy, nothing to do")
         return "no_stacks"
+
+    branch_state = state["branches"][target_branch_to_process]
+    queue = branch_state["queue"]
 
     # Pre-condition rules
     api_state = QueueState.fetch(client)
@@ -520,19 +567,25 @@ def do_process(client: GitHubClientProtocol) -> str:
         prs=prs, queued_at=datetime.datetime.fromisoformat(entry["queued_at"])
     )
 
-    log.info("Processing: %s", " -> ".join(f"#{pr.number}" for pr in prs))
+    log.info(
+        "Processing for %s: %s",
+        target_branch_to_process,
+        " -> ".join(f"#{pr.number}" for pr in prs),
+    )
 
     dep_id = entry.get("deployment_id")
     cids = _normalize_cids(entry.get("comment_ids"))
-    # Resolve target branch: use the stored value from enqueue, or fall back to
-    # the repo default branch for backward compatibility with pre-existing entries.
-    entry_target_branch: str = entry.get("target_branch") or api_state.default_branch
+    entry_target_branch: str = (
+        entry.get("target_branch")
+        or target_branch_to_process
+        or api_state.default_branch
+    )
 
     _update_deployment(client, dep_id, "in_progress", "Locking branches...")
 
     # Set active batch in state (include comment_ids for abort)
     started_at = _now_iso()
-    state["active_batch"] = {
+    active_batch_dict = {
         "batch_id": "",
         "branch": "",
         "ruleset_id": None,
@@ -544,6 +597,7 @@ def do_process(client: GitHubClientProtocol) -> str:
         "queued_at": entry["queued_at"],
         "target_branch": entry_target_branch,
     }
+    branch_state["active_batch"] = active_batch_dict
     state["updated_at"] = _now_iso()
     store.write(state)
 
@@ -570,7 +624,9 @@ def do_process(client: GitHubClientProtocol) -> str:
 
     # Create batch
     try:
-        batch = batch_mod.create_batch(client, next_stack)
+        batch = batch_mod.create_batch(
+            client, next_stack, target_branch=entry_target_branch
+        )
     except Exception as e:
         log.error("Failed to create batch: %s", e)
         error_str = str(e)
@@ -590,8 +646,8 @@ def do_process(client: GitHubClientProtocol) -> str:
                         cids,
                     )
                 entry["rebase_attempted"] = True
-                state.setdefault("queue", []).insert(0, entry)
-                _clear_active_batch(state, store)
+                branch_state.setdefault("queue", []).insert(0, entry)
+                _clear_active_batch(state, store, entry_target_branch)
                 return do_process(client)
             log.info("Auto-rebase failed, falling through to normal failure")
         for pr in prs:
@@ -603,16 +659,16 @@ def do_process(client: GitHubClientProtocol) -> str:
             except Exception:
                 pass
         _update_deployment(client, dep_id, "failure", error_str[:140])
-        _clear_active_batch(state, store)
+        _clear_active_batch(state, store, entry_target_branch)
         return "batch_error"
 
     # Update state
     ci_started_at = _now_iso()
-    state["active_batch"]["batch_id"] = batch.batch_id
-    state["active_batch"]["branch"] = batch.branch
-    state["active_batch"]["ruleset_id"] = batch.ruleset_id
-    state["active_batch"]["progress"] = "running_ci"
-    state["active_batch"]["ci_started_at"] = ci_started_at
+    active_batch_dict["batch_id"] = batch.batch_id
+    active_batch_dict["branch"] = batch.branch
+    active_batch_dict["ruleset_id"] = batch.ruleset_id
+    active_batch_dict["progress"] = "running_ci"
+    active_batch_dict["ci_started_at"] = ci_started_at
     state["updated_at"] = _now_iso()
     store.write(state)
 
@@ -647,7 +703,7 @@ def do_process(client: GitHubClientProtocol) -> str:
     ci_completed_at = _now_iso()
 
     if ci_result.passed:
-        state["active_batch"]["progress"] = "completing"
+        active_batch_dict["progress"] = "completing"
         state["updated_at"] = _now_iso()
         store.write(state)
 
@@ -696,8 +752,8 @@ def do_process(client: GitHubClientProtocol) -> str:
                             cids,
                         )
                     entry["rebase_attempted"] = True
-                    state.setdefault("queue", []).insert(0, entry)
-                    _clear_active_batch(state, store)
+                    branch_state.setdefault("queue", []).insert(0, entry)
+                    _clear_active_batch(state, store, entry_target_branch)
                     return do_process(client)
                 log.info("Auto-rebase failed, falling through to normal failure")
             status = "complete_error"
@@ -739,7 +795,7 @@ def do_process(client: GitHubClientProtocol) -> str:
             )
 
     # Record history
-    started = state["active_batch"]["started_at"]
+    started = active_batch_dict["started_at"]
     completed = _now_iso()
     try:
         dur = (
@@ -756,12 +812,14 @@ def do_process(client: GitHubClientProtocol) -> str:
             "completed_at": completed,
             "prs": [pr.number for pr in prs],
             "duration_seconds": dur,
+            "target_branch": entry_target_branch,
         }
     )
-    _clear_active_batch(state, store)
+    _clear_active_batch(state, store, entry_target_branch)
 
-    # Process next
-    if state.get("queue"):
+    # Process next if any branch still has items queued
+    has_more = any(bs.get("queue") for bs in state.get("branches", {}).values())
+    if has_more:
         log.info("More stacks queued, continuing...")
         return do_process(client)
 
@@ -774,39 +832,45 @@ def do_abort(client: GitHubClientProtocol, pr_number: int) -> str:
     state = store.read()
     owner, repo = _owner_repo(client)
 
-    # In active batch?
-    active = state.get("active_batch")
-    if active and any(pr["number"] == pr_number for pr in active.get("stack", [])):
-        log.info("Aborting active batch for PR #%d", pr_number)
-        batch_mod.abort_batch(client)
-        dep_id = active.get("deployment_id")
-        cids = _normalize_cids(active.get("comment_ids"))
-        _update_deployment(client, dep_id, "inactive", "Aborted")
-        state["active_batch"] = None
-        state["updated_at"] = _now_iso()
-        store.write(state)
-        # Update ALL PR comments in the batch, not just the one that was unlabeled
-        for pr in active.get("stack", []):
-            _comment(client, pr["number"], comments.aborted(owner, repo), cids)
-        return "aborted"
-
-    # In queue?
-    queue = state.get("queue", [])
-    for i, entry in enumerate(queue):
-        if any(pr["number"] == pr_number for pr in entry.get("stack", [])):
-            removed = queue.pop(i)
-            for j, e in enumerate(queue):
-                e["position"] = j + 1
-            cids = _normalize_cids(removed.get("comment_ids"))
-            dep_id = removed.get("deployment_id")
-            _update_deployment(client, dep_id, "inactive", "Removed")
+    # Search all branches for active batch containing this PR
+    for branch_name, branch_state in state.get("branches", {}).items():
+        active = branch_state.get("active_batch")
+        if active and any(pr["number"] == pr_number for pr in active.get("stack", [])):
+            log.info(
+                "Aborting active batch for PR #%d on branch %s", pr_number, branch_name
+            )
+            batch_mod.abort_batch(client)
+            dep_id = active.get("deployment_id")
+            cids = _normalize_cids(active.get("comment_ids"))
+            _update_deployment(client, dep_id, "inactive", "Aborted")
+            branch_state["active_batch"] = None
             state["updated_at"] = _now_iso()
             store.write(state)
-            for pr in removed.get("stack", []):
-                _comment(
-                    client, pr["number"], comments.removed_from_queue(owner, repo), cids
-                )
-            return "removed"
+            for pr in active.get("stack", []):
+                _comment(client, pr["number"], comments.aborted(owner, repo), cids)
+            return "aborted"
+
+    # Search all branches' queues
+    for branch_name, branch_state in state.get("branches", {}).items():
+        queue = branch_state.get("queue", [])
+        for i, entry in enumerate(queue):
+            if any(pr["number"] == pr_number for pr in entry.get("stack", [])):
+                removed = queue.pop(i)
+                for j, e in enumerate(queue):
+                    e["position"] = j + 1
+                cids = _normalize_cids(removed.get("comment_ids"))
+                dep_id = removed.get("deployment_id")
+                _update_deployment(client, dep_id, "inactive", "Removed")
+                state["updated_at"] = _now_iso()
+                store.write(state)
+                for pr in removed.get("stack", []):
+                    _comment(
+                        client,
+                        pr["number"],
+                        comments.removed_from_queue(owner, repo),
+                        cids,
+                    )
+                return "removed"
 
     log.info("PR #%d not found in queue or active batch", pr_number)
     return "not_found"

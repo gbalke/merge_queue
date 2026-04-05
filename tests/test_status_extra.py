@@ -7,9 +7,10 @@ from merge_queue.types import empty_state
 
 
 def test_render_status_md_queue_shows_pr_numbers() -> None:
-    """Queue entries show PR numbers and titles."""
-    state = {
-        **empty_state(),
+    """Queue entries show PR numbers and titles via render_branch_status_md."""
+    from merge_queue.status import render_branch_status_md
+
+    branch_state = {
         "queue": [
             {
                 "position": 1,
@@ -25,8 +26,9 @@ def test_render_status_md_queue_shows_pr_numbers() -> None:
                 ],
             }
         ],
+        "active_batch": None,
     }
-    md = render_status_md(state)
+    md = render_branch_status_md("main", branch_state)
     assert "#1" in md
     assert "waiting" in md
 

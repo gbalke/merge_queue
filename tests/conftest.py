@@ -119,6 +119,25 @@ def make_state(**overrides: Any) -> dict[str, Any]:
     return s
 
 
+def make_v2_state(
+    branch: str = "main",
+    queue: list | None = None,
+    active_batch: dict | None = None,
+    history: list | None = None,
+    **overrides: Any,
+) -> dict[str, Any]:
+    """Return a v2 state dict with the given branch populated."""
+    s = empty_state()
+    s["branches"][branch] = {
+        "queue": queue or [],
+        "active_batch": active_batch,
+    }
+    if history is not None:
+        s["history"] = history
+    s.update(overrides)
+    return s
+
+
 def make_api_state(
     prs: list[PullRequest] | None = None,
     mq_branches: list[str] | None = None,
