@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:23:33.583180+00:00",
+  "updated_at": "2026-04-05T22:23:42.767926+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775427743",
-        "branch": "mq/main/1775427743",
-        "ruleset_id": 14716463,
-        "started_at": "2026-04-05T22:22:21.043723+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 96,
-            "head_sha": "e3c5a79465a76ffe50ee5b9507e69678c620a07f",
-            "head_ref": "greg/revup/main/fix-high-security",
-            "base_ref": "main",
-            "title": "Fix HIGH security issues: markdown injection, state protection, lazy admin token"
-          }
-        ],
-        "deployment_id": 4277924415,
-        "comment_ids": {
-          "96": 4189618343
-        },
-        "queued_at": "2026-04-05T22:15:09.268158+00:00",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T22:22:24.562702+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -379,6 +357,16 @@
         107
       ],
       "duration_seconds": 96.475329,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775427743",
+      "status": "merged",
+      "completed_at": "2026-04-05T22:23:42.646856+00:00",
+      "prs": [
+        96
+      ],
+      "duration_seconds": 81.603133,
       "target_branch": "main"
     }
   ]
