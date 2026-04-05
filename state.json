@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:58:13.245620+00:00",
+  "updated_at": "2026-04-05T22:58:22.877544+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775429807",
-        "branch": "mq/main/1775429807",
-        "ruleset_id": 14716697,
-        "started_at": "2026-04-05T22:56:45.200078+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 117,
-            "head_sha": "fc9c4b4cbc793f4e80709124b131848c54fee659",
-            "head_ref": "greg/revup/main/update-security-audit",
-            "base_ref": "main",
-            "title": "Rewrite SECURITY_AUDIT.md: remove resolved entries, add fresh findings"
-          }
-        ],
-        "deployment_id": 4278076593,
-        "comment_ids": {
-          "117": 4189664660
-        },
-        "queued_at": "2026-04-05T22:51:26Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T22:56:48.961472+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -429,6 +407,16 @@
         116
       ],
       "duration_seconds": 97.463988,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775429807",
+      "status": "merged",
+      "completed_at": "2026-04-05T22:58:22.721850+00:00",
+      "prs": [
+        117
+      ],
+      "duration_seconds": 97.521772,
       "target_branch": "main"
     }
   ]
