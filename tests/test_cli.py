@@ -61,6 +61,16 @@ class TestMakeClient:
 
 
 class TestDoProcess:
+    def _pr_data(self, number: int = 1) -> dict:
+        """Return a minimal PR dict with the queue label, as returned by list_open_prs."""
+        return {
+            "number": number,
+            "head": {"ref": f"feat-{number}", "sha": f"sha-{number}"},
+            "base": {"ref": "main"},
+            "labels": [{"name": "queue"}],
+            "title": "PR title",
+        }
+
     def _queue_entry(self, number: int = 1, deployment_id: int | None = 99) -> dict:
         return {
             "position": 1,
@@ -108,6 +118,7 @@ class TestDoProcess:
         from merge_queue.types import Batch
 
         mock_store.read.return_value = make_v2_state(queue=[self._queue_entry()])
+        mock_client.list_open_prs.return_value = [self._pr_data(1)]
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
         batch_mod.create_batch.return_value = batch
@@ -135,6 +146,7 @@ class TestDoProcess:
         mock_store.read.return_value = make_v2_state(
             queue=[self._queue_entry(deployment_id=None)]
         )
+        mock_client.list_open_prs.return_value = [self._pr_data(1)]
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
         batch_mod.create_batch.return_value = batch
@@ -155,6 +167,7 @@ class TestDoProcess:
         mock_store.read.return_value = make_v2_state(
             queue=[self._queue_entry(deployment_id=88)]
         )
+        mock_client.list_open_prs.return_value = [self._pr_data(1)]
         QS.fetch.return_value = _api_state()
         batch_mod.create_batch.side_effect = Exception("merge conflict")
         batch_mod.BatchError = Exception
@@ -172,6 +185,7 @@ class TestDoProcess:
         mock_store.read.return_value = make_v2_state(
             queue=[self._queue_entry(deployment_id=None)]
         )
+        mock_client.list_open_prs.return_value = [self._pr_data(1)]
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
         batch_mod.create_batch.return_value = batch

@@ -224,6 +224,20 @@ def test_do_process_leaves_other_branch_queues_untouched() -> None:
 
         client = MagicMock()
         client.get_pr.return_value = {"state": "open"}
+        client.list_open_prs.return_value = [
+            {
+                "number": 1,
+                "head": {"ref": "feat-a", "sha": "sha-1"},
+                "base": {"ref": "main"},
+                "labels": [{"name": "queue"}],
+            },
+            {
+                "number": 2,
+                "head": {"ref": "feat-b", "sha": "sha-2"},
+                "base": {"ref": "release/1.0"},
+                "labels": [{"name": "queue"}],
+            },
+        ]
         do_process(client)
 
     # release/1.0's queue must remain untouched after processing main's batch

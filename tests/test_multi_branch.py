@@ -293,6 +293,14 @@ class TestDoProcessTargetBranch:
             store_cls.return_value = store
             qs.fetch.return_value = make_api_state()
             mock_complete.return_value = None
+            client.list_open_prs.return_value = [
+                {
+                    "number": 1,
+                    "head": {"ref": "feat-x", "sha": "sha-1"},
+                    "base": {"ref": "release/1.0"},
+                    "labels": [{"name": "queue"}],
+                }
+            ]
 
             with patch("merge_queue.cli.batch_mod") as mock_batch_mod:
                 mock_batch = MagicMock()
@@ -330,6 +338,14 @@ class TestDoProcessTargetBranch:
             )
             store_cls.return_value = store
             qs.fetch.return_value = make_api_state()
+            client.list_open_prs.return_value = [
+                {
+                    "number": 1,
+                    "head": {"ref": "feat-x", "sha": "sha-1"},
+                    "base": {"ref": "release/1.0"},
+                    "labels": [{"name": "queue"}],
+                }
+            ]
 
             with patch("merge_queue.cli.batch_mod") as mock_batch_mod:
                 mock_batch = MagicMock()
@@ -369,6 +385,14 @@ class TestDoProcessTargetBranch:
             store.read.return_value = make_v2_state(branch="main", queue=[entry])
             store_cls.return_value = store
             qs.fetch.return_value = make_api_state()
+            client.list_open_prs.return_value = [
+                {
+                    "number": 1,
+                    "head": {"ref": "feat-x", "sha": "sha-1"},
+                    "base": {"ref": "main"},
+                    "labels": [{"name": "queue"}],
+                }
+            ]
 
             with patch("merge_queue.cli.batch_mod") as mock_batch_mod:
                 mock_batch = MagicMock()

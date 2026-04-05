@@ -403,6 +403,14 @@ def test_do_process_comments_updated_at_locking_phase(
     from merge_queue.types import Batch
 
     mock_store.read.return_value = make_v2_state(queue=[_queue_entry_with_cids()])
+    mock_client.list_open_prs.return_value = [
+        {
+            "number": 1,
+            "head": {"ref": "feat-a", "sha": "sha-1"},
+            "base": {"ref": "main"},
+            "labels": [{"name": "queue"}],
+        }
+    ]
 
     with (
         patch("merge_queue.cli.QueueState") as QS,
@@ -437,6 +445,14 @@ def test_do_process_comments_updated_at_ci_phase(
     from merge_queue.types import Batch
 
     mock_store.read.return_value = make_v2_state(queue=[_queue_entry_with_cids()])
+    mock_client.list_open_prs.return_value = [
+        {
+            "number": 1,
+            "head": {"ref": "feat-a", "sha": "sha-1"},
+            "base": {"ref": "main"},
+            "labels": [{"name": "queue"}],
+        }
+    ]
 
     with (
         patch("merge_queue.cli.QueueState") as QS,

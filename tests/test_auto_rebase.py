@@ -28,7 +28,7 @@ def _setup_do_process(
     from merge_queue.state import QueueState
 
     mock_store.read.return_value = make_v2_state(queue=[entry])
-    mock_client.get_pr.return_value = {
+    pr_data = {
         "number": 1,
         "state": "open",
         "head": {"ref": "feat-a", "sha": "sha-1"},
@@ -36,6 +36,8 @@ def _setup_do_process(
         "labels": [{"name": "queue"}],
         "title": "PR title",
     }
+    mock_client.get_pr.return_value = pr_data
+    mock_client.list_open_prs.return_value = [pr_data]
     mock_client.get_pr_ci_status.return_value = (True, "")
     return QueueState(
         default_branch="main",
