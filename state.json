@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T20:27:56.511568+00:00",
+  "updated_at": "2026-04-05T20:29:24.333219+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -23,29 +23,7 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": {
-        "batch_id": "1775420874",
-        "branch": "mq/main/1775420874",
-        "ruleset_id": 14715248,
-        "started_at": "2026-04-05T20:27:51.559822+00:00",
-        "progress": "running_ci",
-        "stack": [
-          {
-            "number": 104,
-            "head_sha": "337909ac96868bc59605955637dfbc947946520b",
-            "head_ref": "greg/revup/main/enforce-no-direct-push",
-            "base_ref": "main",
-            "title": "Enforce never-push-to-main rule in CLAUDE.md"
-          }
-        ],
-        "deployment_id": 4277372727,
-        "comment_ids": {
-          "104": 4189469100
-        },
-        "queued_at": "2026-04-05T20:19:53.280244+00:00",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-05T20:27:56.267279+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -288,6 +266,16 @@
         96
       ],
       "duration_seconds": 77.590548,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775420874",
+      "status": "ci_failed",
+      "completed_at": "2026-04-05T20:29:24.079901+00:00",
+      "prs": [
+        104
+      ],
+      "duration_seconds": 92.520079,
       "target_branch": "main"
     }
   ]
