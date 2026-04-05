@@ -1,27 +1,9 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T16:38:45.629143+00:00",
+  "updated_at": "2026-04-05T16:38:47.030548+00:00",
   "queue": [
     {
       "position": 1,
-      "queued_at": "2026-04-05T16:38:27Z",
-      "stack": [
-        {
-          "number": 89,
-          "head_sha": "a66ab3dec458d6cf280b84957d2759a6a602437b",
-          "head_ref": "greg/revup/main/per-branch-queues",
-          "base_ref": "main",
-          "title": "Per-branch queues: independent state, concurrency, and status pages"
-        }
-      ],
-      "deployment_id": 4276291248,
-      "target_branch": "main",
-      "comment_ids": {
-        "89": 4189163063
-      }
-    },
-    {
-      "position": 2,
       "queued_at": "2026-04-05T16:38:44.820444+00:00",
       "stack": [
         {
@@ -39,7 +21,28 @@
       "target_branch": "main"
     }
   ],
-  "active_batch": null,
+  "active_batch": {
+    "batch_id": "",
+    "branch": "",
+    "ruleset_id": null,
+    "started_at": "2026-04-05T16:38:47.030532+00:00",
+    "progress": "locking",
+    "stack": [
+      {
+        "number": 89,
+        "head_sha": "a66ab3dec458d6cf280b84957d2759a6a602437b",
+        "head_ref": "greg/revup/main/per-branch-queues",
+        "base_ref": "main",
+        "title": "Per-branch queues: independent state, concurrency, and status pages"
+      }
+    ],
+    "deployment_id": 4276291248,
+    "comment_ids": {
+      "89": 4189163063
+    },
+    "queued_at": "2026-04-05T16:38:27Z",
+    "target_branch": "main"
+  },
   "history": [
     {
       "batch_id": "1775400996",
