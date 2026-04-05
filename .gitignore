@@ -5,3 +5,4 @@ __pycache__/
 stack_*.py
 /test_*.py
 .claude/worktrees/
+# test
