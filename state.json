@@ -1,29 +1,8 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T06:45:16.887731+00:00",
+  "updated_at": "2026-04-05T06:45:25.502409+00:00",
   "queue": [],
-  "active_batch": {
-    "batch_id": "1775371430",
-    "branch": "mq/1775371430",
-    "ruleset_id": 14705703,
-    "started_at": "2026-04-05T06:43:49.397728+00:00",
-    "progress": "completing",
-    "stack": [
-      {
-        "number": 62,
-        "head_sha": "8da21f8bc44a89123d94823ec8474f34c9b334ec",
-        "head_ref": "greg/revup/main/code-cleanup",
-        "base_ref": "main",
-        "title": "Code cleanup: remove dead code, consolidate duplication, simplify"
-      }
-    ],
-    "deployment_id": 4273749720,
-    "comment_ids": {
-      "62": 4188407760
-    },
-    "queued_at": "2026-04-05T06:43:44.381081+00:00",
-    "ci_started_at": "2026-04-05T06:43:52.574493+00:00"
-  },
+  "active_batch": null,
   "history": [
     {
       "batch_id": "1775367984",
@@ -78,6 +57,15 @@
         61
       ],
       "duration_seconds": 96.491255
+    },
+    {
+      "batch_id": "1775371430",
+      "status": "merged",
+      "completed_at": "2026-04-05T06:45:25.502386+00:00",
+      "prs": [
+        62
+      ],
+      "duration_seconds": 96.104658
     }
   ]
 }
