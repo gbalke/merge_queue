@@ -1,28 +1,9 @@
 {
   "version": 2,
-  "updated_at": "2026-04-05T22:03:23.234569+00:00",
+  "updated_at": "2026-04-05T22:03:25.127362+00:00",
   "branches": {
     "main": {
       "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-05T21:33:32.402013+00:00",
-          "stack": [
-            {
-              "number": 96,
-              "head_sha": "e3c5a79465a76ffe50ee5b9507e69678c620a07f",
-              "head_ref": "greg/revup/main/fix-high-security",
-              "base_ref": "main",
-              "title": "Fix HIGH security issues: markdown injection, state protection, lazy admin token"
-            }
-          ],
-          "deployment_id": 4277736336,
-          "comment_ids": {
-            "96": 4189564425
-          },
-          "target_branch": "main",
-          "retry_count": 1
-        },
         {
           "position": 1,
           "queued_at": "2026-04-05T21:39:24Z",
