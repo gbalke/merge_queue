@@ -1,7 +1,26 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T13:59:18.438089+00:00",
-  "queue": [],
+  "updated_at": "2026-04-05T14:05:57.548371+00:00",
+  "queue": [
+    {
+      "position": 1,
+      "queued_at": "2026-04-05T14:05:56.717567+00:00",
+      "stack": [
+        {
+          "number": 72,
+          "head_sha": "874864c94deed31f273a7a0ca506185567862eca",
+          "head_ref": "greg/revup/release/1.0/rel-test-1",
+          "base_ref": "release/1.0",
+          "title": "Add release feature 1"
+        }
+      ],
+      "deployment_id": 4275531910,
+      "target_branch": "release/1.0",
+      "comment_ids": {
+        "72": 4188942088
+      }
+    }
+  ],
   "active_batch": null,
   "history": [
     {
