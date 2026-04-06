@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T01:22:10.868876+00:00",
+  "updated_at": "2026-04-06T01:22:19.981594+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775438445",
-        "branch": "mq/main/1775438445",
-        "ruleset_id": 14718455,
-        "started_at": "2026-04-06T01:20:43.247422+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 124,
-            "head_sha": "7579746650843a4b6c2ea5b8545fc38fdc29776e",
-            "head_ref": "greg/revup/main/docs-cleanup",
-            "base_ref": "main",
-            "title": "Trim CLAUDE.md and SECURITY_AUDIT.md for conciseness"
-          }
-        ],
-        "deployment_id": 4278699245,
-        "comment_ids": {
-          "124": 4189905239
-        },
-        "queued_at": "2026-04-06T01:20:24Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-06T01:20:46.734528+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -499,6 +477,16 @@
         123
       ],
       "duration_seconds": 96.895104,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775438445",
+      "status": "merged",
+      "completed_at": "2026-04-06T01:22:19.835881+00:00",
+      "prs": [
+        124
+      ],
+      "duration_seconds": 96.588459,
       "target_branch": "main"
     }
   ]
