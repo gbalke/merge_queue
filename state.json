@@ -1,29 +1,11 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T03:46:35.710428+00:00",
+  "updated_at": "2026-04-06T03:46:38.787070+00:00",
   "branches": {
     "main": {
       "queue": [
         {
           "position": 1,
-          "queued_at": "2026-04-06T03:46:13Z",
-          "stack": [
-            {
-              "number": 137,
-              "head_sha": "163d4080e7c8cd3c66b35b036f5d41c03b3c6572",
-              "head_ref": "greg/revup/main/refactor-plan",
-              "base_ref": "main",
-              "title": "Add internal cleanup plan + metrics roadmap"
-            }
-          ],
-          "deployment_id": 4279332394,
-          "target_branch": "main",
-          "comment_ids": {
-            "137": 4190199697
-          }
-        },
-        {
-          "position": 2,
           "queued_at": "2026-04-06T03:46:34.344223+00:00",
           "stack": [
             {
@@ -41,7 +23,28 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": null
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-06T03:46:38.639901+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 137,
+            "head_sha": "163d4080e7c8cd3c66b35b036f5d41c03b3c6572",
+            "head_ref": "greg/revup/main/refactor-plan",
+            "base_ref": "main",
+            "title": "Add internal cleanup plan + metrics roadmap"
+          }
+        ],
+        "deployment_id": 4279332394,
+        "comment_ids": {
+          "137": 4190199697
+        },
+        "queued_at": "2026-04-06T03:46:13Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
