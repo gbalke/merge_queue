@@ -39,7 +39,7 @@ merge_queue/
 - [x] **Extract `get_branch_state()` helper**: Replaced inline `setdefault` chains with `lib/state.py`.
 
 ### Quick Wins
-- [ ] **Deduplicate active batch re-queue**: `do_hotfix` and `do_break_glass` both abort active batch and re-queue its PRs — extract `_abort_and_requeue_active()`.
+- [x] **Deduplicate active batch re-queue**: Extracted `_abort_and_requeue_active()` used by both `do_hotfix` and `do_break_glass`.
 
 ### Medium Refactors
 - [ ] **Extract `_notify()` helper**: Consolidate "post comment + update deployment" pattern (6+ occurrences in cli.py).
@@ -54,35 +54,27 @@ merge_queue/
 
 ## Metrics Improvements
 
-Current metrics are batch-level only (duration, CI time, PR count). Need full health picture.
+### Architecture (done)
+All metrics flow through `MetricsCollector` (`metrics/__init__.py`):
+- Typed `record_*()` methods accumulate metrics throughout a run
+- `flush()` pushes all to the configured backend once at end of run
+- Labels include repo, target_branch, trigger type, batch_id, pr_numbers
 
-### Architecture
-All metrics flow through a centralized `MetricsCollector` class that:
-- Accumulates metrics throughout a run via typed `record_*()` methods
-- Flushes to the configured backend once at end of run
-- Holds all label/attribute context (repo, target_branch, trigger type)
+### Batch Timing (per completion) — done
+- [x] `mq_batch_queue_wait_seconds` — enqueue to batch start
+- [x] `mq_batch_lock_seconds` — branch locking + merge time
+- [x] `mq_batch_ci_seconds` — CI phase
+- [x] `mq_batch_merge_seconds` — CI pass to fast-forward complete
+- [x] `mq_batch_total_seconds` — end-to-end
 
-### Batch Timing (per completion)
-- [ ] `mq_batch_queue_wait_seconds` — enqueue to batch start
-- [ ] `mq_batch_lock_seconds` — branch locking + merge time
-- [ ] `mq_batch_ci_seconds` — CI phase (exists, keep)
-- [ ] `mq_batch_merge_seconds` — CI pass to fast-forward complete
-- [ ] `mq_batch_total_seconds` — end-to-end (rename from `duration_seconds`)
+### Queue Health (per process run) — done
+- [x] `mq_queue_depth` — per branch
+- [x] `mq_queue_oldest_seconds` — age of oldest entry
+- [x] `mq_api_calls_total` — API calls used in this run
+- [x] `mq_api_remaining` — remaining API quota
 
-### Queue Health (per process run)
-- [ ] `mq_queue_depth` — per branch (exists, add branch label)
-- [ ] `mq_queue_oldest_seconds` — age of oldest entry (detects stuck queues)
-- [ ] `mq_api_calls_total` — API calls used in this run
-- [ ] `mq_api_remaining` — remaining API quota
+### Failure Tracking — done
+- [x] `mq_batch_failures_total` — with `reason` label (ci_failed, merge_conflict, diverged, error)
 
-### Failure Tracking
-- [ ] `mq_batch_retries_total` — with `reason` label (diverged, conflict, 5xx)
-- [ ] `mq_batch_failures_total` — with `reason` label (ci_failed, merge_conflict, error)
-
-### Labels/Attributes (on all metrics)
-- [ ] `target_branch` — main, release/1.0, etc.
-- [ ] `batch_id` — for correlating
-- [ ] `pr_numbers` — comma-separated (e.g. "96,97")
-- [ ] `repo` — owner/repo
-- [ ] `status` — merged, ci_failed, aborted, error
-- [ ] `trigger` — queue, hotfix, break-glass
+### Labels/Attributes (on all metrics) — done
+- [x] `target_branch`, `batch_id`, `pr_numbers`, `repo`, `status`, `trigger`
