@@ -130,12 +130,19 @@ class MetricsCollector:
         self,
         calls_total: int,
         remaining: int,
+        section: str = "",
     ) -> None:
-        """Record GitHub API usage metrics."""
-        labels = {
+        """Record GitHub API usage metrics.
+
+        When *section* is non-empty it is added as a label so that per-phase
+        API consumption can be tracked (e.g. ``"ci_poll"``, ``"batch_create"``).
+        """
+        labels: dict[str, str] = {
             "repo": self._repo,
             "trigger": self._trigger,
         }
+        if section:
+            labels["section"] = section
         now_ns = time.time_ns()
         self._metrics.append(
             {
