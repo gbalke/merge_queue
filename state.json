@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T02:41:04.996904+00:00",
+  "updated_at": "2026-04-06T02:41:39.826204+00:00",
   "branches": {
     "main": {
-      "queue": [],
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-06T02:41:19Z",
+          "stack": [
+            {
+              "number": 133,
+              "head_sha": "7bd1066f0e28bc46e3cf00641688d4a6a8b33890",
+              "head_ref": "greg/revup/main/fix-queue-link",
+              "base_ref": "main",
+              "title": "fix: link Queue to per-branch STATUS.md instead of root"
+            }
+          ],
+          "deployment_id": 4279043520,
+          "target_branch": "main",
+          "comment_ids": {
+            "133": 4190070525
+          }
+        }
+      ],
       "active_batch": null
     },
     "release/1.0": {
