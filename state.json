@@ -1,29 +1,31 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T05:24:52.401314+00:00",
+  "updated_at": "2026-04-06T05:24:58.368916+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-06T05:24:26Z",
-          "stack": [
-            {
-              "number": 145,
-              "head_sha": "a2807a549af7b92b3ec3b3a9faa1c6819a6bf581",
-              "head_ref": "greg/pre-merge-check",
-              "base_ref": "main",
-              "title": "Add merge conflict pre-check before batch creation"
-            }
-          ],
-          "deployment_id": 4279781268,
-          "target_branch": "main",
-          "comment_ids": {
-            "145": 4190486477
+      "queue": [],
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-06T05:24:57.798413+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 145,
+            "head_sha": "a2807a549af7b92b3ec3b3a9faa1c6819a6bf581",
+            "head_ref": "greg/pre-merge-check",
+            "base_ref": "main",
+            "title": "Add merge conflict pre-check before batch creation"
           }
-        }
-      ],
-      "active_batch": null
+        ],
+        "deployment_id": 4279781268,
+        "comment_ids": {
+          "145": 4190486477
+        },
+        "queued_at": "2026-04-06T05:24:26Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
