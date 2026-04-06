@@ -492,9 +492,35 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
             return "already_active"
 
     # Guard: already queued (any branch)?
+    # If already queued but the head_sha changed (force-push), update it in place.
     for branch_state in state.get("branches", {}).values():
         for entry in branch_state.get("queue", []):
             if any(pr["number"] == pr_number for pr in entry.get("stack", [])):
+                # Check if head_sha changed — if so, update in place (re-enqueue).
+                pr_data_check = cached_pr_data or client.get_pr(pr_number)
+                cached_pr_data = pr_data_check
+                new_sha = pr_data_check.get("head", {}).get("sha", "")
+                old_sha = next(
+                    (
+                        pr["head_sha"]
+                        for pr in entry.get("stack", [])
+                        if pr["number"] == pr_number
+                    ),
+                    "",
+                )
+                if new_sha and old_sha and new_sha != old_sha:
+                    for pr in entry.get("stack", []):
+                        if pr["number"] == pr_number:
+                            pr["head_sha"] = new_sha
+                    state["updated_at"] = _now_iso()
+                    store.write(state)
+                    log.info(
+                        "PR #%d re-enqueued: head_sha updated %s -> %s",
+                        pr_number,
+                        old_sha,
+                        new_sha,
+                    )
+                    return "requeued"
                 log.info(
                     "PR #%d is already queued at position %d",
                     pr_number,
