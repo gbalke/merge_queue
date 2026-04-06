@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T01:48:18.387747+00:00",
+  "updated_at": "2026-04-06T01:48:27.914986+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775440012",
-        "branch": "mq/main/1775440012",
-        "ruleset_id": 14718814,
-        "started_at": "2026-04-06T01:46:50.156864+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 127,
-            "head_sha": "2ca4a774fa5acc90347f230300ab58df5f2db338",
-            "head_ref": "greg/revup/main/docs-cleanup",
-            "base_ref": "main",
-            "title": "Remove redundant examples/ directory"
-          }
-        ],
-        "deployment_id": 4278814635,
-        "comment_ids": {
-          "127": 4189953778
-        },
-        "queued_at": "2026-04-06T01:46:28Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-06T01:46:53.963777+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -529,6 +507,16 @@
         126
       ],
       "duration_seconds": 98.464522,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775440012",
+      "status": "merged",
+      "completed_at": "2026-04-06T01:48:27.766449+00:00",
+      "prs": [
+        127
+      ],
+      "duration_seconds": 97.609585,
       "target_branch": "main"
     }
   ]
