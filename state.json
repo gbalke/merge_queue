@@ -1,29 +1,31 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T01:39:25.894021+00:00",
+  "updated_at": "2026-04-06T01:39:29.206160+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-06T01:39:07Z",
-          "stack": [
-            {
-              "number": 126,
-              "head_sha": "901f27fe49ebbb9ca91dc43237e867462241c2a1",
-              "head_ref": "greg/revup/main/docs-cleanup",
-              "base_ref": "main",
-              "title": "Remove redundant examples/ directory"
-            }
-          ],
-          "deployment_id": 4278780875,
-          "target_branch": "main",
-          "comment_ids": {
-            "126": 4189939894
+      "queue": [],
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-06T01:39:29.069242+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 126,
+            "head_sha": "901f27fe49ebbb9ca91dc43237e867462241c2a1",
+            "head_ref": "greg/revup/main/docs-cleanup",
+            "base_ref": "main",
+            "title": "Remove redundant examples/ directory"
           }
-        }
-      ],
-      "active_batch": null
+        ],
+        "deployment_id": 4278780875,
+        "comment_ids": {
+          "126": 4189939894
+        },
+        "queued_at": "2026-04-06T01:39:07Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
