@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T05:17:45.138659+00:00",
+  "updated_at": "2026-04-06T05:17:54.299730+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775452578",
-        "branch": "mq/main/1775452578",
-        "ruleset_id": 14722602,
-        "started_at": "2026-04-06T05:16:16.563027+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 143,
-            "head_sha": "b35f6c5488f16ee999ee0fad31a9a0c607c73d6d",
-            "head_ref": "greg/revup/main/refactor-plan",
-            "base_ref": "main",
-            "title": "Update cleanup plan: mark completed metrics + dedup items"
-          }
-        ],
-        "deployment_id": 4279740843,
-        "comment_ids": {
-          "143": 4190463959
-        },
-        "queued_at": "2026-04-06T05:15:41Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-06T05:16:20.399082+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -689,6 +667,16 @@
         144
       ],
       "duration_seconds": 97.917473,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775452578",
+      "status": "merged",
+      "completed_at": "2026-04-06T05:17:54.135515+00:00",
+      "prs": [
+        143
+      ],
+      "duration_seconds": 97.572488,
       "target_branch": "main"
     }
   ]
