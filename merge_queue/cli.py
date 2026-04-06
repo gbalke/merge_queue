@@ -11,7 +11,8 @@ import sys
 from merge_queue import batch as batch_mod
 from merge_queue import comments
 from merge_queue import rules as rules_mod
-from merge_queue.config import get_metrics_config
+from merge_queue.ci import get_provider as get_ci_provider
+from merge_queue.config import get_ci_config, get_metrics_config
 from merge_queue.lib.formatting import fmt_duration as _fmt_duration
 from merge_queue.lib.state import get_branch_state
 from merge_queue.lib.time import event_time_or_now as _event_time_or_now
@@ -678,8 +679,9 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
             has_break_glass = False  # Fall through to normal CI gate
 
     if not has_break_glass:
+        ci_provider = get_ci_provider(get_ci_config(client), client)
         for pr_dict in stack_dicts:
-            ci_passed, _ci_url = client.get_pr_ci_status(pr_dict["number"])
+            ci_passed, _ci_url = ci_provider.get_pr_ci_status(pr_dict["number"])
             # None = pending (CI hasn't completed yet) — allow through
             # True = passed — allow through
             # False = explicitly failed — reject
@@ -1102,7 +1104,8 @@ def do_process(client: GitHubClientProtocol) -> str:
         _setup_calls = client.reset_call_counter()
 
     # Run CI
-    ci_result = batch_mod.run_ci(client, batch)
+    ci_provider = get_ci_provider(get_ci_config(client), client)
+    ci_result = batch_mod.run_ci(ci_provider, batch)
     ci_completed_at = _now_iso()
 
     # Record API calls for CI polling phase
@@ -1233,7 +1236,9 @@ def do_process(client: GitHubClientProtocol) -> str:
         failed_job, failed_step = "", ""
         if ci_result.run_url:
             try:
-                failed_job, failed_step = client.get_failed_job_info(ci_result.run_url)
+                failed_job, failed_step = ci_provider.get_failed_job_info(
+                    ci_result.run_url
+                )
             except Exception:
                 pass
         desc = f"CI failed: {failed_job}" if failed_job else "CI failed"
@@ -1473,7 +1478,8 @@ def do_retest(client: GitHubClientProtocol, pr_number: int) -> str:
     pr_data = client.get_pr(pr_number)
     ref = pr_data["head"]["ref"]
     owner, repo = _owner_repo(client)
-    client.dispatch_ci_on_ref(ref)
+    ci_provider = get_ci_provider(get_ci_config(client), client)
+    ci_provider.dispatch_ci_on_ref(ref)
     client.remove_label(pr_number, "re-test")
     _comment(client, pr_number, comments.ci_retriggered(owner, repo))
     return "retriggered"
