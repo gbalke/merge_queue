@@ -1164,6 +1164,7 @@ def do_process(client: GitHubClientProtocol) -> str:
                             ci_run_url=ci_result.run_url,
                             owner=owner,
                             repo=repo,
+                            target_branch=entry_target_branch,
                         ),
                         cids,
                     )
@@ -1190,6 +1191,7 @@ def do_process(client: GitHubClientProtocol) -> str:
                     failed_step,
                     owner,
                     repo,
+                    target_branch=entry_target_branch,
                 ),
                 cids,
             )
