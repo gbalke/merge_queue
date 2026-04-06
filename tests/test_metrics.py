@@ -220,9 +220,10 @@ class TestOtlpBackend:
                 url == "https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/metrics"
             )
 
-            # Check auth header uses basic auth
+            # Check auth uses requests' auth parameter
+            auth = call_args[1].get("auth")
+            assert auth == ("1584401", "glc_test-api-key")
             headers = call_args[1].get("headers", {})
-            assert headers["Authorization"].startswith("Basic ")
             assert headers["Content-Type"] == "application/json"
 
             # Check JSON payload structure
