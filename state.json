@@ -1,29 +1,31 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T03:24:30.677139+00:00",
+  "updated_at": "2026-04-06T03:24:35.318195+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-06T03:24:11Z",
-          "stack": [
-            {
-              "number": 136,
-              "head_sha": "155082a6b80f90935369c1becfae78537d895f3f",
-              "head_ref": "greg/revup/main/refactor-providers",
-              "base_ref": "main",
-              "title": "refactor: move GitHubClient to providers/github.py, extract protocol to providers/__init__.py"
-            }
-          ],
-          "deployment_id": 4279238377,
-          "target_branch": "main",
-          "comment_ids": {
-            "136": 4190158639
+      "queue": [],
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-06T03:24:34.973578+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 136,
+            "head_sha": "155082a6b80f90935369c1becfae78537d895f3f",
+            "head_ref": "greg/revup/main/refactor-providers",
+            "base_ref": "main",
+            "title": "refactor: move GitHubClient to providers/github.py, extract protocol to providers/__init__.py"
           }
-        }
-      ],
-      "active_batch": null
+        ],
+        "deployment_id": 4279238377,
+        "comment_ids": {
+          "136": 4190158639
+        },
+        "queued_at": "2026-04-06T03:24:11Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
