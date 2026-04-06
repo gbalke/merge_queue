@@ -9,7 +9,7 @@ import datetime
 import logging
 from typing import Any
 
-from merge_queue.github_client import GitHubClientProtocol
+from merge_queue.providers import GitHubClientProtocol
 from merge_queue.types import PullRequest
 
 log = logging.getLogger(__name__)

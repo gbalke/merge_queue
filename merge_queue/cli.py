@@ -12,13 +12,17 @@ from merge_queue import batch as batch_mod
 from merge_queue import comments
 from merge_queue import rules as rules_mod
 from merge_queue.config import get_metrics_config
+from merge_queue.lib.formatting import fmt_duration as _fmt_duration
+from merge_queue.lib.state import get_branch_state
+from merge_queue.lib.time import event_time_or_now as _event_time_or_now
+from merge_queue.lib.time import now_iso as _now_iso
 from merge_queue.metrics import get_backend as get_metrics_backend
-from merge_queue.github_client import GitHubClient, GitHubClientProtocol
+from merge_queue.providers import GitHubClientProtocol
+from merge_queue.providers.github import GitHubClient
 from merge_queue.queue import detect_stacks
 from merge_queue.state import QueueState
 from merge_queue.status import render_status_md, render_status_terminal
 from merge_queue.store import StateStore
-from merge_queue.types import empty_branch_state
 
 log = logging.getLogger("merge_queue")
 
@@ -39,25 +43,7 @@ def _owner_repo(client: GitHubClientProtocol) -> tuple[str, str]:
     return getattr(client, "owner", ""), getattr(client, "repo", "")
 
 
-def _now_iso() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
-
-
-def _event_time_or_now() -> str:
-    """Return the GitHub event timestamp if available, otherwise now.
-
-    GITHUB_EVENT_TIME is set from github.event.pull_request.updated_at in the
-    workflow, which reflects when the label was added — a more accurate
-    queued_at for PRs that waited in the concurrency queue before do_enqueue ran.
-    """
-    event_time = os.environ.get("GITHUB_EVENT_TIME", "")
-    return event_time if event_time else _now_iso()
-
-
-def _fmt_duration(seconds: float) -> str:
-    if seconds >= 60:
-        return f"{int(seconds // 60)}m {int(seconds % 60)}s"
-    return f"{int(seconds)}s"
+# _now_iso, _event_time_or_now, _fmt_duration are imported from merge_queue.lib
 
 
 def _comment(
@@ -110,9 +96,7 @@ def _clear_active_batch(
     for attempt in range(3):
         try:
             if target_branch:
-                state.setdefault("branches", {}).setdefault(
-                    target_branch, empty_branch_state()
-                )["active_batch"] = None
+                get_branch_state(state, target_branch)["active_batch"] = None
             else:
                 # Fallback: clear first branch with an active_batch
                 for branch_state in state.get("branches", {}).values():
@@ -368,9 +352,7 @@ def _sync_missing_prs(client, state, store, open_prs: list[dict] | None = None):
         base = pr_data["base"]["ref"]
         target_branch = base if base in target_branches else client.get_default_branch()
 
-        branch_state = state.setdefault("branches", {}).setdefault(
-            target_branch, empty_branch_state()
-        )
+        branch_state = get_branch_state(state, target_branch)
         position = len(branch_state.get("queue", [])) + 1
         stack_dicts = [
             {
@@ -704,9 +686,7 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
                 return "approval_required"
 
     resolved_target = target_branch or api_state.default_branch
-    branch_state = state.setdefault("branches", {}).setdefault(
-        resolved_target, empty_branch_state()
-    )
+    branch_state = get_branch_state(state, resolved_target)
     position = len(branch_state.get("queue", [])) + 1
     entry = {
         "position": position,
@@ -1338,9 +1318,7 @@ def do_hotfix(client: GitHubClientProtocol, pr_number: int) -> str:
     store = StateStore(client)
     state = store.read()
 
-    branch_state = state.setdefault("branches", {}).setdefault(
-        target_branch, empty_branch_state()
-    )
+    branch_state = get_branch_state(state, target_branch)
 
     # Build queue entry for the hotfix (same shape as do_enqueue)
     hotfix_stack = [
@@ -1454,9 +1432,7 @@ def do_break_glass(client: GitHubClientProtocol, pr_number: int) -> str:
     store = StateStore(client)
     state = store.read()
 
-    branch_state = state.setdefault("branches", {}).setdefault(
-        target_branch, empty_branch_state()
-    )
+    branch_state = get_branch_state(state, target_branch)
 
     # Abort any active batch for this branch, re-queue its PRs
     active = branch_state.get("active_batch")
@@ -1505,9 +1481,7 @@ def do_break_glass(client: GitHubClientProtocol, pr_number: int) -> str:
 
         # Record active batch in state
         state = store.read()
-        branch_state = state.setdefault("branches", {}).setdefault(
-            target_branch, empty_branch_state()
-        )
+        branch_state = get_branch_state(state, target_branch)
         started_at = _now_iso()
         branch_state["active_batch"] = {
             "batch_id": batch.batch_id,
@@ -1534,9 +1508,7 @@ def do_break_glass(client: GitHubClientProtocol, pr_number: int) -> str:
 
         # Record success in history and clear active_batch
         state = store.read()
-        branch_state = state.setdefault("branches", {}).setdefault(
-            target_branch, empty_branch_state()
-        )
+        branch_state = get_branch_state(state, target_branch)
         completed_at = _now_iso()
         state.setdefault("history", []).append(
             {
@@ -1574,9 +1546,7 @@ def do_break_glass(client: GitHubClientProtocol, pr_number: int) -> str:
         # Clear active_batch on failure
         try:
             state = store.read()
-            branch_state = state.setdefault("branches", {}).setdefault(
-                target_branch, empty_branch_state()
-            )
+            branch_state = get_branch_state(state, target_branch)
             branch_state["active_batch"] = None
             state.setdefault("history", []).append(
                 {

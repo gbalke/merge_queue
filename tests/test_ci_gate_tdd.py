@@ -15,12 +15,12 @@ class TestGetPrCiStatusExists:
     """get_pr_ci_status must exist on GitHubClient."""
 
     def test_method_exists(self):
-        from merge_queue.github_client import GitHubClient
+        from merge_queue.providers.github import GitHubClient
 
         assert hasattr(GitHubClient, "get_pr_ci_status")
 
     def test_protocol_has_method(self):
-        from merge_queue.github_client import GitHubClientProtocol
+        from merge_queue.providers import GitHubClientProtocol
 
         assert "get_pr_ci_status" in dir(GitHubClientProtocol)
 
@@ -29,7 +29,7 @@ class TestDispatchCiOnRefExists:
     """dispatch_ci_on_ref must exist on GitHubClient."""
 
     def test_method_exists(self):
-        from merge_queue.github_client import GitHubClient
+        from merge_queue.providers.github import GitHubClient
 
         assert hasattr(GitHubClient, "dispatch_ci_on_ref")
 

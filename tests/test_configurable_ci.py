@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from merge_queue.github_client import GitHubClient
+from merge_queue.providers.github import GitHubClient
 
 
 def _make_client(monkeypatch, env_value: str | None = None) -> GitHubClient:
@@ -16,7 +16,7 @@ def _make_client(monkeypatch, env_value: str | None = None) -> GitHubClient:
     else:
         monkeypatch.setenv("MQ_CI_WORKFLOW", env_value)
 
-    with patch("merge_queue.github_client.requests.Session"):
+    with patch("merge_queue.providers.github.requests.Session"):
         return GitHubClient(owner="owner", repo="repo", token="tok")
 
 
