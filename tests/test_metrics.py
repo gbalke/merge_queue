@@ -64,6 +64,17 @@ class TestGetBackend:
         backend = get_backend(config)
         assert isinstance(backend, PrometheusBackend)
 
+    def test_returns_otlp_when_configured(self):
+        from merge_queue.metrics import get_backend
+        from merge_queue.metrics.otlp import OtlpBackend
+
+        config = {
+            "backend": "otlp",
+            "endpoint": "https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/metrics",
+        }
+        backend = get_backend(config)
+        assert isinstance(backend, OtlpBackend)
+
     def test_returns_noop_for_unknown_backend(self, caplog):
         from merge_queue.metrics import get_backend
         from merge_queue.metrics.noop import NoopBackend
@@ -156,6 +167,122 @@ class TestPrometheusBackend:
         monkeypatch.delenv("MQ_METRICS_TOKEN", raising=False)
         backend = PrometheusBackend(
             endpoint="https://prometheus.example.com/api/v1/push",
+        )
+
+        with caplog.at_level(logging.WARNING):
+            backend.push_batch_metrics(
+                "batch-42",
+                {
+                    "duration_seconds": 10.0,
+                    "status": "merged",
+                    "pr_count": 1,
+                },
+            )
+
+        assert any("MQ_METRICS_TOKEN" in r.message for r in caplog.records)
+
+
+# --- OtlpBackend ---
+
+
+class TestOtlpBackend:
+    def test_otlp_backend_pushes_json(self, monkeypatch):
+        from merge_queue.metrics.otlp import OtlpBackend
+
+        monkeypatch.setenv("MQ_METRICS_TOKEN", "glc_test-api-key")
+        monkeypatch.setenv("MQ_METRICS_USER", "1584401")
+        backend = OtlpBackend(
+            endpoint="https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/metrics",
+        )
+
+        with patch("merge_queue.metrics.otlp.requests") as mock_requests:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_requests.post.return_value = mock_response
+
+            backend.push_batch_metrics(
+                "batch-42",
+                {
+                    "duration_seconds": 120.5,
+                    "ci_duration_seconds": 90.0,
+                    "status": "merged",
+                    "pr_count": 3,
+                    "retry_count": 1,
+                    "queue_depth": 5,
+                    "target_branch": "main",
+                },
+            )
+
+            mock_requests.post.assert_called_once()
+            call_args = mock_requests.post.call_args
+            url = call_args[0][0]
+            assert (
+                url == "https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/metrics"
+            )
+
+            # Check auth header uses basic auth
+            headers = call_args[1].get("headers", {})
+            assert headers["Authorization"].startswith("Basic ")
+            assert headers["Content-Type"] == "application/json"
+
+            # Check JSON payload structure
+            payload = call_args[1].get("json", {})
+            assert "resourceMetrics" in payload
+            scope_metrics = payload["resourceMetrics"][0]["scopeMetrics"]
+            metrics = scope_metrics[0]["metrics"]
+
+            metric_names = [m["name"] for m in metrics]
+            assert "mq_batch_duration_seconds" in metric_names
+            assert "mq_batch_ci_duration_seconds" in metric_names
+            assert "mq_batch_pr_count" in metric_names
+            assert "mq_batch_retry_count" in metric_names
+            assert "mq_queue_depth" in metric_names
+
+            # Check a data point has correct structure
+            dp = metrics[0]["gauge"]["dataPoints"][0]
+            assert "asDouble" in dp
+            assert "timeUnixNano" in dp
+            assert "attributes" in dp
+            attr_keys = [a["key"] for a in dp["attributes"]]
+            assert "status" in attr_keys
+            assert "target_branch" in attr_keys
+            assert "batch_id" in attr_keys
+
+    def test_otlp_failure_does_not_crash(self, monkeypatch, caplog):
+        from merge_queue.metrics.otlp import OtlpBackend
+
+        monkeypatch.setenv("MQ_METRICS_TOKEN", "glc_test-api-key")
+        monkeypatch.setenv("MQ_METRICS_USER", "1584401")
+        backend = OtlpBackend(
+            endpoint="https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/metrics",
+        )
+
+        with patch("merge_queue.metrics.otlp.requests") as mock_requests:
+            mock_requests.post.side_effect = Exception("Connection timeout")
+
+            # Should NOT raise
+            with caplog.at_level(logging.WARNING):
+                backend.push_batch_metrics(
+                    "batch-42",
+                    {
+                        "duration_seconds": 10.0,
+                        "ci_duration_seconds": 5.0,
+                        "status": "failed",
+                        "pr_count": 1,
+                        "retry_count": 0,
+                        "queue_depth": 0,
+                        "target_branch": "main",
+                    },
+                )
+
+            assert any("metrics" in r.message.lower() for r in caplog.records)
+
+    def test_otlp_missing_token_does_not_crash(self, monkeypatch, caplog):
+        from merge_queue.metrics.otlp import OtlpBackend
+
+        monkeypatch.delenv("MQ_METRICS_TOKEN", raising=False)
+        backend = OtlpBackend(
+            endpoint="https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/metrics",
         )
 
         with caplog.at_level(logging.WARNING):

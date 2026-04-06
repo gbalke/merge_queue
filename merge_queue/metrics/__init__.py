@@ -44,5 +44,11 @@ def get_backend(config: dict | None) -> MetricsBackend:
         endpoint = config.get("endpoint", "")
         return PrometheusBackend(endpoint=endpoint)
 
+    if backend_type == "otlp":
+        from merge_queue.metrics.otlp import OtlpBackend
+
+        endpoint = config.get("endpoint", "")
+        return OtlpBackend(endpoint=endpoint)
+
     log.warning("Unknown metrics backend %r, using no-op", backend_type)
     return NoopBackend()

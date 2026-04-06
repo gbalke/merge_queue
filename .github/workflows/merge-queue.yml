@@ -76,6 +76,8 @@ jobs:
           GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           MQ_SENDER: ${{ github.event.sender.login }}
           GITHUB_EVENT_TIME: ${{ github.event.pull_request.updated_at }}
+          MQ_METRICS_USER: ${{ secrets.MQ_METRICS_USER }}
+          MQ_METRICS_TOKEN: ${{ secrets.MQ_METRICS_TOKEN }}
 
       - name: Write queue status to job summary
         if: always()
