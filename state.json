@@ -1,29 +1,11 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T04:40:21.275020+00:00",
+  "updated_at": "2026-04-06T04:40:24.221036+00:00",
   "branches": {
     "main": {
       "queue": [
         {
           "position": 1,
-          "queued_at": "2026-04-06T04:39:56Z",
-          "stack": [
-            {
-              "number": 144,
-              "head_sha": "a6fac9abcdaabb1c6ea1cff950df85f7d353e8fd",
-              "head_ref": "greg/api-usage-sections",
-              "base_ref": "main",
-              "title": "Add per-section API call tracking to metrics"
-            }
-          ],
-          "deployment_id": 4279569505,
-          "target_branch": "main",
-          "comment_ids": {
-            "144": 4190362787
-          }
-        },
-        {
-          "position": 2,
           "queued_at": "2026-04-06T04:40:20.284675+00:00",
           "stack": [
             {
@@ -41,7 +23,28 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": null
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-06T04:40:24.046010+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 144,
+            "head_sha": "a6fac9abcdaabb1c6ea1cff950df85f7d353e8fd",
+            "head_ref": "greg/api-usage-sections",
+            "base_ref": "main",
+            "title": "Add per-section API call tracking to metrics"
+          }
+        ],
+        "deployment_id": 4279569505,
+        "comment_ids": {
+          "144": 4190362787
+        },
+        "queued_at": "2026-04-06T04:39:56Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
