@@ -52,29 +52,6 @@ merge_queue/
 - [ ] **Type the state machine**: Replace string-based `progress` field with enum. Validate transitions.
 - [ ] **Centralize error handling**: Consistent try/except patterns for label removal, deployment updates, comment posting.
 
-## Metrics Improvements
+## Metrics
 
-### Architecture (done)
-All metrics flow through `MetricsCollector` (`metrics/__init__.py`):
-- Typed `record_*()` methods accumulate metrics throughout a run
-- `flush()` pushes all to the configured backend once at end of run
-- Labels include repo, target_branch, trigger type, batch_id, pr_numbers
-
-### Batch Timing (per completion) — done
-- [x] `mq_batch_queue_wait_seconds` — enqueue to batch start
-- [x] `mq_batch_lock_seconds` — branch locking + merge time
-- [x] `mq_batch_ci_seconds` — CI phase
-- [x] `mq_batch_merge_seconds` — CI pass to fast-forward complete
-- [x] `mq_batch_total_seconds` — end-to-end
-
-### Queue Health (per process run) — done
-- [x] `mq_queue_depth` — per branch
-- [x] `mq_queue_oldest_seconds` — age of oldest entry
-- [x] `mq_api_calls_total` — API calls used in this run
-- [x] `mq_api_remaining` — remaining API quota
-
-### Failure Tracking — done
-- [x] `mq_batch_failures_total` — with `reason` label (ci_failed, merge_conflict, diverged, error)
-
-### Labels/Attributes (on all metrics) — done
-- [x] `target_branch`, `batch_id`, `pr_numbers`, `repo`, `status`, `trigger`
+See [docs/metrics.md](../docs/metrics.md) for available metrics, labels, and Grafana Cloud setup.

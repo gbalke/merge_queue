@@ -40,6 +40,40 @@ URL as the endpoint. `MQ_METRICS_USER` is the instance ID and
 
 ## Available Metrics
 
-Metrics include queue depth, batch duration, CI wait time, merge
-success/failure counts, and retry counts. See the backend implementations in
-`merge_queue/metrics/` for the full list.
+All metrics flow through `MetricsCollector` (`merge_queue/metrics/__init__.py`) which accumulates metrics via typed `record_*()` methods and flushes once at end of run.
+
+### Batch Timing (per completion)
+
+| Metric | Description |
+|--------|-------------|
+| `mq_batch_queue_wait_seconds` | Enqueue to batch start |
+| `mq_batch_lock_seconds` | Branch locking + merge time |
+| `mq_batch_ci_seconds` | CI phase duration |
+| `mq_batch_merge_seconds` | CI pass to fast-forward complete |
+| `mq_batch_total_seconds` | End-to-end duration |
+
+### Queue Health (per process run)
+
+| Metric | Description |
+|--------|-------------|
+| `mq_queue_depth` | Current queue depth (per branch) |
+| `mq_queue_oldest_seconds` | Age of oldest entry (detects stuck queues) |
+| `mq_api_calls_total` | GitHub API calls used in this run |
+| `mq_api_remaining` | Remaining API quota |
+
+### Failure Tracking
+
+| Metric | Description |
+|--------|-------------|
+| `mq_batch_failures_total` | Failure count with `reason` label (ci_failed, merge_conflict, diverged, error) |
+
+### Labels (on all metrics)
+
+| Label | Example |
+|-------|---------|
+| `target_branch` | `main`, `release/1.0` |
+| `batch_id` | `1775437212` |
+| `pr_numbers` | `96,97` |
+| `repo` | `gbalke/merge_queue` |
+| `status` | `merged`, `ci_failed`, `aborted` |
+| `trigger` | `queue`, `hotfix`, `break-glass` |
