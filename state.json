@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T04:07:32.916453+00:00",
+  "updated_at": "2026-04-06T04:07:42.795300+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775448364",
-        "branch": "mq/main/1775448364",
-        "ruleset_id": 14721246,
-        "started_at": "2026-04-06T04:06:02.184122+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 139,
-            "head_sha": "0f0649c7ce6027f99f3e90971291fa9a81fb47a4",
-            "head_ref": "greg/revup/main/fix-queue-link",
-            "base_ref": "main",
-            "title": "Fix: pass target_branch to failed() comments for correct Queue link"
-          }
-        ],
-        "deployment_id": 4279419627,
-        "comment_ids": {
-          "139": 4190237722
-        },
-        "queued_at": "2026-04-06T04:05:27Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-06T04:06:07.663646+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -659,6 +637,16 @@
         141
       ],
       "duration_seconds": 101.822983,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775448364",
+      "status": "merged",
+      "completed_at": "2026-04-06T04:07:42.615741+00:00",
+      "prs": [
+        139
+      ],
+      "duration_seconds": 100.431619,
       "target_branch": "main"
     }
   ]
