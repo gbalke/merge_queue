@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T03:48:16.940835+00:00",
+  "updated_at": "2026-04-06T03:48:20.749550+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -19,6 +19,24 @@
           "deployment_id": 4279332575,
           "comment_ids": {
             "139": 4190199801
+          },
+          "target_branch": "main"
+        },
+        {
+          "position": 2,
+          "queued_at": "2026-04-06T03:48:19.763276+00:00",
+          "stack": [
+            {
+              "number": 141,
+              "head_sha": "379b7ff305d84b69631a18dba1c4f84d3515f602",
+              "head_ref": "greg/revup/main/metrics-collector",
+              "base_ref": "main",
+              "title": "Add centralized MetricsCollector with typed record methods"
+            }
+          ],
+          "deployment_id": 4279339611,
+          "comment_ids": {
+            "141": 4190203247
           },
           "target_branch": "main"
         }
