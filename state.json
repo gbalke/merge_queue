@@ -1,29 +1,31 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T01:00:06.305786+00:00",
+  "updated_at": "2026-04-06T01:00:10.220738+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-06T00:59:44Z",
-          "stack": [
-            {
-              "number": 122,
-              "head_sha": "592a7ed342a83167e77a4104518ba371f883f785",
-              "head_ref": "greg/revup/main/update-readme",
-              "base_ref": "main",
-              "title": "docs: update README and ARCHITECTURE for metrics feature and test count"
-            }
-          ],
-          "deployment_id": 4278610532,
-          "target_branch": "main",
-          "comment_ids": {
-            "122": 4189866953
+      "queue": [],
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-06T01:00:09.975738+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 122,
+            "head_sha": "592a7ed342a83167e77a4104518ba371f883f785",
+            "head_ref": "greg/revup/main/update-readme",
+            "base_ref": "main",
+            "title": "docs: update README and ARCHITECTURE for metrics feature and test count"
           }
-        }
-      ],
-      "active_batch": null
+        ],
+        "deployment_id": 4278610532,
+        "comment_ids": {
+          "122": 4189866953
+        },
+        "queued_at": "2026-04-06T00:59:44Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
