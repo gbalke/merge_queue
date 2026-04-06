@@ -1,29 +1,31 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T01:27:40.738065+00:00",
+  "updated_at": "2026-04-06T01:27:43.980263+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-06T01:27:21Z",
-          "stack": [
-            {
-              "number": 125,
-              "head_sha": "998faf4ac491a0f0ffb801a43e80d170d7c4ad54",
-              "head_ref": "greg/revup/main/docs-cleanup",
-              "base_ref": "main",
-              "title": "docs: rewrite ARCHITECTURE.md and README for conciseness"
-            }
-          ],
-          "deployment_id": 4278726748,
-          "target_branch": "main",
-          "comment_ids": {
-            "125": 4189917256
+      "queue": [],
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-06T01:27:43.818985+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 125,
+            "head_sha": "998faf4ac491a0f0ffb801a43e80d170d7c4ad54",
+            "head_ref": "greg/revup/main/docs-cleanup",
+            "base_ref": "main",
+            "title": "docs: rewrite ARCHITECTURE.md and README for conciseness"
           }
-        }
-      ],
-      "active_batch": null
+        ],
+        "deployment_id": 4278726748,
+        "comment_ids": {
+          "125": 4189917256
+        },
+        "queued_at": "2026-04-06T01:27:21Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
