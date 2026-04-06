@@ -4,3 +4,7 @@ target_branches:
 
 break_glass_users:
   - gbalke
+
+metrics:
+  backend: otlp
+  endpoint: https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/metrics
