@@ -15,10 +15,17 @@ Stack detection is implemented in [`merge_queue/queue.py`](../merge_queue/queue.
 
 ## How to Use
 
-Create stacked PRs using [revup](https://github.com/Skydio/revup) with the
-`Relative:` trailer to set each PR's base branch. Then add the `queue` label
-to the PRs you want merged (contiguous from the stack bottom). The merge queue
-detects the stack automatically -- no extra configuration needed.
+There's nothing special required to create stacked PRs. The merge queue works
+with any chain of PRs where each PR's base branch is another PR's head branch.
+You can create these with any tool or workflow:
+
+- **[revup](https://github.com/Skydio/revup)**: Use the `Relative:` trailer
+- **Manual**: Create branches `feature-a` → `feature-b` → `feature-c`, open PRs targeting each previous branch
+- **Any stacking tool**: [ghstack](https://github.com/ezyang/ghstack), [spr](https://github.com/ejoffe/spr), etc.
+
+As long as the PRs form a chain that resolves to a configured target branch
+(e.g. `main`), the merge queue detects and merges them atomically. Add the
+`queue` label to the PRs you want merged (contiguous from the stack bottom).
 
 ## Example
 
