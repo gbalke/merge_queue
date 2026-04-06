@@ -60,9 +60,10 @@ def _timing_table(timings: dict[str, str] | None, active_label: str = "") -> str
     return f"\n\n#### Timing\n\n{header_row}\n{sep_row}\n{val_row}"
 
 
-def _mq_link(owner: str, repo: str) -> str:
+def _mq_link(owner: str, repo: str, target_branch: str = "") -> str:
     if owner and repo:
-        return f"[Queue](https://github.com/{owner}/{repo}/blob/mq/state/STATUS.md)"
+        path = f"{target_branch}/STATUS.md" if target_branch else "STATUS.md"
+        return f"[Queue](https://github.com/{owner}/{repo}/blob/mq/state/{path})"
     return ""
 
 
@@ -71,6 +72,7 @@ def _actions_or_mq_footer(
     repo: str = "",
     ci_run_url: str = "",
     ci_link_text: str = "CI run",
+    target_branch: str = "",
 ) -> str:
     """Build a standard footer with optional CI link, Actions link, and Queue link."""
     links: list[str] = []
@@ -79,7 +81,7 @@ def _actions_or_mq_footer(
     actions = _actions_link()
     if actions:
         links.append(f"[Actions]({actions})")
-    mq = _mq_link(owner, repo)
+    mq = _mq_link(owner, repo, target_branch)
     if mq:
         links.append(mq)
     return _footer(*links)
@@ -148,7 +150,7 @@ def progress(
     timing = _timing_table(timings, active_label)
     table = _pr_table(stack)
     ci_text = "View CI run" if phase == "running_ci" else "CI run"
-    footer = _actions_or_mq_footer(owner, repo, ci_run_url, ci_text)
+    footer = _actions_or_mq_footer(owner, repo, ci_run_url, ci_text, target_branch)
 
     return f"{header}{timing}{table}{footer}"
 
@@ -231,7 +233,7 @@ def merged(
             pass
 
     table = _pr_table(stack) if stack else ""
-    footer = _actions_or_mq_footer(owner, repo, ci_run_url, "CI run")
+    footer = _actions_or_mq_footer(owner, repo, ci_run_url, "CI run", default_branch)
 
     return f"{header}{stats}{table}{footer}"
 
@@ -251,6 +253,7 @@ def failed(
     repo: str = "",
     stack: list[dict] | None = None,
     timings: dict[str, str] | None = None,
+    target_branch: str = "",
 ) -> str:
     header = f"\u274c **Failed** \u2014 {reason}"
     if "diverged" in reason:
@@ -269,7 +272,9 @@ def failed(
 
     timing = _timing_table(timings)
     table = _pr_table(stack) if stack else ""
-    footer = _actions_or_mq_footer(owner, repo, ci_run_url, "View failed run")
+    footer = _actions_or_mq_footer(
+        owner, repo, ci_run_url, "View failed run", target_branch
+    )
     return f"{header}{details}{timing}{table}{footer}"
 
 
@@ -299,7 +304,7 @@ def ci_retriggered(owner: str = "", repo: str = "") -> str:
 
 
 def merge_conflict(target_branch: str, owner: str = "", repo: str = "") -> str:
-    footer = _actions_or_mq_footer(owner=owner, repo=repo)
+    footer = _actions_or_mq_footer(owner=owner, repo=repo, target_branch=target_branch)
     return (
         f"\u274c **Merge conflict** \u2014 Your PR has merge conflicts with `{_sanitize(target_branch)}`. "
         f"Resolve conflicts locally and re-add the `queue` label."
@@ -313,7 +318,7 @@ def auto_retrying(
     repo: str = "",
     retry_info: str | None = None,
 ) -> str:
-    footer = _actions_or_mq_footer(owner=owner, repo=repo)
+    footer = _actions_or_mq_footer(owner=owner, repo=repo, target_branch=target_branch)
     suffix = f" {retry_info}" if retry_info else ""
     return (
         f"\U0001f504 **Retrying** \u2014 Target branch moved during CI \u2014 "

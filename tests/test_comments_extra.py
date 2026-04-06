@@ -236,3 +236,49 @@ def test_no_actions_link_without_env(monkeypatch: object) -> None:
     monkeypatch.delenv("GITHUB_RUN_URL", raising=False)  # type: ignore[attr-defined]
     result = comments.aborted()
     assert "[Actions]" not in result
+
+
+# --- _mq_link includes target_branch ---
+
+
+def test_mq_link_includes_target_branch() -> None:
+    """Queue link should point to the per-branch STATUS.md when target_branch is given."""
+    result = comments.progress(
+        "running_ci",
+        _STACK,
+        target_branch="main",
+        owner="myorg",
+        repo="myrepo",
+    )
+    assert "blob/mq/state/main/STATUS.md" in result
+    assert "blob/mq/state/STATUS.md)" not in result
+
+
+def test_mq_link_target_branch_in_merged() -> None:
+    """merged() should include target_branch in the Queue link."""
+    result = comments.merged("develop", owner="o", repo="r")
+    assert "blob/mq/state/develop/STATUS.md" in result
+
+
+def test_mq_link_target_branch_in_failed() -> None:
+    """failed() with target_branch should include it in the Queue link."""
+    result = comments.failed("CI failed", owner="o", repo="r", target_branch="main")
+    assert "blob/mq/state/main/STATUS.md" in result
+
+
+def test_mq_link_target_branch_in_merge_conflict() -> None:
+    """merge_conflict() should use target_branch in Queue link."""
+    result = comments.merge_conflict("main", owner="o", repo="r")
+    assert "blob/mq/state/main/STATUS.md" in result
+
+
+def test_mq_link_target_branch_in_auto_retrying() -> None:
+    """auto_retrying() should use target_branch in Queue link."""
+    result = comments.auto_retrying("main", owner="o", repo="r")
+    assert "blob/mq/state/main/STATUS.md" in result
+
+
+def test_mq_link_no_target_branch_uses_root() -> None:
+    """Without target_branch, Queue link should point to root STATUS.md."""
+    result = comments.progress("queued", _STACK, owner="o", repo="r")
+    assert "blob/mq/state/STATUS.md" in result
