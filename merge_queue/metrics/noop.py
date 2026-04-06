@@ -1,4 +1,4 @@
-"""No-op metrics backend — silently discards all metrics."""
+"""No-op metrics backend -- silently discards all metrics."""
 
 from __future__ import annotations
 
@@ -10,4 +10,7 @@ class NoopBackend:
     """
 
     def push_batch_metrics(self, batch_id: str, metrics: dict) -> None:  # noqa: ARG002
+        """Silently discard metrics."""
+
+    def push_metrics(self, metrics: list[dict]) -> None:  # noqa: ARG002
         """Silently discard metrics."""

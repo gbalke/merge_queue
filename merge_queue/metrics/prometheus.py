@@ -96,3 +96,44 @@ class PrometheusBackend:
             )
         except Exception:
             log.warning("Failed to push metrics for batch %s", batch_id, exc_info=True)
+
+    def push_metrics(self, metrics: list[dict]) -> None:
+        """Push a list of metric dicts in Prometheus text format."""
+        token = os.environ.get("MQ_METRICS_TOKEN", "")
+        if not token:
+            log.warning("MQ_METRICS_TOKEN not set, skipping metrics push")
+            return
+
+        user = os.environ.get("MQ_METRICS_USER", "")
+        if user:
+            creds = base64.b64encode(f"{user}:{token}".encode()).decode()
+            auth_header = f"Basic {creds}"
+        else:
+            auth_header = f"Bearer {token}"
+
+        lines: list[str] = []
+        for m in metrics:
+            name = m["name"]
+            value = m["value"]
+            m_labels = m.get("labels", {})
+            ts_ms = m.get("timestamp_ns", 0) // 1_000_000
+            label_str = ",".join(f'{k}="{v}"' for k, v in m_labels.items())
+            lines.append(f"# TYPE {name} gauge")
+            lines.append(f"{name}{{{label_str}}} {value} {ts_ms}")
+
+        payload = "\n".join(lines) + "\n"
+
+        try:
+            resp = requests.post(
+                self._endpoint,
+                data=payload,
+                headers={
+                    "Authorization": auth_header,
+                    "Content-Type": "text/plain",
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+            log.info("Pushed %d metrics (HTTP %s)", len(metrics), resp.status_code)
+        except Exception:
+            log.warning("Failed to push metrics", exc_info=True)

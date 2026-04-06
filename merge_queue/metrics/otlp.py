@@ -114,3 +114,49 @@ class OtlpBackend:
             log.warning(
                 "Failed to push OTLP metrics for batch %s", batch_id, exc_info=True
             )
+
+    def push_metrics(self, metrics: list[dict]) -> None:
+        """Push a list of metric dicts as OTLP JSON."""
+        token = os.environ.get("MQ_METRICS_TOKEN", "")
+        if not token:
+            log.warning("MQ_METRICS_TOKEN not set, skipping metrics push")
+            return
+
+        user = os.environ.get("MQ_METRICS_USER", "")
+
+        otlp_metrics: list[dict] = []
+        for m in metrics:
+            attributes = [
+                {"key": k, "value": {"stringValue": str(v)}}
+                for k, v in m.get("labels", {}).items()
+            ]
+            otlp_metrics.append(
+                {
+                    "name": m["name"],
+                    "unit": "1",
+                    "gauge": {
+                        "dataPoints": [
+                            {
+                                "asDouble": float(m["value"]),
+                                "timeUnixNano": m.get("timestamp_ns", 0),
+                                "attributes": attributes,
+                            }
+                        ]
+                    },
+                }
+            )
+
+        payload = {"resourceMetrics": [{"scopeMetrics": [{"metrics": otlp_metrics}]}]}
+
+        try:
+            resp = requests.post(
+                self._endpoint,
+                json=payload,
+                auth=(user, token) if user else None,
+                headers={"Content-Type": "application/json"},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            log.info("Pushed %d OTLP metrics (HTTP %s)", len(metrics), resp.status_code)
+        except Exception:
+            log.warning("Failed to push OTLP metrics", exc_info=True)
