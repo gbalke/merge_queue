@@ -395,6 +395,9 @@ class TestMetricsIntegration:
         mock_backend = MagicMock()
         mock_get_backend.return_value = mock_backend
 
+        # get_pr must return queue label for the dequeue check
+        mock_client.get_pr.return_value = self._pr_data(1)
+
         from merge_queue.cli import do_process
 
         result = do_process(mock_client)
@@ -441,6 +444,9 @@ class TestMetricsIntegration:
 
         noop = NoopBackend()
         mock_get_backend.return_value = noop
+
+        # get_pr must return queue label for the dequeue check
+        mock_client.get_pr.return_value = self._pr_data(1)
 
         from merge_queue.cli import do_process
 
