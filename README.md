@@ -19,7 +19,8 @@ A lightweight, Python-based merge queue for GitHub that understands stacked/chai
 - **Stuck completing detection** -- batches stuck in "completing" state are detected and resumed
 - **Branch protection rulesets** -- auto-created for target branches and `mq/*` branches; admin bypass for MQ operations
 - **Auto-enqueue missed PRs** -- `_sync_missing_prs` picks up PRs whose enqueue was cancelled by concurrency
-- **464+ tests, 90%+ coverage enforced**
+- **Metrics / analytics** -- optional OTLP or Prometheus backend for batch duration, CI time, queue depth (Grafana Cloud ready)
+- **482+ tests, 90%+ coverage enforced**
 
 ## How It Works
 
@@ -79,12 +80,23 @@ Branch locking and `update_ref` (fast-forwarding protected branches) require a f
 gh secret set MQ_ADMIN_TOKEN --repo <owner>/<repo>
 ```
 
-### 4. Repository Settings
+### 4. Optional: Metrics Secrets
+
+If you configured a `metrics:` section in `merge-queue.yml`, set the authentication secrets:
+
+```bash
+gh secret set MQ_METRICS_USER --repo <owner>/<repo>   # OTLP instance ID or Prometheus user
+gh secret set MQ_METRICS_TOKEN --repo <owner>/<repo>   # API key / token
+```
+
+These are passed to the merge queue workflow automatically. When unset, metrics are silently disabled.
+
+### 5. Repository Settings
 
 - Enable "Automatically delete head branches"
 - Actions permissions: read/write
 
-### 5. Optional: `merge-queue.yml` Config
+### 6. Optional: `merge-queue.yml` Config
 
 Place a `merge-queue.yml` file in the repository root to configure advanced behavior:
 
@@ -109,6 +121,11 @@ protected_paths:
     approvers:
       - gbalke
       - security-team-lead
+
+# Optional: push batch metrics to an OTLP or Prometheus endpoint.
+metrics:
+  backend: otlp                    # "otlp", "prometheus", or omit to disable
+  endpoint: https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/metrics
 ```
 
 ## Label Hierarchy
@@ -174,6 +191,20 @@ protected_paths:
 - Entries with an `approvers` list require approval from one of those specific users (or a repo admin).
 - When a PR touches a protected path without the required approval, the MQ removes the `queue` label and posts a comment listing the matched paths. Re-add `queue` after an authorized user approves.
 
+## Metrics
+
+Optional analytics for batch duration, CI time, PR count, retry count, and queue depth. Configure in `merge-queue.yml`:
+
+```yaml
+metrics:
+  backend: otlp       # "otlp" or "prometheus" (omit section to disable)
+  endpoint: https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/metrics
+```
+
+**Backends**: `otlp` posts OTLP JSON (`resourceMetrics`) to any OTLP-compatible collector. `prometheus` uses remote-write. Both authenticate via `MQ_METRICS_USER` + `MQ_METRICS_TOKEN` (basic auth). When secrets are unset, metrics are silently skipped.
+
+**Grafana Cloud setup**: Create a free Grafana Cloud account, copy the OTLP gateway URL to `endpoint`, set `MQ_METRICS_USER` to your instance ID and `MQ_METRICS_TOKEN` to a Grafana Cloud API key. Metrics appear as `mq_batch_duration_seconds`, `mq_batch_ci_duration_seconds`, `mq_batch_pr_count`, `mq_batch_retry_count`, and `mq_queue_depth`.
+
 ## Architecture
 
 ```
@@ -189,9 +220,14 @@ merge_queue/
     config.py            # merge-queue.yml parser (break_glass_users, target_branches, protected_paths)
     github_client.py     # GitHub API wrapper with rate limit tracking + caching
     types.py             # Dataclasses: PullRequest, Stack, Batch, QueueEntry, etc.
+    metrics/
+        __init__.py      # MetricsBackend protocol + get_backend() factory
+        otlp.py          # OTLP JSON backend (Grafana Cloud, etc.)
+        prometheus.py    # Prometheus remote-write backend
+        noop.py          # Silent no-op (when metrics disabled)
     providers/
         local.py         # LocalGitProvider for integration testing (bare repo + in-memory state)
-tests/                   # 464+ tests, 90%+ coverage enforced
+tests/                   # 482+ tests, 90%+ coverage enforced
 integration/             # End-to-end test script (pass + fail stacks)
 ci/                      # CI scripts (run, lint, format, test)
 ```
@@ -234,6 +270,8 @@ A rendered `STATUS.md` dashboard is auto-generated per target branch alongside a
 | `MQ_SENDER` | Auto | Set by the workflow to `github.event.sender.login`. Used for hotfix/break-glass authorization. |
 | `GITHUB_RUN_URL` | Auto | Set by the workflow to the current Actions run URL. Included in PR comments. |
 | `GITHUB_REPOSITORY` | Auto | Set by GitHub Actions (`owner/repo`). Determines target repository. |
+| `MQ_METRICS_USER` | No | OTLP/Prometheus instance ID (for `metrics:` backend auth). |
+| `MQ_METRICS_TOKEN` | No | OTLP/Prometheus API key (for `metrics:` backend auth). |
 | `GITHUB_EVENT_TIME` | Auto | Set by the workflow to the PR event timestamp. |
 
 ### Safety

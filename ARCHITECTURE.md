@@ -303,7 +303,7 @@ local development and GitHub Actions:
   test_rules.py               16    All 5 invariant rules
   test_comments_extra.py      27    Comment rendering
   test_store.py               10    State persistence, v1->v2 migration
-  test_store_extra.py         12    Concurrency, conflict retry
+  test_store_extra.py         13    Concurrency, conflict retry
   test_status.py              14    Markdown + terminal rendering
   test_status_extra.py         4    Additional status edge cases
   test_configurable_ci.py     11    CI workflow dispatch config
@@ -324,6 +324,7 @@ local development and GitHub Actions:
   test_stuck_completing.py     6    Stuck completion detection + resume
   test_diverged_complete.py    2    Diverged complete_batch paths
   test_protected_paths.py     56    Protected paths + per-path approvers
+  test_metrics.py             17    Metrics backends + push_batch_metrics
   -------------------------------------------------------------------
-  TOTAL                      464 tests, 90%+ coverage enforced
+  TOTAL                      482 tests, 90%+ coverage enforced
 ```
