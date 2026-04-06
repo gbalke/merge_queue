@@ -231,6 +231,40 @@ def _is_break_glass_authorized(client: GitHubClientProtocol, sender: str) -> boo
         return False
 
 
+def _abort_and_requeue_active(
+    client: GitHubClientProtocol,
+    state: dict,
+    store: StateStore,
+    branch_name: str,
+    branch_state: dict,
+) -> None:
+    """Abort the active batch for a branch and re-queue its PRs.
+
+    If there is no active batch, this is a no-op.  Otherwise:
+    1. Calls batch_mod.abort_batch(client)
+    2. Inserts the batch's PRs back at the front of the queue
+    3. Clears active_batch
+    4. Renumbers queue positions
+    """
+    active = branch_state.get("active_batch")
+    if active is None:
+        return
+    log.info("Aborting active batch %s for %s", active.get("batch_id"), branch_name)
+    batch_mod.abort_batch(client)
+    requeued_entry = {
+        "position": 0,  # renumbered below
+        "queued_at": active.get("started_at", _now_iso()),
+        "stack": active.get("stack", []),
+        "deployment_id": active.get("deployment_id"),
+        "target_branch": branch_name,
+    }
+    existing_queue = branch_state.get("queue", [])
+    branch_state["queue"] = [requeued_entry] + existing_queue
+    branch_state["active_batch"] = None
+    for i, entry in enumerate(branch_state.get("queue", [])):
+        entry["position"] = i + 1
+
+
 def _matches_protected(
     files: list[str], patterns: list[str] | list[dict]
 ) -> list[dict]:
@@ -1339,32 +1373,16 @@ def do_hotfix(client: GitHubClientProtocol, pr_number: int) -> str:
     }
 
     # If there is an active batch for this branch, abort it and re-queue its PRs
-    requeued_entries: list[dict] = []
-    active = branch_state.get("active_batch")
-    if active is not None:
-        log.info("Aborting active batch %s for hotfix", active.get("batch_id"))
-        batch_mod.abort_batch(client)
-        # Re-queue the batch's PRs as a single entry (preserving the stack)
-        requeued_entries.append(
-            {
-                "position": 0,  # will be renumbered below
-                "queued_at": active.get("started_at", _now_iso()),
-                "stack": active.get("stack", []),
-                "deployment_id": active.get("deployment_id"),
-                "target_branch": target_branch,
-            }
-        )
-        branch_state["active_batch"] = None
+    _abort_and_requeue_active(client, state, store, target_branch, branch_state)
 
-    # Build new queue: hotfix first, then re-queued batch PRs, then existing queue
+    # Build new queue: hotfix first, then existing queue (which now includes re-queued batch)
     existing_queue = branch_state.get("queue", [])
-    new_queue = [hotfix_entry] + requeued_entries + existing_queue
+    branch_state["queue"] = [hotfix_entry] + existing_queue
 
     # Renumber positions (1-based)
-    for i, entry in enumerate(new_queue):
+    for i, entry in enumerate(branch_state["queue"]):
         entry["position"] = i + 1
 
-    branch_state["queue"] = new_queue
     state["updated_at"] = _now_iso()
     store.write(state)
 
@@ -1435,25 +1453,7 @@ def do_break_glass(client: GitHubClientProtocol, pr_number: int) -> str:
     branch_state = get_branch_state(state, target_branch)
 
     # Abort any active batch for this branch, re-queue its PRs
-    active = branch_state.get("active_batch")
-    if active is not None:
-        log.info("Aborting active batch %s for break-glass", active.get("batch_id"))
-        batch_mod.abort_batch(client)
-        # Re-queue the batch's PRs
-        requeued_entry = {
-            "position": 0,  # renumbered below
-            "queued_at": active.get("started_at", _now_iso()),
-            "stack": active.get("stack", []),
-            "deployment_id": active.get("deployment_id"),
-            "target_branch": target_branch,
-        }
-        existing_queue = branch_state.get("queue", [])
-        branch_state["queue"] = [requeued_entry] + existing_queue
-        branch_state["active_batch"] = None
-
-    # Renumber queue positions
-    for i, entry in enumerate(branch_state.get("queue", [])):
-        entry["position"] = i + 1
+    _abort_and_requeue_active(client, state, store, target_branch, branch_state)
 
     # Save state before creating batch (abort is recorded)
     state["updated_at"] = _now_iso()

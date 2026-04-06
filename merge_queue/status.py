@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from merge_queue.comments import _fmt_duration
+from merge_queue.lib.formatting import fmt_duration as _fmt_duration
 
 
 def render_branch_status_md(
