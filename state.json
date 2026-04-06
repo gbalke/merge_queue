@@ -1,29 +1,31 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T02:39:24.620783+00:00",
+  "updated_at": "2026-04-06T02:39:27.642521+00:00",
   "branches": {
     "main": {
-      "queue": [
-        {
-          "position": 1,
-          "queued_at": "2026-04-06T02:39:07Z",
-          "stack": [
-            {
-              "number": 132,
-              "head_sha": "fd03ab33fda43aec2ca700a060aa33e72a52dcab",
-              "head_ref": "greg/revup/main/retrigger-on-push",
-              "base_ref": "main",
-              "title": "fix: retrigger merge queue on force-push to queued PR"
-            }
-          ],
-          "deployment_id": 4279034034,
-          "target_branch": "main",
-          "comment_ids": {
-            "132": 4190065557
+      "queue": [],
+      "active_batch": {
+        "batch_id": "",
+        "branch": "",
+        "ruleset_id": null,
+        "started_at": "2026-04-06T02:39:27.527104+00:00",
+        "progress": "locking",
+        "stack": [
+          {
+            "number": 132,
+            "head_sha": "fd03ab33fda43aec2ca700a060aa33e72a52dcab",
+            "head_ref": "greg/revup/main/retrigger-on-push",
+            "base_ref": "main",
+            "title": "fix: retrigger merge queue on force-push to queued PR"
           }
-        }
-      ],
-      "active_batch": null
+        ],
+        "deployment_id": 4279034034,
+        "comment_ids": {
+          "132": 4190065557
+        },
+        "queued_at": "2026-04-06T02:39:07Z",
+        "target_branch": "main"
+      }
     },
     "release/1.0": {
       "queue": [],
