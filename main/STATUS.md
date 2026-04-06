@@ -1,4 +1,6 @@
 # Merge Queue — `main`
 
-_Queue is empty — all clear._
+| # | PR | Title | Status | Queued |
+|:--|:---|:------|:-------|:------|
+| 1 | [#125](https://github.com/gbalke/merge_queue/pull/125) | docs: rewrite ARCHITECTURE.md and README for conciseness | ⏳ waiting | <relative-time datetime="2026-04-06T01:27:21Z">2026-04-06T01:27:21Z</relative-time> |
 

@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T01:24:45.633072+00:00",
+  "updated_at": "2026-04-06T01:27:40.738065+00:00",
   "branches": {
     "main": {
-      "queue": [],
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-06T01:27:21Z",
+          "stack": [
+            {
+              "number": 125,
+              "head_sha": "998faf4ac491a0f0ffb801a43e80d170d7c4ad54",
+              "head_ref": "greg/revup/main/docs-cleanup",
+              "base_ref": "main",
+              "title": "docs: rewrite ARCHITECTURE.md and README for conciseness"
+            }
+          ],
+          "deployment_id": 4278726748,
+          "target_branch": "main",
+          "comment_ids": {
+            "125": 4189917256
+          }
+        }
+      ],
       "active_batch": null
     },
     "release/1.0": {
