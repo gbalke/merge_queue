@@ -2,7 +2,7 @@ name: Merge Queue
 
 on:
   pull_request:
-    types: [labeled, unlabeled]
+    types: [labeled, unlabeled, synchronize]
   workflow_dispatch:
     inputs:
       command:
@@ -21,6 +21,7 @@ jobs:
   run:
     if: |
       github.event_name == 'workflow_dispatch' ||
+      github.event.action == 'synchronize' ||
       github.event.label.name == 'queue' ||
       github.event.label.name == 're-test' ||
       github.event.label.name == 'hotfix' ||
@@ -62,6 +63,13 @@ jobs:
             echo "cmd=break-glass ${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event.action }}" = "labeled" ]; then
             echo "cmd=enqueue ${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.action }}" = "synchronize" ]; then
+            # Force-push on a PR that has the 'queue' label — re-enqueue to update head_sha.
+            # If the PR doesn't have the 'queue' label, skip (no command).
+            HAS_QUEUE=$(echo '${{ toJSON(github.event.pull_request.labels.*.name) }}' | grep -c '"queue"' || true)
+            if [ "$HAS_QUEUE" -gt 0 ]; then
+              echo "cmd=enqueue ${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            fi
           elif [ "${{ github.event.action }}" = "unlabeled" ]; then
             echo "cmd=abort ${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
           fi

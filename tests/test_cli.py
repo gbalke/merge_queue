@@ -259,6 +259,47 @@ class TestDoEnqueue:
 
         assert do_enqueue(mock_client, 1) == "already_queued"
 
+    @patch("merge_queue.cli.do_process", return_value="merged")
+    @patch("merge_queue.cli.QueueState")
+    def test_requeue_updates_head_sha(self, QS, do_proc, mock_client, mock_store):
+        """When do_enqueue is called for an already-queued PR, it should update
+        the head_sha in the queue entry (simulating a force-push retrigger)."""
+        QS.fetch.return_value = _api_state()
+        mock_client.get_pr.return_value = {
+            "state": "open",
+            "head": {"sha": "new-sha-1", "ref": "feat-a"},
+            "base": {"ref": "main"},
+            "title": "Add feature A",
+            "labels": [{"name": "queue"}],
+        }
+        mock_store.read.return_value = make_v2_state(
+            queue=[
+                {
+                    "position": 1,
+                    "queued_at": T0.isoformat(),
+                    "stack": [
+                        {
+                            "number": 1,
+                            "head_sha": "old-sha-1",
+                            "head_ref": "feat-a",
+                            "base_ref": "main",
+                            "title": "Add feature A",
+                        }
+                    ],
+                    "deployment_id": 99,
+                    "comment_ids": {1: 1001},
+                }
+            ]
+        )
+
+        result = do_enqueue(mock_client, 1)
+
+        assert result == "requeued"
+        written = mock_store.write.call_args[0][0]
+        branch_queue = written["branches"]["main"]["queue"]
+        assert len(branch_queue) == 1
+        assert branch_queue[0]["stack"][0]["head_sha"] == "new-sha-1"
+
     def test_skips_merged_pr(self, mock_client, mock_store):
         mock_client.get_pr.return_value = {"state": "closed", "merged_at": "2026-01-01"}
         assert do_enqueue(mock_client, 1) == "pr_not_open"
