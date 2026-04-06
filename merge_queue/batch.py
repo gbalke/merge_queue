@@ -307,12 +307,10 @@ class CIResult:
         self.run_url = run_url
 
 
-def run_ci(
-    client: GitHubClientProtocol, batch: Batch, timeout: int = 30 * 60
-) -> CIResult:
+def run_ci(ci_provider, batch: Batch, timeout: int = 30 * 60) -> CIResult:
     """Dispatch CI and poll for result. Returns CIResult with pass/fail and run URL."""
-    client.dispatch_ci(batch.branch)
-    passed, run_url = client.poll_ci_with_url(batch.branch, timeout)
+    ci_provider.dispatch_ci(batch.branch)
+    passed, run_url = ci_provider.poll_ci_with_url(batch.branch, timeout)
     return CIResult(passed, run_url)
 
 

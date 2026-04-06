@@ -102,6 +102,44 @@ def get_metrics_config(client) -> dict | None:
     return parse_metrics_config(content)
 
 
+def parse_ci_config(content: str) -> dict | None:
+    """Parse the ``ci`` section from config file content.
+
+    Returns a dict with keys like ``provider``, ``workflow``, and
+    ``status_context``, or ``None`` if no ``ci:`` section is present.
+    An empty ``ci:`` section (immediately followed by another top-level key
+    or EOF) returns ``{}``.
+    """
+    result: dict[str, str] = {}
+    in_section = False
+    for line in content.split("\n"):
+        stripped = line.strip()
+        if stripped == "ci:":
+            in_section = True
+            continue
+        if in_section:
+            # A non-indented, non-empty line ends the section
+            if stripped and not line[0].isspace():
+                break
+            if ":" in stripped:
+                key, _, value = stripped.partition(":")
+                result[key.strip()] = value.strip()
+    if not in_section:
+        return None
+    return result
+
+
+def get_ci_config(client) -> dict | None:
+    """Read the ``ci`` section from ``merge-queue.yml``.
+
+    Returns ``None`` if the file cannot be fetched or has no ci section.
+    """
+    content = _get_config_content(client)
+    if content is None:
+        return None
+    return parse_ci_config(content)
+
+
 def _leading_spaces(line: str) -> int:
     """Return the number of leading spaces in a line."""
     return len(line) - len(line.lstrip(" "))
