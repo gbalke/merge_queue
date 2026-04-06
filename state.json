@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T05:26:41.928234+00:00",
+  "updated_at": "2026-04-06T19:02:32.560602+00:00",
   "branches": {
     "main": {
-      "queue": [],
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-06T19:02:10Z",
+          "stack": [
+            {
+              "number": 146,
+              "head_sha": "3b0ad082b5b00543d28d20ab6df254c6c4cdd568",
+              "head_ref": "greg/ci-provider-phase1",
+              "base_ref": "main",
+              "title": "Add pluggable CIProvider abstraction (Phase 1)"
+            }
+          ],
+          "deployment_id": 4285666625,
+          "target_branch": "main",
+          "comment_ids": {
+            "146": 4194376507
+          }
+        }
+      ],
       "active_batch": null
     },
     "release/1.0": {
