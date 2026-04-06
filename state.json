@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T01:22:19.981594+00:00",
+  "updated_at": "2026-04-06T01:24:37.337356+00:00",
   "branches": {
     "main": {
-      "queue": [],
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-06T01:24:18Z",
+          "stack": [
+            {
+              "number": 125,
+              "head_sha": "0ddf65b9fa9f0f4fd5b0b77a4d2f93b38e7d8709",
+              "head_ref": "greg/revup/main/docs-cleanup",
+              "base_ref": "main",
+              "title": "docs: rewrite ARCHITECTURE.md, README, CLAUDE.md, SECURITY_AUDIT.md for conciseness"
+            }
+          ],
+          "deployment_id": 4278714692,
+          "target_branch": "main",
+          "comment_ids": {
+            "125": 4189912067
+          }
+        }
+      ],
       "active_batch": null
     },
     "release/1.0": {
