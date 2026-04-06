@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T01:28:56.961253+00:00",
+  "updated_at": "2026-04-06T01:29:06.289227+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775438866",
-        "branch": "mq/main/1775438866",
-        "ruleset_id": 14718510,
-        "started_at": "2026-04-06T01:27:43.818985+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 125,
-            "head_sha": "998faf4ac491a0f0ffb801a43e80d170d7c4ad54",
-            "head_ref": "greg/revup/main/docs-cleanup",
-            "base_ref": "main",
-            "title": "docs: rewrite ARCHITECTURE.md and README for conciseness"
-          }
-        ],
-        "deployment_id": 4278726748,
-        "comment_ids": {
-          "125": 4189917256
-        },
-        "queued_at": "2026-04-06T01:27:21Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-06T01:27:47.744088+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -509,6 +487,16 @@
         124
       ],
       "duration_seconds": 96.588459,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775438866",
+      "status": "merged",
+      "completed_at": "2026-04-06T01:29:06.135844+00:00",
+      "prs": [
+        125
+      ],
+      "duration_seconds": 82.316859,
       "target_branch": "main"
     }
   ]
