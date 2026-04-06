@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T05:26:30.877699+00:00",
+  "updated_at": "2026-04-06T05:26:41.928234+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775453101",
-        "branch": "mq/main/1775453101",
-        "ruleset_id": 14722794,
-        "started_at": "2026-04-06T05:24:57.798413+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 145,
-            "head_sha": "a2807a549af7b92b3ec3b3a9faa1c6819a6bf581",
-            "head_ref": "greg/pre-merge-check",
-            "base_ref": "main",
-            "title": "Add merge conflict pre-check before batch creation"
-          }
-        ],
-        "deployment_id": 4279781268,
-        "comment_ids": {
-          "145": 4190486477
-        },
-        "queued_at": "2026-04-06T05:24:26Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-06T05:25:03.734605+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -699,6 +677,16 @@
         143
       ],
       "duration_seconds": 97.572488,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775453101",
+      "status": "merged",
+      "completed_at": "2026-04-06T05:26:41.508222+00:00",
+      "prs": [
+        145
+      ],
+      "duration_seconds": 103.709809,
       "target_branch": "main"
     }
   ]
