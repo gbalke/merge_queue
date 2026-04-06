@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T02:02:32.152107+00:00",
+  "updated_at": "2026-04-06T02:02:56.521818+00:00",
   "branches": {
     "main": {
-      "queue": [],
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-06T02:02:39Z",
+          "stack": [
+            {
+              "number": 129,
+              "head_sha": "e58148f2c10c64468a355f635ebf9e869a7684b6",
+              "head_ref": "greg/revup/main/docs-cleanup",
+              "base_ref": "main",
+              "title": "Fix comparison table: use specific doc anchors for GitHub MQ"
+            }
+          ],
+          "deployment_id": 4278882599,
+          "target_branch": "main",
+          "comment_ids": {
+            "129": 4189984252
+          }
+        }
+      ],
       "active_batch": null
     },
     "release/1.0": {
