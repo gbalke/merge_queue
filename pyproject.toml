@@ -32,5 +32,5 @@ exclude_lines = [
 ]
 # CLI and GitHub client are integration-level code; core logic is tested
 partial_branches = ["pragma: no branch"]
-# github_client.py is I/O-only (API calls) — tested via integration tests
-omit = ["merge_queue/github_client.py", "merge_queue/__main__.py"]
+# providers/github.py is I/O-only (API calls) — tested via integration tests
+omit = ["merge_queue/providers/github.py", "merge_queue/providers/local.py", "merge_queue/__main__.py"]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from merge_queue.github_client import RateLimitInfo
+from merge_queue.providers import RateLimitInfo
 
 
 class TestRateLimitInfo:

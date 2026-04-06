@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import os
 
+from merge_queue.lib.formatting import fmt_duration as _fmt_duration
+
 
 def _actions_link() -> str:
     """Return the Actions link from GITHUB_RUN_URL env var, or empty string."""
@@ -236,12 +238,6 @@ def merged(
     footer = _actions_or_mq_footer(owner, repo, ci_run_url, "CI run", default_branch)
 
     return f"{header}{stats}{table}{footer}"
-
-
-def _fmt_duration(seconds: float) -> str:
-    if seconds >= 60:
-        return f"{int(seconds // 60)}m {int(seconds % 60)}s"
-    return f"{int(seconds)}s"
 
 
 def failed(

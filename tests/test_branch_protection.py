@@ -242,7 +242,7 @@ class TestCreateProtectionRulesetPayload:
         mock_resp.headers = {}
         mock_resp.json.return_value = {"id": 999}
 
-        from merge_queue.github_client import GitHubClient
+        from merge_queue.providers.github import GitHubClient
 
         gh = GitHubClient("owner", "repo", token="tok", admin_token="admin-tok")
         gh._admin_session = MagicMock()
@@ -284,7 +284,7 @@ class TestCreateProtectionRulesetPayload:
         mock_resp.headers = {}
         mock_resp.json.return_value = {"id": 77}
 
-        from merge_queue.github_client import GitHubClient
+        from merge_queue.providers.github import GitHubClient
 
         gh = GitHubClient("owner", "repo", token="tok", admin_token="admin-tok")
         gh._admin_session = MagicMock()
@@ -298,7 +298,7 @@ class TestCreateProtectionRulesetPayload:
         """If the full ruleset POST returns 422, a second PR-only POST is attempted."""
         import requests
 
-        from merge_queue.github_client import GitHubClient
+        from merge_queue.providers.github import GitHubClient
 
         err_resp = MagicMock(spec=requests.Response)
         err_resp.status_code = 422
@@ -331,7 +331,7 @@ class TestCreateProtectionRulesetPayload:
         """If both the full and minimal ruleset POST fail, the exception propagates."""
         import requests
 
-        from merge_queue.github_client import GitHubClient
+        from merge_queue.providers.github import GitHubClient
 
         def _error_resp() -> MagicMock:
             r = MagicMock(spec=requests.Response)
@@ -682,7 +682,7 @@ class TestCreateProtectionRulesetApiCall:
         mock_resp.headers = {}
         mock_resp.json.return_value = {"id": 42}
 
-        from merge_queue.github_client import GitHubClient
+        from merge_queue.providers.github import GitHubClient
 
         gh = GitHubClient("owner", "repo", token="tok", admin_token="admin-tok")
         gh._admin_session = MagicMock()
@@ -706,7 +706,7 @@ class TestCreateProtectionRulesetApiCall:
         mock_resp.headers = {}
         mock_resp.raise_for_status.side_effect = requests.HTTPError("403 Forbidden")
 
-        from merge_queue.github_client import GitHubClient
+        from merge_queue.providers.github import GitHubClient
 
         gh = GitHubClient("owner", "repo", token="tok", admin_token="admin-tok")
         gh._admin_session = MagicMock()

@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 from typing import Any
 
-from merge_queue.github_client import RateLimitInfo
+from merge_queue.providers import RateLimitInfo
 
 log = logging.getLogger(__name__)
 

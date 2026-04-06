@@ -14,7 +14,7 @@ import random
 import time
 from collections.abc import Callable
 
-from merge_queue.github_client import GitHubClientProtocol
+from merge_queue.providers import GitHubClientProtocol
 from merge_queue.status import render_branch_status_md, render_root_status_md
 from merge_queue.types import empty_state
 

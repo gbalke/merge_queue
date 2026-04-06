@@ -13,7 +13,7 @@ from typing import Callable
 
 import requests
 
-from merge_queue.github_client import GitHubClientProtocol
+from merge_queue.providers import GitHubClientProtocol
 from merge_queue.types import Batch, BatchStatus, Stack
 
 log = logging.getLogger(__name__)
