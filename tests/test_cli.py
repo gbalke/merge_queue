@@ -128,6 +128,9 @@ class TestDoProcess:
         batch_mod.run_ci.return_value = ci_result
         batch_mod.BatchError = Exception
 
+        # get_pr must return queue label for the dequeue check
+        mock_client.get_pr.return_value = self._pr_data(1)
+
         result = do_process(mock_client)
 
         assert result == "merged"
@@ -194,6 +197,9 @@ class TestDoProcess:
         ci_result.run_url = ""
         batch_mod.run_ci.return_value = ci_result
         batch_mod.BatchError = Exception
+
+        # get_pr must return queue label for the dequeue check
+        mock_client.get_pr.return_value = self._pr_data(1)
 
         do_process(mock_client)
 

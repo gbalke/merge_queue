@@ -1012,86 +1012,121 @@ def do_process(client: GitHubClientProtocol) -> str:
     ci_completed_at = _now_iso()
 
     if ci_result.passed:
-        active_batch_dict["progress"] = "completing"
-        state["updated_at"] = _now_iso()
-        store.write(state)
+        # Final check: verify all PRs still have queue label before merging.
+        # A user may have removed the label while CI was running to dequeue.
+        dequeued_pr = None
+        for pr in prs:
+            pr_data = client.get_pr(pr.number)
+            pr_labels = {lbl["name"] for lbl in pr_data.get("labels", [])}
+            if "queue" not in pr_labels:
+                dequeued_pr = pr.number
+                break
 
-        try:
-            batch_mod.complete_batch(client, batch, target_branch=entry_target_branch)
-            merge_completed_at = _now_iso()
-            log.info("Batch merged!")
-            status = "merged"
-            _update_deployment(
-                client, dep_id, "success", f"Merged to {entry_target_branch}"
+        if dequeued_pr is not None:
+            log.warning(
+                "PR #%d lost queue label during CI, aborting batch", dequeued_pr
             )
-            # Update comments with full timing breakdown
+            batch_mod.fail_batch(client, batch, "PR dequeued during CI")
+            status = "dequeued"
+            _update_deployment(
+                client, dep_id, "inactive", f"PR #{dequeued_pr} dequeued"
+            )
             for pr in prs:
                 _comment(
                     client,
                     pr.number,
-                    comments.merged(
-                        entry_target_branch,
-                        stack=entry["stack"],
-                        queued_at=entry["queued_at"],
-                        started_at=started_at,
-                        ci_started_at=ci_started_at,
-                        ci_completed_at=ci_completed_at,
-                        completed_at=merge_completed_at,
-                        ci_run_url=ci_result.run_url,
-                        owner=owner,
-                        repo=repo,
-                    ),
+                    comments.aborted(owner, repo),
                     cids,
                 )
-        except batch_mod.BatchError as e:
-            log.error("Complete failed: %s", e)
-            error_str = str(e)
-            batch_mod.fail_batch(client, batch, error_str)
-            if "diverged" in error_str.lower():
-                retry_count = entry.get("retry_count", 0)
-                max_retries = 3
-                total_attempts = max_retries + 1
-                if retry_count < max_retries:
-                    attempt_num = retry_count + 2  # next attempt number (1-indexed)
-                    log.info(
-                        "Target branch diverged, auto-retrying (attempt %d/%d)",
-                        attempt_num,
-                        total_attempts,
+        else:
+            active_batch_dict["progress"] = "completing"
+            state["updated_at"] = _now_iso()
+            store.write(state)
+
+            try:
+                batch_mod.complete_batch(
+                    client, batch, target_branch=entry_target_branch
+                )
+                merge_completed_at = _now_iso()
+                log.info("Batch merged!")
+                status = "merged"
+                _update_deployment(
+                    client, dep_id, "success", f"Merged to {entry_target_branch}"
+                )
+                # Update comments with full timing breakdown
+                for pr in prs:
+                    _comment(
+                        client,
+                        pr.number,
+                        comments.merged(
+                            entry_target_branch,
+                            stack=entry["stack"],
+                            queued_at=entry["queued_at"],
+                            started_at=started_at,
+                            ci_started_at=ci_started_at,
+                            ci_completed_at=ci_completed_at,
+                            completed_at=merge_completed_at,
+                            ci_run_url=ci_result.run_url,
+                            owner=owner,
+                            repo=repo,
+                        ),
+                        cids,
                     )
-                    retry_info = (
-                        f"(attempt {attempt_num}/{total_attempts})"
-                        if retry_count > 0
-                        else None
-                    )
-                    for pr in prs:
-                        _comment(
-                            client,
-                            pr.number,
-                            comments.auto_retrying(
-                                entry_target_branch, owner, repo, retry_info=retry_info
-                            ),
-                            cids,
+            except batch_mod.BatchError as e:
+                log.error("Complete failed: %s", e)
+                error_str = str(e)
+                batch_mod.fail_batch(client, batch, error_str)
+                if "diverged" in error_str.lower():
+                    retry_count = entry.get("retry_count", 0)
+                    max_retries = 3
+                    total_attempts = max_retries + 1
+                    if retry_count < max_retries:
+                        attempt_num = retry_count + 2  # next attempt number (1-indexed)
+                        log.info(
+                            "Target branch diverged, auto-retrying (attempt %d/%d)",
+                            attempt_num,
+                            total_attempts,
                         )
-                    entry["retry_count"] = retry_count + 1
-                    branch_state.setdefault("queue", []).insert(0, entry)
-                    _clear_active_batch(state, store, entry_target_branch)
-                    return do_process(client)
-                log.info("Giving up after %d retries", max_retries)
-                error_str = (
-                    f"Failed after {total_attempts} attempts"
-                    " \u2014 target branch keeps moving"
-                )
-            status = "complete_error"
-            _update_deployment(client, dep_id, "failure", error_str[:140])
-            for pr in prs:
-                _comment(
-                    client,
-                    pr.number,
-                    comments.failed(
-                        error_str, ci_run_url=ci_result.run_url, owner=owner, repo=repo
-                    ),
-                    cids,
-                )
+                        retry_info = (
+                            f"(attempt {attempt_num}/{total_attempts})"
+                            if retry_count > 0
+                            else None
+                        )
+                        for pr in prs:
+                            _comment(
+                                client,
+                                pr.number,
+                                comments.auto_retrying(
+                                    entry_target_branch,
+                                    owner,
+                                    repo,
+                                    retry_info=retry_info,
+                                ),
+                                cids,
+                            )
+                        entry["retry_count"] = retry_count + 1
+                        branch_state.setdefault("queue", []).insert(0, entry)
+                        _clear_active_batch(state, store, entry_target_branch)
+                        return do_process(client)
+                    log.info("Giving up after %d retries", max_retries)
+                    error_str = (
+                        f"Failed after {total_attempts} attempts"
+                        " \u2014 target branch keeps moving"
+                    )
+                status = "complete_error"
+                _update_deployment(client, dep_id, "failure", error_str[:140])
+                for pr in prs:
+                    _comment(
+                        client,
+                        pr.number,
+                        comments.failed(
+                            error_str,
+                            ci_run_url=ci_result.run_url,
+                            owner=owner,
+                            repo=repo,
+                        ),
+                        cids,
+                    )
     else:
         batch_mod.fail_batch(client, batch, "CI failed")
         status = "ci_failed"
