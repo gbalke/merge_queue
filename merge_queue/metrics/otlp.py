@@ -7,7 +7,6 @@ such as Grafana Cloud's OTLP gateway.  Authentication uses basic auth with
 
 from __future__ import annotations
 
-import base64
 import logging
 import os
 import time
@@ -94,8 +93,6 @@ class OtlpBackend:
             return
 
         user = os.environ.get("MQ_METRICS_USER", "")
-        creds = base64.b64encode(f"{user}:{token}".encode()).decode()
-        auth_header = f"Basic {creds}"
 
         payload = _build_otlp_payload(batch_id, metrics)
 
@@ -103,10 +100,8 @@ class OtlpBackend:
             resp = requests.post(
                 self._endpoint,
                 json=payload,
-                headers={
-                    "Authorization": auth_header,
-                    "Content-Type": "application/json",
-                },
+                auth=(user, token) if user else None,
+                headers={"Content-Type": "application/json"},
                 timeout=10,
             )
             resp.raise_for_status()
