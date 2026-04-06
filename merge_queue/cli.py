@@ -16,7 +16,7 @@ from merge_queue.lib.formatting import fmt_duration as _fmt_duration
 from merge_queue.lib.state import get_branch_state
 from merge_queue.lib.time import event_time_or_now as _event_time_or_now
 from merge_queue.lib.time import now_iso as _now_iso
-from merge_queue.metrics import get_backend as get_metrics_backend
+from merge_queue.metrics import MetricsCollector, get_backend as get_metrics_backend
 from merge_queue.providers import GitHubClientProtocol
 from merge_queue.providers.github import GitHubClient
 from merge_queue.queue import detect_stacks
@@ -1217,20 +1217,104 @@ def do_process(client: GitHubClientProtocol) -> str:
     )
     _clear_active_batch(state, store, entry_target_branch)
 
-    # Push metrics (no-op when not configured)
+    # Push metrics via MetricsCollector (no-op when not configured)
     try:
-        ci_dur = 0.0
+        metrics_backend = get_metrics_backend(get_metrics_config(client))
+        collector = MetricsCollector(
+            backend=metrics_backend,
+            repo=f"{owner}/{repo}",
+            trigger="queue",
+        )
+
+        # Compute timing breakdowns from recorded timestamps
+        queue_wait_s: float | None = None
+        lock_s: float | None = None
+        ci_s: float | None = None
+        merge_s: float | None = None
         try:
-            ci_dur = (
+            queued_dt = datetime.datetime.fromisoformat(entry["queued_at"])
+            started_dt = datetime.datetime.fromisoformat(started_at)
+            queue_wait_s = (started_dt - queued_dt).total_seconds()
+        except Exception:
+            pass
+        try:
+            lock_s = (
+                datetime.datetime.fromisoformat(ci_started_at)
+                - datetime.datetime.fromisoformat(started_at)
+            ).total_seconds()
+        except Exception:
+            pass
+        try:
+            ci_s = (
                 datetime.datetime.fromisoformat(ci_completed_at)
                 - datetime.datetime.fromisoformat(ci_started_at)
             ).total_seconds()
         except Exception:
             pass
+        try:
+            if status == "merged":
+                merge_s = (
+                    datetime.datetime.fromisoformat(completed)
+                    - datetime.datetime.fromisoformat(ci_completed_at)
+                ).total_seconds()
+        except Exception:
+            pass
+
+        collector.record_batch_complete(
+            batch_id=batch.batch_id,
+            target_branch=entry_target_branch,
+            pr_numbers=[pr.number for pr in prs],
+            status=status,
+            queue_wait_seconds=queue_wait_s,
+            lock_seconds=lock_s,
+            ci_seconds=ci_s,
+            merge_seconds=merge_s,
+            total_seconds=dur,
+            retry_count=entry.get("retry_count", 0),
+        )
+
+        # Record queue health
         remaining_queue = (
             state.get("branches", {}).get(entry_target_branch, {}).get("queue", [])
         )
-        metrics_backend = get_metrics_backend(get_metrics_config(client))
+        oldest_s: float | None = None
+        if remaining_queue:
+            try:
+                oldest_queued = datetime.datetime.fromisoformat(
+                    remaining_queue[0]["queued_at"]
+                )
+                oldest_s = (
+                    datetime.datetime.now(datetime.timezone.utc) - oldest_queued
+                ).total_seconds()
+            except Exception:
+                pass
+        collector.record_queue_health(
+            target_branch=entry_target_branch,
+            queue_depth=len(remaining_queue),
+            oldest_entry_seconds=oldest_s,
+        )
+
+        # Record failure if not merged
+        if status not in ("merged", "dequeued"):
+            collector.record_failure(
+                target_branch=entry_target_branch,
+                batch_id=batch.batch_id,
+                reason=status,
+                pr_numbers=[pr.number for pr in prs],
+            )
+
+        # Record API usage
+        rl = getattr(client, "rate_limit", None)
+        if rl:
+            collector.record_api_usage(
+                calls_total=getattr(rl, "request_count", 0),
+                remaining=getattr(rl, "remaining", 0),
+            )
+
+        collector.flush()
+
+        # Also push via legacy API for backward compat
+        ci_dur = ci_s if ci_s is not None else 0.0
         metrics_backend.push_batch_metrics(
             batch.batch_id,
             {

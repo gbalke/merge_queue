@@ -12,6 +12,225 @@ from tests.conftest import make_v2_state
 T0 = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
 
 
+# --- MetricsCollector ---
+
+
+class TestMetricsCollector:
+    def test_collector_record_batch_complete(self):
+        from merge_queue.metrics import MetricsCollector
+
+        backend = MagicMock()
+        collector = MetricsCollector(backend=backend, repo="acme/repo", trigger="queue")
+
+        collector.record_batch_complete(
+            batch_id="batch-42",
+            target_branch="main",
+            pr_numbers=[1, 2],
+            status="merged",
+            queue_wait_seconds=10.0,
+            lock_seconds=2.0,
+            ci_seconds=60.0,
+            merge_seconds=3.0,
+            total_seconds=75.0,
+            retry_count=1,
+        )
+        collector.flush()
+
+        backend.push_metrics.assert_called_once()
+        metrics = backend.push_metrics.call_args[0][0]
+        names = [m["name"] for m in metrics]
+        assert "mq_batch_queue_wait_seconds" in names
+        assert "mq_batch_lock_seconds" in names
+        assert "mq_batch_ci_seconds" in names
+        assert "mq_batch_merge_seconds" in names
+        assert "mq_batch_total_seconds" in names
+        assert "mq_batch_pr_count" in names
+        assert "mq_batch_retry_count" in names
+
+        for m in metrics:
+            assert m["labels"]["repo"] == "acme/repo"
+            assert m["labels"]["trigger"] == "queue"
+            assert m["labels"]["batch_id"] == "batch-42"
+            assert m["labels"]["target_branch"] == "main"
+            assert m["labels"]["status"] == "merged"
+            assert m["labels"]["pr_numbers"] == "1,2"
+            assert "timestamp_ns" in m
+
+        by_name = {m["name"]: m["value"] for m in metrics}
+        assert by_name["mq_batch_ci_seconds"] == 60.0
+        assert by_name["mq_batch_pr_count"] == 2.0
+        assert by_name["mq_batch_retry_count"] == 1.0
+
+    def test_collector_record_queue_health(self):
+        from merge_queue.metrics import MetricsCollector
+
+        backend = MagicMock()
+        collector = MetricsCollector(backend=backend, repo="acme/repo", trigger="queue")
+
+        collector.record_queue_health(
+            target_branch="main",
+            queue_depth=5,
+            oldest_entry_seconds=120.0,
+        )
+        collector.flush()
+
+        backend.push_metrics.assert_called_once()
+        metrics = backend.push_metrics.call_args[0][0]
+        by_name = {m["name"]: m["value"] for m in metrics}
+        assert by_name["mq_queue_depth"] == 5.0
+        assert by_name["mq_queue_oldest_entry_seconds"] == 120.0
+
+    def test_collector_record_api_usage(self):
+        from merge_queue.metrics import MetricsCollector
+
+        backend = MagicMock()
+        collector = MetricsCollector(backend=backend, repo="acme/repo", trigger="queue")
+
+        collector.record_api_usage(calls_total=42, remaining=4958)
+        collector.flush()
+
+        backend.push_metrics.assert_called_once()
+        metrics = backend.push_metrics.call_args[0][0]
+        by_name = {m["name"]: m["value"] for m in metrics}
+        assert by_name["mq_api_calls_total"] == 42.0
+        assert by_name["mq_api_remaining"] == 4958.0
+
+    def test_collector_record_failure(self):
+        from merge_queue.metrics import MetricsCollector
+
+        backend = MagicMock()
+        collector = MetricsCollector(backend=backend, repo="acme/repo", trigger="queue")
+
+        collector.record_failure(
+            target_branch="main",
+            batch_id="batch-99",
+            reason="ci_failed",
+            pr_numbers=[7, 8],
+        )
+        collector.flush()
+
+        backend.push_metrics.assert_called_once()
+        metrics = backend.push_metrics.call_args[0][0]
+        assert len(metrics) == 1
+        m = metrics[0]
+        assert m["name"] == "mq_batch_failure"
+        assert m["value"] == 1.0
+        assert m["labels"]["reason"] == "ci_failed"
+        assert m["labels"]["pr_numbers"] == "7,8"
+
+    def test_collector_flush_sends_all_accumulated(self):
+        from merge_queue.metrics import MetricsCollector
+
+        backend = MagicMock()
+        collector = MetricsCollector(backend=backend, repo="acme/repo", trigger="queue")
+
+        collector.record_batch_complete(
+            batch_id="b1",
+            target_branch="main",
+            pr_numbers=[1],
+            status="merged",
+            total_seconds=10.0,
+        )
+        collector.record_queue_health(target_branch="main", queue_depth=3)
+        collector.record_api_usage(calls_total=20, remaining=4980)
+        collector.record_failure(
+            target_branch="main", batch_id="b1", reason="error", pr_numbers=[1]
+        )
+
+        backend.push_metrics.assert_not_called()
+        collector.flush()
+
+        backend.push_metrics.assert_called_once()
+        metrics = backend.push_metrics.call_args[0][0]
+        names = {m["name"] for m in metrics}
+        assert "mq_batch_total_seconds" in names
+        assert "mq_queue_depth" in names
+        assert "mq_api_calls_total" in names
+        assert "mq_batch_failure" in names
+
+    def test_collector_noop_backend_does_nothing(self):
+        from merge_queue.metrics import MetricsCollector
+        from merge_queue.metrics.noop import NoopBackend
+
+        collector = MetricsCollector(
+            backend=NoopBackend(), repo="acme/repo", trigger="queue"
+        )
+        collector.record_batch_complete(
+            batch_id="b1",
+            target_branch="main",
+            pr_numbers=[1],
+            status="merged",
+            total_seconds=10.0,
+        )
+        collector.flush()  # Should not raise
+
+    def test_collector_flush_failure_does_not_crash(self, caplog):
+        from merge_queue.metrics import MetricsCollector
+
+        backend = MagicMock()
+        backend.push_metrics.side_effect = RuntimeError("network down")
+
+        collector = MetricsCollector(backend=backend, repo="acme/repo", trigger="queue")
+        collector.record_batch_complete(
+            batch_id="b1",
+            target_branch="main",
+            pr_numbers=[1],
+            status="merged",
+            total_seconds=10.0,
+        )
+
+        with caplog.at_level(logging.WARNING):
+            collector.flush()
+
+        assert any("metrics" in r.message.lower() for r in caplog.records)
+
+    def test_collector_flush_idempotent(self):
+        from merge_queue.metrics import MetricsCollector
+
+        backend = MagicMock()
+        collector = MetricsCollector(backend=backend, repo="acme/repo", trigger="queue")
+        collector.record_api_usage(calls_total=5, remaining=4995)
+
+        collector.flush()
+        collector.flush()
+
+        backend.push_metrics.assert_called_once()
+
+    def test_collector_flush_empty_is_noop(self):
+        from merge_queue.metrics import MetricsCollector
+
+        backend = MagicMock()
+        collector = MetricsCollector(backend=backend, repo="acme/repo", trigger="queue")
+
+        collector.flush()
+        backend.push_metrics.assert_not_called()
+
+    def test_collector_optional_timing_fields_omitted(self):
+        """None-valued optional timing fields should not appear in metrics."""
+        from merge_queue.metrics import MetricsCollector
+
+        backend = MagicMock()
+        collector = MetricsCollector(backend=backend, repo="acme/repo", trigger="queue")
+
+        collector.record_batch_complete(
+            batch_id="b1",
+            target_branch="main",
+            pr_numbers=[1],
+            status="merged",
+            total_seconds=10.0,
+        )
+        collector.flush()
+
+        metrics = backend.push_metrics.call_args[0][0]
+        names = [m["name"] for m in metrics]
+        assert "mq_batch_total_seconds" in names
+        assert "mq_batch_pr_count" in names
+        assert "mq_batch_queue_wait_seconds" not in names
+        assert "mq_batch_lock_seconds" not in names
+        assert "mq_batch_ci_seconds" not in names
+        assert "mq_batch_merge_seconds" not in names
+
+
 # --- NoopBackend ---
 
 
@@ -181,6 +400,68 @@ class TestPrometheusBackend:
 
         assert any("MQ_METRICS_TOKEN" in r.message for r in caplog.records)
 
+    def test_push_metrics_list(self, monkeypatch):
+        from merge_queue.metrics.prometheus import PrometheusBackend
+
+        monkeypatch.setenv("MQ_METRICS_TOKEN", "test-api-key")
+        backend = PrometheusBackend(
+            endpoint="https://prometheus.example.com/api/v1/push",
+        )
+
+        with patch("merge_queue.metrics.prometheus.requests") as mock_requests:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_requests.post.return_value = mock_response
+
+            backend.push_metrics(
+                [
+                    {
+                        "name": "mq_batch_total_seconds",
+                        "value": 42.0,
+                        "labels": {"repo": "acme/repo", "status": "merged"},
+                        "timestamp_ns": 1_000_000_000_000,
+                    },
+                    {
+                        "name": "mq_queue_depth",
+                        "value": 3.0,
+                        "labels": {"repo": "acme/repo"},
+                        "timestamp_ns": 1_000_000_000_000,
+                    },
+                ]
+            )
+
+            mock_requests.post.assert_called_once()
+            body = mock_requests.post.call_args[1].get("data", "")
+            assert "mq_batch_total_seconds" in body
+            assert "mq_queue_depth" in body
+
+    def test_push_metrics_missing_token(self, monkeypatch, caplog):
+        from merge_queue.metrics.prometheus import PrometheusBackend
+
+        monkeypatch.delenv("MQ_METRICS_TOKEN", raising=False)
+        backend = PrometheusBackend(endpoint="https://prom.example.com")
+
+        with caplog.at_level(logging.WARNING):
+            backend.push_metrics(
+                [{"name": "x", "value": 1.0, "labels": {}, "timestamp_ns": 0}]
+            )
+
+        assert any("MQ_METRICS_TOKEN" in r.message for r in caplog.records)
+
+    def test_push_metrics_failure(self, monkeypatch, caplog):
+        from merge_queue.metrics.prometheus import PrometheusBackend
+
+        monkeypatch.setenv("MQ_METRICS_TOKEN", "test-api-key")
+        backend = PrometheusBackend(endpoint="https://prom.example.com")
+
+        with patch("merge_queue.metrics.prometheus.requests") as mock_requests:
+            mock_requests.post.side_effect = Exception("boom")
+            with caplog.at_level(logging.WARNING):
+                backend.push_metrics(
+                    [{"name": "x", "value": 1.0, "labels": {}, "timestamp_ns": 0}]
+                )
+            assert any("metrics" in r.message.lower() for r in caplog.records)
+
 
 # --- OtlpBackend ---
 
@@ -297,6 +578,64 @@ class TestOtlpBackend:
             )
 
         assert any("MQ_METRICS_TOKEN" in r.message for r in caplog.records)
+
+    def test_otlp_push_metrics_list(self, monkeypatch):
+        from merge_queue.metrics.otlp import OtlpBackend
+
+        monkeypatch.setenv("MQ_METRICS_TOKEN", "glc_test-api-key")
+        monkeypatch.setenv("MQ_METRICS_USER", "1584401")
+        backend = OtlpBackend(
+            endpoint="https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/metrics",
+        )
+
+        with patch("merge_queue.metrics.otlp.requests") as mock_requests:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_requests.post.return_value = mock_response
+
+            backend.push_metrics(
+                [
+                    {
+                        "name": "mq_batch_total_seconds",
+                        "value": 42.0,
+                        "labels": {"repo": "acme/repo", "status": "merged"},
+                        "timestamp_ns": 1_000_000_000_000,
+                    },
+                ]
+            )
+
+            mock_requests.post.assert_called_once()
+            payload = mock_requests.post.call_args[1].get("json", {})
+            assert "resourceMetrics" in payload
+            metrics = payload["resourceMetrics"][0]["scopeMetrics"][0]["metrics"]
+            assert metrics[0]["name"] == "mq_batch_total_seconds"
+
+    def test_otlp_push_metrics_missing_token(self, monkeypatch, caplog):
+        from merge_queue.metrics.otlp import OtlpBackend
+
+        monkeypatch.delenv("MQ_METRICS_TOKEN", raising=False)
+        backend = OtlpBackend(endpoint="https://otlp.example.com")
+
+        with caplog.at_level(logging.WARNING):
+            backend.push_metrics(
+                [{"name": "x", "value": 1.0, "labels": {}, "timestamp_ns": 0}]
+            )
+
+        assert any("MQ_METRICS_TOKEN" in r.message for r in caplog.records)
+
+    def test_otlp_push_metrics_failure(self, monkeypatch, caplog):
+        from merge_queue.metrics.otlp import OtlpBackend
+
+        monkeypatch.setenv("MQ_METRICS_TOKEN", "glc_test-api-key")
+        backend = OtlpBackend(endpoint="https://otlp.example.com")
+
+        with patch("merge_queue.metrics.otlp.requests") as mock_requests:
+            mock_requests.post.side_effect = Exception("boom")
+            with caplog.at_level(logging.WARNING):
+                backend.push_metrics(
+                    [{"name": "x", "value": 1.0, "labels": {}, "timestamp_ns": 0}]
+                )
+            assert any("metrics" in r.message.lower() for r in caplog.records)
 
 
 # --- Config parsing ---
