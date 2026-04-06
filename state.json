@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T03:25:24.706407+00:00",
+  "updated_at": "2026-04-06T03:31:33.782295+00:00",
   "branches": {
     "main": {
-      "queue": [],
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-06T03:31:13Z",
+          "stack": [
+            {
+              "number": 138,
+              "head_sha": "f55978a45044454cc66321f1db5276b24ec07dcb",
+              "head_ref": "greg/refactor-lib-work",
+              "base_ref": "main",
+              "title": "refactor: extract shared utilities into merge_queue/lib/ module"
+            }
+          ],
+          "deployment_id": 4279268647,
+          "target_branch": "main",
+          "comment_ids": {
+            "138": 4190171908
+          }
+        }
+      ],
       "active_batch": null
     },
     "release/1.0": {
