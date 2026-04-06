@@ -205,6 +205,50 @@ class TestMetricsCollector:
         collector.flush()
         backend.push_metrics.assert_not_called()
 
+    def test_record_api_usage_with_section(self):
+        from merge_queue.metrics import MetricsCollector
+
+        backend = MagicMock()
+        collector = MetricsCollector(backend=backend, repo="acme/repo", trigger="queue")
+
+        collector.record_api_usage(calls_total=15, remaining=4985, section="ci_poll")
+        collector.flush()
+
+        backend.push_metrics.assert_called_once()
+        metrics = backend.push_metrics.call_args[0][0]
+        by_name = {m["name"]: m for m in metrics}
+        assert by_name["mq_api_calls_total"]["labels"]["section"] == "ci_poll"
+        assert by_name["mq_api_remaining"]["labels"]["section"] == "ci_poll"
+        assert by_name["mq_api_calls_total"]["value"] == 15.0
+
+    def test_record_api_usage_without_section(self):
+        """Backward compat — no section label when section is empty."""
+        from merge_queue.metrics import MetricsCollector
+
+        backend = MagicMock()
+        collector = MetricsCollector(backend=backend, repo="acme/repo", trigger="queue")
+
+        collector.record_api_usage(calls_total=42, remaining=4958)
+        collector.flush()
+
+        backend.push_metrics.assert_called_once()
+        metrics = backend.push_metrics.call_args[0][0]
+        by_name = {m["name"]: m for m in metrics}
+        assert "section" not in by_name["mq_api_calls_total"]["labels"]
+        assert "section" not in by_name["mq_api_remaining"]["labels"]
+
+    def test_reset_call_counter(self):
+        from merge_queue.providers.github import GitHubClient
+
+        client = GitHubClient(owner="acme", repo="repo", token="fake")
+        # Simulate API calls by incrementing _section_calls
+        client._section_calls = 5
+        count = client.reset_call_counter()
+        assert count == 5
+        assert client._section_calls == 0
+        # Second reset should return 0
+        assert client.reset_call_counter() == 0
+
     def test_collector_optional_timing_fields_omitted(self):
         """None-valued optional timing fields should not appear in metrics."""
         from merge_queue.metrics import MetricsCollector

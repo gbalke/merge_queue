@@ -483,6 +483,9 @@ def _cleanup_stale_entries(client, state, store, open_prs: list[dict] | None = N
 
 def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
     """Enqueue a PR: update state, create deployment, trigger processing."""
+    # Start section counter for per-phase API tracking
+    if hasattr(client, "reset_call_counter"):
+        client.reset_call_counter()
     # Guard: skip if PR is already merged or closed.
     # Cache pr_data so we can reuse it below without a second get_pr call.
     cached_pr_data: dict | None = None
@@ -759,6 +762,27 @@ def do_enqueue(client: GitHubClientProtocol, pr_number: int) -> str:
 
     log.info("Enqueued stack at position %d for branch %s", position, resolved_target)
 
+    # Record per-section API usage for enqueue
+    if hasattr(client, "reset_call_counter"):
+        _enqueue_calls = client.reset_call_counter()
+        rl = getattr(client, "rate_limit", None)
+        if rl:
+            try:
+                metrics_backend = get_metrics_backend(get_metrics_config(client))
+                collector = MetricsCollector(
+                    backend=metrics_backend,
+                    repo=f"{owner}/{repo}",
+                    trigger="queue",
+                )
+                collector.record_api_usage(
+                    calls_total=_enqueue_calls,
+                    remaining=getattr(rl, "remaining", 0),
+                    section="enqueue",
+                )
+                collector.flush()
+            except Exception:
+                log.warning("Failed to push enqueue metrics", exc_info=True)
+
     # Trigger processing inline if the target branch is idle.
     has_active = (
         branch_state.get("active_batch") is not None or api_state.has_active_batch
@@ -792,6 +816,10 @@ def _stack_to_dicts(stack, client) -> list[dict]:
 
 def do_process(client: GitHubClientProtocol) -> str:
     """Process the next batch from the queue across all branches."""
+    # Start section counter for per-phase API tracking
+    if hasattr(client, "reset_call_counter"):
+        client.reset_call_counter()
+
     store = StateStore(client)
     state = store.read()
     owner, repo = _owner_repo(client)
@@ -1047,9 +1075,17 @@ def do_process(client: GitHubClientProtocol) -> str:
             cids,
         )
 
+    # Record API calls for setup + batch creation phases
+    if hasattr(client, "reset_call_counter"):
+        _setup_calls = client.reset_call_counter()
+
     # Run CI
     ci_result = batch_mod.run_ci(client, batch)
     ci_completed_at = _now_iso()
+
+    # Record API calls for CI polling phase
+    if hasattr(client, "reset_call_counter"):
+        _ci_poll_calls = client.reset_call_counter()
 
     if ci_result.passed:
         # Final check: verify all PRs still have queue label before merging.
@@ -1305,12 +1341,31 @@ def do_process(client: GitHubClientProtocol) -> str:
                 pr_numbers=[pr.number for pr in prs],
             )
 
-        # Record API usage
+        # Record per-section API usage
         rl = getattr(client, "rate_limit", None)
         if rl:
+            _remaining = getattr(rl, "remaining", 0)
+            if hasattr(client, "reset_call_counter"):
+                _complete_calls = client.reset_call_counter()
+                collector.record_api_usage(
+                    calls_total=_setup_calls,
+                    remaining=_remaining,
+                    section="process_setup",
+                )
+                collector.record_api_usage(
+                    calls_total=_ci_poll_calls,
+                    remaining=_remaining,
+                    section="ci_poll",
+                )
+                collector.record_api_usage(
+                    calls_total=_complete_calls,
+                    remaining=_remaining,
+                    section="batch_complete",
+                )
+            # Record total API usage (backward compat)
             collector.record_api_usage(
                 calls_total=getattr(rl, "request_count", 0),
-                remaining=getattr(rl, "remaining", 0),
+                remaining=_remaining,
             )
 
         collector.flush()
@@ -1482,6 +1537,27 @@ def do_hotfix(client: GitHubClientProtocol, pr_number: int) -> str:
         "Hotfix PR #%d queued at position 1 for branch %s", pr_number, target_branch
     )
 
+    # Record per-section API usage for hotfix setup
+    if hasattr(client, "reset_call_counter"):
+        _hotfix_calls = client.reset_call_counter()
+        rl = getattr(client, "rate_limit", None)
+        if rl:
+            try:
+                metrics_backend = get_metrics_backend(get_metrics_config(client))
+                collector = MetricsCollector(
+                    backend=metrics_backend,
+                    repo=f"{owner}/{repo}",
+                    trigger="hotfix",
+                )
+                collector.record_api_usage(
+                    calls_total=_hotfix_calls,
+                    remaining=getattr(rl, "remaining", 0),
+                    section="hotfix",
+                )
+                collector.flush()
+            except Exception:
+                log.warning("Failed to push hotfix metrics", exc_info=True)
+
     return do_process(client)
 
 
@@ -1522,6 +1598,10 @@ def do_break_glass(client: GitHubClientProtocol, pr_number: int) -> str:
         sender,
         pr_number,
     )
+
+    # Start section counter for per-phase API tracking
+    if hasattr(client, "reset_call_counter"):
+        client.reset_call_counter()
 
     # Get PR info
     pr_data = client.get_pr(pr_number)
@@ -1620,6 +1700,28 @@ def do_break_glass(client: GitHubClientProtocol, pr_number: int) -> str:
             pass
 
         log.info("Break-glass merged PR #%d to %s", pr_number, target_branch)
+
+        # Record per-section API usage for break-glass
+        if hasattr(client, "reset_call_counter"):
+            _bg_calls = client.reset_call_counter()
+            rl = getattr(client, "rate_limit", None)
+            if rl:
+                try:
+                    metrics_backend = get_metrics_backend(get_metrics_config(client))
+                    bg_collector = MetricsCollector(
+                        backend=metrics_backend,
+                        repo=f"{owner}/{repo}",
+                        trigger="break-glass",
+                    )
+                    bg_collector.record_api_usage(
+                        calls_total=_bg_calls,
+                        remaining=getattr(rl, "remaining", 0),
+                        section="break_glass",
+                    )
+                    bg_collector.flush()
+                except Exception:
+                    log.warning("Failed to push break-glass metrics", exc_info=True)
+
         return "merged"
 
     except Exception as e:

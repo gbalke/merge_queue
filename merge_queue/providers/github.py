@@ -65,6 +65,7 @@ class GitHubClient:
         self._ci_workflow = os.environ.get("MQ_CI_WORKFLOW", "ci.yml")
 
         self.rate_limit = RateLimitInfo()
+        self._section_calls: int = 0
 
         # Per-run caches for read-only data
         self._cache_open_prs: list[dict[str, Any]] | None = None
@@ -82,7 +83,14 @@ class GitHubClient:
         self._cache_rulesets = None
         # label timestamps and default branch don't change within a run
 
+    def reset_call_counter(self) -> int:
+        """Reset and return the call count since last reset."""
+        count = self._section_calls
+        self._section_calls = 0
+        return count
+
     def _track(self, response: requests.Response) -> None:
+        self._section_calls += 1
         self.rate_limit.update(response)
 
     def _get(self, path: str, **kwargs: Any) -> Any:

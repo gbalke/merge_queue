@@ -70,7 +70,7 @@ All metrics flow through `MetricsCollector` (`metrics/__init__.py`):
 ### Queue Health (per process run) — done
 - [x] `mq_queue_depth` — per branch
 - [x] `mq_queue_oldest_seconds` — age of oldest entry
-- [x] `mq_api_calls_total` — API calls used in this run
+- [x] `mq_api_calls_total` — API calls (per-section breakdown, see [docs/metrics.md](../docs/metrics.md))
 - [x] `mq_api_remaining` — remaining API quota
 
 ### Failure Tracking — done
