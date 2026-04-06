@@ -67,6 +67,7 @@ def test_diverged_requeues_with_incremented_retry_count(
 
     with (
         patch("merge_queue.cli.QueueState") as mock_qs_cls,
+        patch("merge_queue.cli.batch_mod.check_merge_conflict", return_value=None),
         patch("merge_queue.cli.batch_mod.create_batch", return_value=batch),
         patch(
             "merge_queue.cli.batch_mod.run_ci",
@@ -113,6 +114,7 @@ def test_diverged_fails_permanently_when_retry_count_exhausted(
 
     with (
         patch("merge_queue.cli.QueueState") as mock_qs_cls,
+        patch("merge_queue.cli.batch_mod.check_merge_conflict", return_value=None),
         patch("merge_queue.cli.batch_mod.create_batch", return_value=batch),
         patch(
             "merge_queue.cli.batch_mod.run_ci",
@@ -154,6 +156,7 @@ def test_merge_conflict_comments_and_removes_queue_label(
 
     with (
         patch("merge_queue.cli.QueueState") as mock_qs_cls,
+        patch("merge_queue.cli.batch_mod.check_merge_conflict", return_value=None),
         patch(
             "merge_queue.cli.batch_mod.create_batch",
             side_effect=Exception("merge conflict detected in foo.py"),

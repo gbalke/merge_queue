@@ -155,6 +155,7 @@ def test_do_process_processes_each_branch_independently(target_branch: str) -> N
         mock_batch.branch = f"mq/{target_branch}/ts1"
         mock_batch.ruleset_id = 42
         mock_batch.stack.prs = []
+        bm.check_merge_conflict.return_value = None
         bm.create_batch.return_value = mock_batch
         bm.run_ci.return_value = MagicMock(passed=True, run_url="")
         bm.BatchError = Exception
@@ -219,6 +220,7 @@ def test_do_process_leaves_other_branch_queues_untouched() -> None:
         store_cls.return_value = store
         qs.fetch.return_value = make_api_state()
 
+        bm.check_merge_conflict.return_value = None
         bm.create_batch.side_effect = Exception("merge conflict")
         bm.BatchError = Exception
 

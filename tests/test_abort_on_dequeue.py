@@ -59,6 +59,7 @@ class TestAbortOnDequeue:
 
         batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
         batch_mod.create_batch.return_value = batch
+        batch_mod.check_merge_conflict.return_value = None
         ci_result = MagicMock()
         ci_result.passed = True
         ci_result.run_url = "https://example.com/run/1"
@@ -88,6 +89,7 @@ class TestAbortOnDequeue:
         QS.fetch.return_value = MagicMock(default_branch="main")
 
         batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
+        batch_mod.check_merge_conflict.return_value = None
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = True
@@ -139,6 +141,7 @@ class TestAbortOnDequeue:
         QS.fetch.return_value = MagicMock(default_branch="main")
 
         batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
+        batch_mod.check_merge_conflict.return_value = None
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = True

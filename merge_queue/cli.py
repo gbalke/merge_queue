@@ -961,6 +961,28 @@ def do_process(client: GitHubClientProtocol) -> str:
         or api_state.default_branch
     )
 
+    # --- Pre-check: dry-run merge to detect conflicts before locking ---
+    conflict_ref = batch_mod.check_merge_conflict(
+        [pr.head_ref for pr in next_stack.prs],
+        target_branch=entry_target_branch,
+    )
+    if conflict_ref:
+        log.info("Merge conflict detected for %s, skipping", conflict_ref)
+        for pr in prs:
+            _comment(
+                client,
+                pr.number,
+                comments.merge_conflict(entry_target_branch, owner, repo),
+                cids,
+            )
+            try:
+                client.remove_label(pr.number, "queue")
+            except Exception:
+                pass
+        _update_deployment(client, dep_id, "failure", "Merge conflict")
+        _clear_active_batch(state, store, entry_target_branch)
+        return "merge_conflict"
+
     _update_deployment(client, dep_id, "in_progress", "Locking branches...")
 
     # Set active batch in state (include comment_ids for abort)

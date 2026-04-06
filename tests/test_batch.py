@@ -13,6 +13,7 @@ from merge_queue.batch import (
     _unlock,
     _unlock_ruleset,
     abort_batch,
+    check_merge_conflict,
     complete_batch,
     create_batch,
     fail_batch,
@@ -504,3 +505,77 @@ class TestAbortBatch:
         abort_batch(mock_client)
 
         mock_client.delete_branch.assert_called_once_with("mq/123")
+
+
+# ── check_merge_conflict ──────────────────────────────────────
+
+
+class TestCheckMergeConflict:
+    def test_returns_none_when_clean(self):
+        """All merges succeed — returns None."""
+        calls = []
+
+        def fake_git(*args):
+            calls.append(args)
+            return ""
+
+        result = check_merge_conflict(["feat-a", "feat-b"], "main", git=fake_git)
+
+        assert result is None
+        # Should have fetched target branch, checked out detached, fetched each ref, merged each
+        assert ("fetch", "origin", "main") in calls
+        assert ("checkout", "--detach", "origin/main") in calls
+        assert ("fetch", "origin", "feat-a") in calls
+        assert ("merge", "--no-commit", "--no-ff", "origin/feat-a") in calls
+        assert ("fetch", "origin", "feat-b") in calls
+        assert ("merge", "--no-commit", "--no-ff", "origin/feat-b") in calls
+
+    def test_returns_ref_on_conflict(self):
+        """Merge fails on second ref — returns that ref."""
+
+        def fake_git(*args):
+            if args == ("merge", "--no-commit", "--no-ff", "origin/feat-b"):
+                raise BatchError("merge conflict")
+            return ""
+
+        result = check_merge_conflict(["feat-a", "feat-b"], "main", git=fake_git)
+
+        assert result == "feat-b"
+
+    def test_returns_first_ref_on_conflict(self):
+        """Merge fails on first ref — returns it immediately."""
+
+        def fake_git(*args):
+            if args[0] == "merge" and "--no-commit" in args:
+                raise BatchError("merge conflict")
+            return ""
+
+        result = check_merge_conflict(["feat-a"], "main", git=fake_git)
+
+        assert result == "feat-a"
+
+    def test_restores_checkout_on_conflict(self):
+        """After conflict, restores to target branch."""
+        calls = []
+
+        def fake_git(*args):
+            calls.append(args)
+            if args == ("merge", "--no-commit", "--no-ff", "origin/feat-a"):
+                raise BatchError("merge conflict")
+            return ""
+
+        check_merge_conflict(["feat-a"], "main", git=fake_git)
+
+        assert ("checkout", "main") in calls
+
+    def test_restores_checkout_on_success(self):
+        """After clean merge, restores to target branch."""
+        calls = []
+
+        def fake_git(*args):
+            calls.append(args)
+            return ""
+
+        check_merge_conflict(["feat-a"], "main", git=fake_git)
+
+        assert ("checkout", "main") in calls

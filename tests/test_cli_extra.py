@@ -418,6 +418,7 @@ def test_do_process_comments_updated_at_locking_phase(
     ):
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
+        bm.check_merge_conflict.return_value = None
         bm.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = False
@@ -460,6 +461,7 @@ def test_do_process_comments_updated_at_ci_phase(
     ):
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
+        bm.check_merge_conflict.return_value = None
         bm.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = True

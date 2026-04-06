@@ -173,6 +173,43 @@ def _unlock(client: GitHubClientProtocol, batch: Batch) -> None:
     _unlock_ruleset(client, batch.ruleset_id)
 
 
+def check_merge_conflict(
+    pr_refs: list[str],
+    target_branch: str = "main",
+    *,
+    git: GitRunner = run_git,
+) -> str | None:
+    """Check if PRs can merge cleanly into target branch.
+
+    Returns None if clean, or the conflicting PR ref if conflict detected.
+    Uses git merge --no-commit --no-ff in a detached HEAD state, then aborts.
+    """
+    git("fetch", "origin", target_branch)
+    git("checkout", "--detach", f"origin/{target_branch}")
+    try:
+        for ref in pr_refs:
+            git("fetch", "origin", ref)
+            try:
+                git("merge", "--no-commit", "--no-ff", f"origin/{ref}")
+            except BatchError:
+                try:
+                    git("merge", "--abort")
+                except BatchError:
+                    pass
+                return ref
+        # All merges succeeded — abort the uncommitted merge state
+        try:
+            git("merge", "--abort")
+        except BatchError:
+            pass  # No merge to abort if last merge auto-committed
+        return None
+    finally:
+        try:
+            git("checkout", target_branch)
+        except BatchError:
+            pass
+
+
 def create_batch(
     client: GitHubClientProtocol,
     stack: Stack,
