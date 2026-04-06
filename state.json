@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T03:52:04.873604+00:00",
+  "updated_at": "2026-04-06T04:05:59.021223+00:00",
   "branches": {
     "main": {
-      "queue": [],
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-06T04:05:27Z",
+          "stack": [
+            {
+              "number": 139,
+              "head_sha": "0f0649c7ce6027f99f3e90971291fa9a81fb47a4",
+              "head_ref": "greg/revup/main/fix-queue-link",
+              "base_ref": "main",
+              "title": "Fix: pass target_branch to failed() comments for correct Queue link"
+            }
+          ],
+          "deployment_id": 4279419627,
+          "target_branch": "main",
+          "comment_ids": {
+            "139": 4190237722
+          }
+        }
+      ],
       "active_batch": null
     },
     "release/1.0": {
