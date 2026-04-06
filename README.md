@@ -37,17 +37,17 @@ A lightweight merge queue for GitHub that handles stacked/chained PRs (e.g., fro
 
 | Feature | [GitHub MQ](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) | [Graphite](https://graphite.com/docs/graphite-merge-queue) | [Mergify](https://docs.mergify.com/merge-queue/) | [Aviator](https://docs.aviator.co/mergequeue) | [Bors-ng](https://bors.tech/documentation/) | **This MQ** |
 |---|---|---|---|---|---|---|
-| **Open source** | No | No | On-premise (paid) | Enterprise only | Yes (Apache 2.0) | **Yes (MIT)** |
-| **Stacked PRs** | No | Yes | -- | Yes | No | **Yes** |
-| **Multi-branch** | Yes | -- | -- | -- | No | **Yes** |
-| **CI gating** | Yes | Yes | Yes | Yes | Yes | **Yes** |
-| **Priority merges** | Limited | Partial | Yes | Yes | Yes | **Yes** |
-| **Protected paths** | No | -- | Scoped queues | Affected targets | CODEOWNERS | **Yes** |
-| **Auto-retry** | No | Partial | Yes | Partial | Manual | **Yes** |
-| **Self-hosted** | No | No | Paid | Enterprise | Yes | **Yes** |
-| **Pricing** | Free (public) / $21/user | $40/user/mo | Free (5 users) / $21/seat | Free (<15) / $12/user | Free | **Free** |
+| **Open source** | [No](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) | [No](https://graphite.com/docs/graphite-merge-queue) | [On-premise (paid)](https://mergify.com/pricing) | [Enterprise only](https://aviator.co/pricing) | [Yes (Apache 2.0)](https://github.com/bors-ng/bors-ng) | **Yes (MIT)** |
+| **Stacked PRs** | [No](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) | [Yes](https://graphite.com/blog/the-first-stack-aware-merge-queue) | — | [Yes](https://docs.aviator.co/mergequeue/how-to-guides/merging-stacked-prs) | No | **Yes** |
+| **Multi-branch** | [Yes](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) | — | — | — | No | **Yes** |
+| **CI gating** | [Yes](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) | [Yes](https://graphite.com/features/merge-queue) | [Yes](https://docs.mergify.com/merge-queue/) | [Yes](https://docs.aviator.co/mergequeue) | [Yes](https://bors.tech/documentation/) | **Yes** |
+| **Priority merges** | [Limited](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) | [Partial](https://graphite.com/docs/graphite-merge-queue) | [Yes](https://docs.mergify.com/merge-queue/priority/) | [Yes](https://docs.aviator.co/mergequeue/concepts/priority-merges) | [Yes](https://bors.tech/documentation/) | **Yes** |
+| **Protected paths** | No | — | [Scoped queues](https://docs.mergify.com/merge-queue/) | [Affected targets](https://docs.aviator.co/mergequeue/concepts/affected-targets) | [CODEOWNERS](https://bors.tech/documentation/) | **Yes** |
+| **Auto-retry** | [No](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) | [Partial](https://graphite.com/docs/graphite-merge-queue) | [Yes](https://docs.mergify.com/merge-queue/batches/) | [Partial](https://docs.aviator.co/mergequeue/concepts/parallel-mode) | [Manual](https://bors.tech/documentation/) | **Yes** |
+| **Self-hosted** | [No](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) | [No](https://graphite.com/docs/graphite-merge-queue) | [Paid](https://mergify.com/pricing) | [Enterprise](https://aviator.co/pricing) | [Yes](https://github.com/bors-ng/bors-ng) | **Yes** |
+| **Pricing** | [Free (public) / $21/user](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/merging-a-pull-request-with-a-merge-queue) | [$40/user/mo](https://graphite.com/pricing) | [Free (5 users) / $21/seat](https://mergify.com/pricing) | [Free (<15) / $12/user](https://aviator.co/pricing) | [Free](https://github.com/bors-ng/bors-ng) | **Free** |
 
-Bors-ng was [archived April 2024](https://github.com/bors-ng/bors-ng). `--` = undocumented/unverified.
+Bors-ng was [archived April 2024](https://github.com/bors-ng/bors-ng). `—` = undocumented/unverified.
 
 ## Setup
 
