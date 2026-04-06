@@ -1,9 +1,28 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T02:45:39.627177+00:00",
+  "updated_at": "2026-04-06T03:18:13.656960+00:00",
   "branches": {
     "main": {
-      "queue": [],
+      "queue": [
+        {
+          "position": 1,
+          "queued_at": "2026-04-06T03:17:47Z",
+          "stack": [
+            {
+              "number": 135,
+              "head_sha": "480d871cd6bc335e3965c86e1aea4c64d0534b4f",
+              "head_ref": "greg/revup/main/refactor-plan",
+              "base_ref": "main",
+              "title": "Add internal cleanup plan to merge_queue/README.md"
+            }
+          ],
+          "deployment_id": 4279211390,
+          "target_branch": "main",
+          "comment_ids": {
+            "135": 4190146305
+          }
+        }
+      ],
       "active_batch": null
     },
     "release/1.0": {
