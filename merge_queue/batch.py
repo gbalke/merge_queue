@@ -43,7 +43,11 @@ class UnlockError(BatchError):
 
 
 def run_git(*args: str) -> str:
-    """Run a git command and return stdout. Raises BatchError with stderr on failure."""
+    """Run a git command and return stdout. Raises BatchError on failure.
+
+    For merge failures, detects conflicts and raises with a clean message
+    so the caller can show a helpful comment instead of raw git output.
+    """
     result = subprocess.run(
         ["git", *args],
         capture_output=True,
@@ -51,10 +55,18 @@ def run_git(*args: str) -> str:
     )
     if result.returncode != 0:
         stderr = result.stderr.strip()
+        stdout = result.stdout.strip()
+        output = f"{stderr} {stdout}".lower()
+        # Detect merge conflicts — git may report via stderr or stdout
+        if (
+            args
+            and args[0] == "merge"
+            and ("conflict" in output or "not possible" in output)
+        ):
+            raise BatchError("merge conflict: could not merge cleanly")
         cmd = " ".join(args)
-        raise BatchError(
-            f"git {cmd} failed: {stderr or 'exit code ' + str(result.returncode)}"
-        )
+        detail = stderr or stdout or f"exit code {result.returncode}"
+        raise BatchError(f"git {cmd} failed: {detail}")
     return result.stdout
 
 
