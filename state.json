@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T02:20:02.203723+00:00",
+  "updated_at": "2026-04-06T02:20:11.615073+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775441916",
-        "branch": "mq/main/1775441916",
-        "ruleset_id": 14719056,
-        "started_at": "2026-04-06T02:18:34.628488+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 130,
-            "head_sha": "753312f936792fb304bd86c23b7c12396465a2ed",
-            "head_ref": "greg/revup/main/abort-on-dequeue",
-            "base_ref": "main",
-            "title": "Abort batch if PR loses queue label during CI"
-          }
-        ],
-        "deployment_id": 4278947009,
-        "comment_ids": {
-          "130": 4190017474
-        },
-        "queued_at": "2026-04-06T02:18:15Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-06T02:18:38.035191+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -559,6 +537,16 @@
         129
       ],
       "duration_seconds": 96.900941,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775441916",
+      "status": "merged",
+      "completed_at": "2026-04-06T02:20:11.442859+00:00",
+      "prs": [
+        130
+      ],
+      "duration_seconds": 96.814371,
       "target_branch": "main"
     }
   ]
