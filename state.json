@@ -1,32 +1,10 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T02:34:15.331762+00:00",
+  "updated_at": "2026-04-06T02:34:24.707210+00:00",
   "branches": {
     "main": {
       "queue": [],
-      "active_batch": {
-        "batch_id": "1775442768",
-        "branch": "mq/main/1775442768",
-        "ruleset_id": 14719188,
-        "started_at": "2026-04-06T02:32:46.527317+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 131,
-            "head_sha": "ea77fad86e1cd503a9bc26072b4f6e4600af89ac",
-            "head_ref": "greg/revup/main/feature-docs",
-            "base_ref": "main",
-            "title": "docs: add feature docs and link from README comparison table"
-          }
-        ],
-        "deployment_id": 4279005549,
-        "comment_ids": {
-          "131": 4190047516
-        },
-        "queued_at": "2026-04-06T02:32:14Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-06T02:32:50.387681+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -569,6 +547,16 @@
         130
       ],
       "duration_seconds": 96.814371,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775442768",
+      "status": "merged",
+      "completed_at": "2026-04-06T02:34:24.542529+00:00",
+      "prs": [
+        131
+      ],
+      "duration_seconds": 98.015212,
       "target_branch": "main"
     }
   ]
