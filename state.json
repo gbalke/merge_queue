@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-04-06T03:48:07.261988+00:00",
+  "updated_at": "2026-04-06T03:48:16.940835+00:00",
   "branches": {
     "main": {
       "queue": [
@@ -23,29 +23,7 @@
           "target_branch": "main"
         }
       ],
-      "active_batch": {
-        "batch_id": "1775447200",
-        "branch": "mq/main/1775447200",
-        "ruleset_id": 14721106,
-        "started_at": "2026-04-06T03:46:38.639901+00:00",
-        "progress": "completing",
-        "stack": [
-          {
-            "number": 137,
-            "head_sha": "163d4080e7c8cd3c66b35b036f5d41c03b3c6572",
-            "head_ref": "greg/revup/main/refactor-plan",
-            "base_ref": "main",
-            "title": "Add internal cleanup plan + metrics roadmap"
-          }
-        ],
-        "deployment_id": 4279332394,
-        "comment_ids": {
-          "137": 4190199697
-        },
-        "queued_at": "2026-04-06T03:46:13Z",
-        "target_branch": "main",
-        "ci_started_at": "2026-04-06T03:46:42.567438+00:00"
-      }
+      "active_batch": null
     },
     "release/1.0": {
       "queue": [],
@@ -658,6 +636,16 @@
         138
       ],
       "duration_seconds": 98.168175,
+      "target_branch": "main"
+    },
+    {
+      "batch_id": "1775447200",
+      "status": "merged",
+      "completed_at": "2026-04-06T03:48:16.777850+00:00",
+      "prs": [
+        137
+      ],
+      "duration_seconds": 98.137949,
       "target_branch": "main"
     }
   ]
