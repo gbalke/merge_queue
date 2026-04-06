@@ -366,6 +366,7 @@ class TestDoProcessTargetBranch:
                 mock_batch.branch = "mq/release/1.0/ts123"
                 mock_batch.ruleset_id = 42
                 mock_batch.stack.prs = []
+                mock_batch_mod.check_merge_conflict.return_value = None
                 mock_batch_mod.create_batch.return_value = mock_batch
                 mock_batch_mod.run_ci.return_value = MagicMock(passed=True, run_url="")
                 mock_batch_mod.complete_batch.return_value = None
@@ -411,6 +412,7 @@ class TestDoProcessTargetBranch:
                 mock_batch.branch = "mq/release/1.0/ts456"
                 mock_batch.ruleset_id = 42
                 mock_batch.stack.prs = []
+                mock_batch_mod.check_merge_conflict.return_value = None
                 mock_batch_mod.create_batch.return_value = mock_batch
                 mock_batch_mod.run_ci.return_value = MagicMock(passed=False, run_url="")
                 mock_batch_mod.fail_batch.return_value = None
@@ -458,6 +460,7 @@ class TestDoProcessTargetBranch:
                 mock_batch.branch = "mq/main/ts789"
                 mock_batch.ruleset_id = 42
                 mock_batch.stack.prs = []
+                mock_batch_mod.check_merge_conflict.return_value = None
                 mock_batch_mod.create_batch.return_value = mock_batch
                 mock_batch_mod.run_ci.return_value = MagicMock(passed=True, run_url="")
                 mock_batch_mod.complete_batch.return_value = None

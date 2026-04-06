@@ -505,6 +505,7 @@ class TestDoProcessApiCalls:
         )
 
         batch = _make_batch()
+        batch_mod.check_merge_conflict.return_value = None
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = True
@@ -597,6 +598,7 @@ class TestDoProcessApiCalls:
                 }
             },
         }
+        batch_mod.check_merge_conflict.return_value = None
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = True
@@ -645,6 +647,7 @@ class TestDoProcessApiCalls:
         )
 
         batch = _make_batch()
+        batch_mod.check_merge_conflict.return_value = None
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = False
@@ -750,6 +753,7 @@ class TestNoDuplicateFetch:
         )
 
         batch = _make_batch()
+        batch_mod.check_merge_conflict.return_value = None
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = True

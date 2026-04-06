@@ -768,6 +768,7 @@ class TestMetricsIntegration:
         pr = PullRequest(1, "sha-1", "feat-a", "main", ("queue",))
         stack = Stack(prs=(pr,), queued_at=T0)
         batch = Batch("123", "mq/main/123", stack)
+        batch_mod.check_merge_conflict.return_value = None
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = True
@@ -818,6 +819,7 @@ class TestMetricsIntegration:
 
         stack = Stack(prs=(), queued_at=T0)
         batch = Batch("123", "mq/main/123", stack)
+        batch_mod.check_merge_conflict.return_value = None
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = True

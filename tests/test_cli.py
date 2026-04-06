@@ -121,6 +121,7 @@ class TestDoProcess:
         mock_client.list_open_prs.return_value = [self._pr_data(1)]
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
+        batch_mod.check_merge_conflict.return_value = None
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = True
@@ -152,6 +153,7 @@ class TestDoProcess:
         mock_client.list_open_prs.return_value = [self._pr_data(1)]
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
+        batch_mod.check_merge_conflict.return_value = None
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = False
@@ -172,12 +174,37 @@ class TestDoProcess:
         )
         mock_client.list_open_prs.return_value = [self._pr_data(1)]
         QS.fetch.return_value = _api_state()
+        batch_mod.check_merge_conflict.return_value = None
         batch_mod.create_batch.side_effect = Exception("merge conflict")
         batch_mod.BatchError = Exception
 
         assert do_process(mock_client) == "batch_error"
         mock_client.update_deployment_status.assert_any_call(
             88, "failure", "merge conflict"
+        )
+
+    @patch("merge_queue.cli.QueueState")
+    @patch("merge_queue.cli.batch_mod")
+    def test_merge_conflict_skips_batch(self, batch_mod, QS, mock_client, mock_store):
+        """Pre-check detects conflict: create_batch is NOT called, comment posted."""
+        mock_store.read.return_value = make_v2_state(
+            queue=[self._queue_entry(deployment_id=77)]
+        )
+        mock_client.list_open_prs.return_value = [self._pr_data(1)]
+        QS.fetch.return_value = _api_state()
+        batch_mod.check_merge_conflict.return_value = "feat-a"
+        batch_mod.BatchError = Exception
+
+        assert do_process(mock_client) == "merge_conflict"
+        batch_mod.create_batch.assert_not_called()
+        # Merge conflict comment posted
+        comment_calls = [c[0][1] for c in mock_client.create_comment.call_args_list]
+        assert any("Merge conflict" in c for c in comment_calls)
+        # Queue label removed
+        mock_client.remove_label.assert_any_call(1, "queue")
+        # Deployment marked failed
+        mock_client.update_deployment_status.assert_any_call(
+            77, "failure", "Merge conflict"
         )
 
     @patch("merge_queue.cli.QueueState")
@@ -191,6 +218,7 @@ class TestDoProcess:
         mock_client.list_open_prs.return_value = [self._pr_data(1)]
         QS.fetch.return_value = _api_state()
         batch = Batch("123", "mq/main/123", Stack(prs=(), queued_at=T0))
+        batch_mod.check_merge_conflict.return_value = None
         batch_mod.create_batch.return_value = batch
         ci_result = MagicMock()
         ci_result.passed = True
